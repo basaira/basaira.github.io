@@ -807,9 +807,9 @@
                     </h2>
                 </div>
                 
-                <div class="grid md:grid-cols-2 gap-8">
+                <div id="testimonials-carousel" class="grid w-full max-w-4xl mx-auto">
                     
-                    <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
+                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-100 z-10 translate-y-0 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
                         <div class="lang-ar flex-1 flex flex-col">
                             <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"I’ve found the sessions very beneficial, especially for improving my Tajweed, correcting mistakes, and building consistency in my recitation. I also appreciate your clear explanations and patience, which help me stay more mindful when reading."</p>
                             <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
@@ -855,7 +855,7 @@
                         </div>
                     </div>
                     
-                    <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
+                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
                         <div class="lang-ar flex-1 flex flex-col">
                             <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"Overall, I believe they have all been beneficial in improving my Arabic and i do not have any objections. I mostly find the Surah recitation very beneficial."</p>
                             <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
@@ -901,7 +901,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
+                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
                         <div class="lang-ar flex-1 flex flex-col">
                             <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"One aspect I found most beneficial is reviewing. I usually don’t have much time to review on my own time but alhamdulillah I am properly trained and corrected during class."</p>
                             <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
@@ -947,7 +947,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
+                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
                         <div class="lang-ar flex-1 flex flex-col">
                             <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"تعلمنا منك كثيرا من الأشياء! ليس فقط القرآن، بل حسن الخلق والرفق."</p>
                             <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
@@ -994,7 +994,6 @@
                     </div>
 
                 </div>
-            </div>
         </section>
 
         
@@ -1230,6 +1229,26 @@
                     splashScreen.style.display = 'none';
                 }, 800); 
             }, 2500);
+        });
+        // محرك الآراء التلقائي
+        window.addEventListener('load', function() {
+            const slides = document.querySelectorAll('.testimonial-slide');
+            if(slides.length === 0) return;
+            let currentSlide = 0;
+
+            // تغيير الرأي كل 6 ثوان (6000 جزء من الثانية)
+            setInterval(() => {
+                // إخفاء الرأي الحالي
+                slides[currentSlide].classList.remove('opacity-100', 'z-10', 'translate-y-0');
+                slides[currentSlide].classList.add('opacity-0', 'z-0', 'pointer-events-none', 'translate-y-4');
+
+                // الانتقال للرأي التالي
+                currentSlide = (currentSlide + 1) % slides.length;
+
+                // إظهار الرأي الجديد
+                slides[currentSlide].classList.remove('opacity-0', 'z-0', 'pointer-events-none', 'translate-y-4');
+                slides[currentSlide].classList.add('opacity-100', 'z-10', 'translate-y-0');
+            }, 6000); 
         });
         
     </script>
