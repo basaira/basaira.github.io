@@ -807,192 +807,199 @@
                     </h2>
                 </div>
                 
-                <div id="testimonials-carousel" class="grid w-full max-w-4xl mx-auto">
+                <div id="testimonials-carousel-wrapper" class="relative w-full max-w-4xl mx-auto overflow-hidden rounded-2xl group" dir="rtl">
                     
-                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-100 z-10 translate-y-0 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
-                        <div class="lang-ar flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"I’ve found the sessions very beneficial, especially for improving my Tajweed, correcting mistakes, and building consistency in my recitation. I also appreciate your clear explanations and patience, which help me stay more mindful when reading."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">محمد (السويد)</h4>
-                                    <p class="text-sm text-gray-500">مسار القرآن</p>
+                    <div id="testimonials-track" class="flex transition-transform duration-700 ease-in-out w-full" style="transform: translateX(0%);">
+                        
+                        <div class="testimonial-slide w-full shrink-0 px-2 md:px-12">
+                            <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col h-full">
+                                <div class="lang-ar flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"I’ve found the sessions very beneficial, especially for improving my Tajweed, correcting mistakes, and building consistency in my recitation. I also appreciate your clear explanations and patience, which help me stay more mindful when reading."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">محمد (السويد)</h4>
+                                            <p class="text-sm text-gray-500">مسار القرآن</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-en flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"I’ve found the sessions very beneficial, especially for improving my Tajweed, correcting mistakes, and building consistency in my recitation. I also appreciate your clear explanations and patience, which help me stay more mindful when reading."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Mohammed (Sweden)</h4>
+                                            <p class="text-sm text-gray-500">Quran Track</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-fr flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"J'ai trouvé les sessions très bénéfiques, notamment pour améliorer mon Tajwid, corriger les erreurs et développer une constance dans ma récitation. J'apprécie également vos explications claires et votre patience."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Mohammed (Suède)</h4>
+                                            <p class="text-sm text-gray-500">Parcours Coran</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-ru flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Я нашел занятия очень полезными, особенно для улучшения моего таджвида, исправления ошибок и выработки стабильности в чтении. Я также ценю ваши ясные объяснения и терпение."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Мохаммед (Швеция)</h4>
+                                            <p class="text-sm text-gray-500">Курс Корана</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="testimonial-slide w-full shrink-0 px-2 md:px-12">
+                            <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col h-full">
+                                <div class="lang-ar flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"Overall, I believe they have all been beneficial in improving my Arabic and i do not have any objections. I mostly find the Surah recitation very beneficial."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">إدريس (بريطانيا)</h4>
+                                            <p class="text-sm text-gray-500">مسار القرآن واللغة العربية</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-en flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Overall, I believe they have all been beneficial in improving my Arabic and I do not have any objections. I mostly find the Surah recitation very beneficial."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Idrees (UK)</h4>
+                                            <p class="text-sm text-gray-500">Quran & Arabic Track</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-fr flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Dans l'ensemble, je pense qu'elles ont toutes été bénéfiques pour améliorer mon arabe et je n'ai aucune objection. Je trouve surtout la récitation des sourates très bénéfique."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Idrees (Royaume-Uni)</h4>
+                                            <p class="text-sm text-gray-500">Parcours Coran & Arabe</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-ru flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"В целом, я считаю, что все они были полезны для улучшения моего арабского языка, и у меня нет никаких возражений. Больше всего мне нравится чтение сур."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Идрис (Великобритания)</h4>
+                                            <p class="text-sm text-gray-500">Курс Корана и арабского</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="lang-en flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"I’ve found the sessions very beneficial, especially for improving my Tajweed, correcting mistakes, and building consistency in my recitation. I also appreciate your clear explanations and patience, which help me stay more mindful when reading."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Mohammed (Sweden)</h4>
-                                    <p class="text-sm text-gray-500">Quran Track</p>
+                        <div class="testimonial-slide w-full shrink-0 px-2 md:px-12">
+                            <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col h-full">
+                                <div class="lang-ar flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"One aspect I found most beneficial is reviewing. I usually don’t have much time to review on my own time but alhamdulillah I am properly trained and corrected during class."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">عظيم (أمريكا)</h4>
+                                            <p class="text-sm text-gray-500">مسار القرآن</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-en flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"One aspect I found most beneficial is reviewing. I usually don’t have much time to review on my own time but alhamdulillah I am properly trained and corrected during class."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Azeem (USA)</h4>
+                                            <p class="text-sm text-gray-500">Quran Track</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-fr flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"L'un des aspects que j'ai trouvés les plus bénéfiques est la révision. Je n'ai pas beaucoup de temps pour réviser seul, mais alhamdulillah je suis correctement entraîné et corrigé pendant les cours."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Azeem (États-Unis)</h4>
+                                            <p class="text-sm text-gray-500">Parcours Coran</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-ru flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Один из самых полезных аспектов - это повторение. У меня обычно мало времени на самостоятельное повторение, но, альхамдулиллах, на уроке меня правильно тренируют и исправляют."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Азим (США)</h4>
+                                            <p class="text-sm text-gray-500">Курс Корана</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="lang-fr flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"J'ai trouvé les sessions très bénéfiques, notamment pour améliorer mon Tajwid, corriger les erreurs et développer une constance dans ma récitation. J'apprécie également vos explications claires et votre patience."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Mohammed (Suède)</h4>
-                                    <p class="text-sm text-gray-500">Parcours Coran</p>
+                        <div class="testimonial-slide w-full shrink-0 px-2 md:px-12">
+                            <div class="bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col h-full">
+                                <div class="lang-ar flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"تعلمنا منك كثيرا من الأشياء! ليس فقط القرآن، بل حسن الخلق والرفق."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">شمس (آسيا)</h4>
+                                            <p class="text-sm text-gray-500">مسار القرآن</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-en flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"We have learned so many things from you! Not only the Quran, but also good character and gentleness."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Shams (Asia)</h4>
+                                            <p class="text-sm text-gray-500">Quran Track</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-fr flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Nous avons appris tellement de choses de vous ! Pas seulement le Coran, mais aussi le bon caractère et la douceur."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Shams (Asie)</h4>
+                                            <p class="text-sm text-gray-500">Parcours Coran</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="lang-ru flex-1 flex flex-col">
+                                    <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Мы многому у вас научились! Не только Корану, но и хорошему нраву и мягкости."</p>
+                                    <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
+                                        <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
+                                        <div>
+                                            <h4 class="font-black text-[#0A1F44]">Шамс (Азия)</h4>
+                                            <p class="text-sm text-gray-500">Курс Корана</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="lang-ru flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Я нашел занятия очень полезными, особенно для улучшения моего таджвида, исправления ошибок и выработки стабильности в чтении. Я также ценю ваши ясные объяснения и терпение."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-100 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">M</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Мохаммед (Швеция)</h4>
-                                    <p class="text-sm text-gray-500">Курс Корана</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
+
+                    <button id="slider-prev-btn" class="absolute top-1/2 -translate-y-1/2 right-0 md:right-2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white/90 hover:bg-[#D4AF37] text-[#0A1F44] hover:text-white rounded-full shadow-lg border border-gray-200 z-10 transition-colors opacity-100 lg:opacity-0 group-hover:opacity-100" aria-label="السابق">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                    <button id="slider-next-btn" class="absolute top-1/2 -translate-y-1/2 left-0 md:left-2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white/90 hover:bg-[#D4AF37] text-[#0A1F44] hover:text-white rounded-full shadow-lg border border-gray-200 z-10 transition-colors opacity-100 lg:opacity-0 group-hover:opacity-100" aria-label="التالي">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
                     
-                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
-                        <div class="lang-ar flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"Overall, I believe they have all been beneficial in improving my Arabic and i do not have any objections. I mostly find the Surah recitation very beneficial."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">إدريس (بريطانيا)</h4>
-                                    <p class="text-sm text-gray-500">مسار القرآن واللغة العربية</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-en flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Overall, I believe they have all been beneficial in improving my Arabic and I do not have any objections. I mostly find the Surah recitation very beneficial."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Idrees (UK)</h4>
-                                    <p class="text-sm text-gray-500">Quran & Arabic Track</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-fr flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Dans l'ensemble, je pense qu'elles ont toutes été bénéfiques pour améliorer mon arabe et je n'ai aucune objection. Je trouve surtout la récitation des sourates très bénéfique."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Idrees (Royaume-Uni)</h4>
-                                    <p class="text-sm text-gray-500">Parcours Coran & Arabe</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-ru flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"В целом, я считаю, что все они были полезны для улучшения моего арабского языка, и у меня нет никаких возражений. Больше всего мне нравится чтение сур."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#D4AF37]/10 rounded-full flex items-center justify-center text-[#D4AF37] font-bold text-xl shrink-0">I</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Идрис (Великобритания)</h4>
-                                    <p class="text-sm text-gray-500">Курс Корана и арабского</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
-                        <div class="lang-ar flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1" dir="ltr">"One aspect I found most beneficial is reviewing. I usually don’t have much time to review on my own time but alhamdulillah I am properly trained and corrected during class."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">عظيم (أمريكا)</h4>
-                                    <p class="text-sm text-gray-500">مسار القرآن</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-en flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"One aspect I found most beneficial is reviewing. I usually don’t have much time to review on my own time but alhamdulillah I am properly trained and corrected during class."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Azeem (USA)</h4>
-                                    <p class="text-sm text-gray-500">Quran Track</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-fr flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"L'un des aspects que j'ai trouvés les plus bénéfiques est la révision. Je n'ai pas beaucoup de temps pour réviser seul, mais alhamdulillah je suis correctement entraîné et corrigé pendant les cours."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Azeem (États-Unis)</h4>
-                                    <p class="text-sm text-gray-500">Parcours Coran</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-ru flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Один из самых полезных аспектов - это повторение. У меня обычно мало времени на самостоятельное повторение, но, альхамдулиллах, на уроке меня правильно тренируют и исправляют."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#0A1F44]/10 rounded-full flex items-center justify-center text-[#0A1F44] font-bold text-xl shrink-0">A</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Азим (США)</h4>
-                                    <p class="text-sm text-gray-500">Курс Корана</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="testimonial-slide [grid-area:1/1] transition-all duration-1000 ease-in-out opacity-0 z-0 pointer-events-none translate-y-4 bg-white p-8 rounded-2xl border border-[#D4AF37]/20 shadow-sm relative flex flex-col">
-                        <div class="lang-ar flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"تعلمنا منك كثيرا من الأشياء! ليس فقط القرآن، بل حسن الخلق والرفق."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">شمس (آسيا)</h4>
-                                    <p class="text-sm text-gray-500">مسار القرآن</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-en flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"We have learned so many things from you! Not only the Quran, but also good character and gentleness."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Shams (Asia)</h4>
-                                    <p class="text-sm text-gray-500">Quran Track</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-fr flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Nous avons appris tellement de choses de vous ! Pas seulement le Coran, mais aussi le bon caractère et la douceur."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Shams (Asie)</h4>
-                                    <p class="text-sm text-gray-500">Parcours Coran</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lang-ru flex-1 flex flex-col">
-                            <p class="text-[#0A1F44] italic mb-8 font-medium leading-relaxed flex-1">"Мы многому у вас научились! Не только Корану, но и хорошему нраву и мягкости."</p>
-                            <div class="flex items-center gap-4 pt-4 border-t border-gray-200 mt-auto">
-                                <div class="w-12 h-12 bg-[#00563F]/10 rounded-full flex items-center justify-center text-[#00563F] font-bold text-xl shrink-0">S</div>
-                                <div>
-                                    <h4 class="font-black text-[#0A1F44]">Шамс (Азия)</h4>
-                                    <p class="text-sm text-gray-500">Курс Корана</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
         </section>
 
@@ -1230,25 +1237,53 @@
                 }, 800); 
             }, 2500);
         });
-        // محرك الآراء التلقائي
+        // محرك الانزلاق للآراء (يمين ويسار)
         window.addEventListener('load', function() {
+            const track = document.getElementById('testimonials-track');
             const slides = document.querySelectorAll('.testimonial-slide');
-            if(slides.length === 0) return;
-            let currentSlide = 0;
+            const nextBtn = document.getElementById('slider-next-btn');
+            const prevBtn = document.getElementById('slider-prev-btn');
+            
+            if (!track || slides.length === 0) return;
 
-            // تغيير الرأي كل 6 ثوان (6000 جزء من الثانية)
-            setInterval(() => {
-                // إخفاء الرأي الحالي
-                slides[currentSlide].classList.remove('opacity-100', 'z-10', 'translate-y-0');
-                slides[currentSlide].classList.add('opacity-0', 'z-0', 'pointer-events-none', 'translate-y-4');
+            let currentIndex = 0;
+            let autoPlayInterval;
 
-                // الانتقال للرأي التالي
-                currentSlide = (currentSlide + 1) % slides.length;
+            function updateSlider() {
+                // النظام يعتمد اتجاه اليمين لليسار (RTL)
+                track.style.transform = `translateX(${currentIndex * 100}%)`;
+            }
 
-                // إظهار الرأي الجديد
-                slides[currentSlide].classList.remove('opacity-0', 'z-0', 'pointer-events-none', 'translate-y-4');
-                slides[currentSlide].classList.add('opacity-100', 'z-10', 'translate-y-0');
-            }, 6000); 
+            function moveToNext() {
+                currentIndex = (currentIndex + 1) % slides.length;
+                updateSlider();
+            }
+
+            function moveToPrev() {
+                currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+                updateSlider();
+            }
+
+            function startAutoPlay() {
+                autoPlayInterval = setInterval(moveToNext, 6000);
+            }
+
+            function resetAutoPlay() {
+                clearInterval(autoPlayInterval);
+                startAutoPlay();
+            }
+
+            nextBtn.addEventListener('click', () => {
+                moveToNext();
+                resetAutoPlay(); // تصفير العداد عند النقر اليدوي
+            });
+
+            prevBtn.addEventListener('click', () => {
+                moveToPrev();
+                resetAutoPlay();
+            });
+
+            startAutoPlay();
         });
         
     </script>
