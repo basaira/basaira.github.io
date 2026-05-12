@@ -141,6 +141,49 @@
         .animate-logo-pulse {
             animation: pulse-scale 2s infinite ease-in-out;
         }
+        /* تنسيقات القائمة الجانبية المحسنة */
+        .mobile-backdrop {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(10, 31, 68, 0.4);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s ease;
+        }
+        .mobile-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .mobile-drawer {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 85%;
+            max-width: 400px;
+            background-color: #FDFDF5;
+            z-index: 50;
+            overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* دعم الاتجاهين للقائمة الجانبية */
+        .route-ar .mobile-drawer {
+            right: 0;
+            transform: translateX(100%);
+        }
+        .route-ar .mobile-drawer.active {
+            transform: translateX(0);
+        }
+        body:not(.route-ar) .mobile-drawer {
+            left: 0;
+            transform: translateX(-100%);
+        }
+        body:not(.route-ar) .mobile-drawer.active {
+            transform: translateX(0);
+        }
         
     </style>
 </head>
@@ -228,48 +271,60 @@
         </div>
     </header>
 
-    <div id="mobile-menu" class="mobile-overlay px-6 py-8" role="dialog" aria-modal="true" aria-label="القائمة المحمولة">
-        <div class="flex flex-col gap-6 w-full max-w-md mx-auto" id="mobile-nav-links">
-            <a href="#about" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ar block">عن الأكاديمية</a>
-            <a href="#about" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-en block">About Us</a>
-            <a href="#about" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-fr block">À Propos</a>
-            <a href="#about" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ru block">О Нас</a>
+    <!-- الغشاء الزجاجي الخلفي -->
+    <div id="mobile-backdrop" class="mobile-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
 
-            <a href="#tracks" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ar block">المسارات الأكاديمية</a>
-            <a href="#tracks" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-en block">Academic Tracks</a>
-            <a href="#tracks" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-fr block">Parcours Académiques</a>
-            <a href="#tracks" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ru block">Учебные Пути</a>
-            <a href="#testimonials" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ar block">الآراء</a>
-            <a href="#testimonials" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-en block">Testimonials</a>
-            <a href="#testimonials" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-fr block">Avis</a>
-            <a href="#testimonials" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ru block">Отзывы</a>
+    <!-- القائمة الجانبية المنزلقة -->
+    <div id="mobile-menu" class="mobile-drawer py-10 px-8 flex flex-col" role="dialog" aria-modal="true" aria-label="القائمة المحمولة">
+        
+        <!-- زر الإغلاق داخل القائمة -->
+        <div class="flex justify-end mb-8">
+            <button onclick="closeMobileMenu()" class="p-2 text-[#0A1F44] bg-[#D4AF37]/10 rounded-full hover:bg-[#D4AF37] hover:text-white transition-colors focus:outline-none">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
 
-            <a href="#faq" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ar block">الأسئلة الشائعة</a>
-            <a href="#faq" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-en block">FAQ</a>
-            <a href="#faq" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-fr block">FAQ</a>
-            <a href="#faq" onclick="closeMobileMenu()" class="text-2xl font-black text-[#0A1F44] border-b border-[#0A1F44]/10 pb-4 lang-ru block">ЧаВо</a>
+        <div class="flex flex-col gap-6 w-full flex-1" id="mobile-nav-links">
+            <a href="#about" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ar block">عن الأكاديمية</a>
+            <a href="#about" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-en block">About Us</a>
+            <a href="#about" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-fr block">À Propos</a>
+            <a href="#about" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ru block">О Нас</a>
+
+            <a href="#tracks" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ar block">المسارات الأكاديمية</a>
+            <a href="#tracks" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-en block">Academic Tracks</a>
+            <a href="#tracks" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-fr block">Parcours Académiques</a>
+            <a href="#tracks" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ru block">Учебные Пути</a>
             
-            <div class="pt-6 pb-6">
-                <p class="text-base font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-ar">اختر لغة العرض:</p>
-                <p class="text-base font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-en">Select Language:</p>
-                <p class="text-base font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-fr">Choisir la langue:</p>
-                <p class="text-base font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-ru">Выберите язык:</p>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <button onclick="setLang('ar')" class="py-4 rounded-xl bg-white text-[#0A1F44] text-base font-bold border-2 border-[#D4AF37]/30 shadow-sm hover:bg-[#D4AF37] hover:text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#D4AF37]">العربية (AR)</button>
-                    <button onclick="setLang('en')" class="py-4 rounded-xl bg-white text-[#0A1F44] text-base font-bold border-2 border-[#D4AF37]/30 shadow-sm hover:bg-[#D4AF37] hover:text-white transition-all font-latin focus:outline-none focus:ring-2 focus:ring-[#D4AF37]">English (EN)</button>
-                    <button onclick="setLang('fr')" class="py-4 rounded-xl bg-white text-[#0A1F44] text-base font-bold border-2 border-[#D4AF37]/30 shadow-sm hover:bg-[#D4AF37] hover:text-white transition-all font-latin focus:outline-none focus:ring-2 focus:ring-[#D4AF37]">Français (FR)</button>
-                    <button onclick="setLang('ru')" class="py-4 rounded-xl bg-white text-[#0A1F44] text-base font-bold border-2 border-[#D4AF37]/30 shadow-sm hover:bg-[#D4AF37] hover:text-white transition-all font-latin focus:outline-none focus:ring-2 focus:ring-[#D4AF37]">Русский (RU)</button>
-                </div>
+            <a href="#testimonials" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ar block">الآراء</a>
+            <a href="#testimonials" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-en block">Testimonials</a>
+            <a href="#testimonials" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-fr block">Avis</a>
+            <a href="#testimonials" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ru block">Отзывы</a>
+
+            <a href="#faq" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ar block">الأسئلة الشائعة</a>
+            <a href="#faq" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-en block">FAQ</a>
+            <a href="#faq" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-fr block">FAQ</a>
+            <a href="#faq" onclick="closeMobileMenu()" class="text-xl font-black text-[#0A1F44] hover:text-[#D4AF37] transition-colors lang-ru block">ЧаВо</a>
+        </div>
+            
+        <div class="mt-8 pt-8 border-t border-[#0A1F44]/10">
+            <p class="text-sm font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-ar">اللغة</p>
+            <p class="text-sm font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-en">Language</p>
+            <p class="text-sm font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-fr">Langue</p>
+            <p class="text-sm font-black text-[#D4AF37] mb-4 uppercase tracking-widest lang-ru">Язык</p>
+            
+            <div class="flex gap-2 mb-8 flex-wrap">
+                <button onclick="setLang('ar')" class="flex-1 py-3 rounded-lg bg-white text-[#0A1F44] text-sm font-bold border border-[#0A1F44]/20 shadow-sm hover:bg-[#D4AF37] hover:border-[#D4AF37] hover:text-white transition-all">AR</button>
+                <button onclick="setLang('en')" class="flex-1 py-3 rounded-lg bg-white text-[#0A1F44] text-sm font-bold border border-[#0A1F44]/20 shadow-sm hover:bg-[#D4AF37] hover:border-[#D4AF37] hover:text-white transition-all font-latin">EN</button>
+                <button onclick="setLang('fr')" class="flex-1 py-3 rounded-lg bg-white text-[#0A1F44] text-sm font-bold border border-[#0A1F44]/20 shadow-sm hover:bg-[#D4AF37] hover:border-[#D4AF37] hover:text-white transition-all font-latin">FR</button>
+                <button onclick="setLang('ru')" class="flex-1 py-3 rounded-lg bg-white text-[#0A1F44] text-sm font-bold border border-[#0A1F44]/20 shadow-sm hover:bg-[#D4AF37] hover:border-[#D4AF37] hover:text-white transition-all font-latin">RU</button>
             </div>
 
-            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#0A1F44] text-white text-center py-5 rounded-2xl font-black text-xl border border-[#0A1F44] block hover:bg-[#D4AF37] transition-all lang-ar">طلب الالتحاق عبر الواتساب</a>
-            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#0A1F44] text-white text-center py-5 rounded-2xl font-black text-xl border border-[#0A1F44] block hover:bg-[#D4AF37] transition-all lang-en">Enroll via WhatsApp</a>
-            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#0A1F44] text-white text-center py-5 rounded-2xl font-black text-xl border border-[#0A1F44] block hover:bg-[#D4AF37] transition-all lang-fr">S'inscrire via WhatsApp</a>
-            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#0A1F44] text-white text-center py-5 rounded-2xl font-black text-xl border border-[#0A1F44] block hover:bg-[#D4AF37] transition-all lang-ru">Записаться через WhatsApp</a>
+            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#00563F] text-white text-center py-4 rounded-xl font-black text-lg shadow-md block hover:bg-[#0A1F44] transition-all lang-ar">طلب الالتحاق</a>
+            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#00563F] text-white text-center py-4 rounded-xl font-black text-lg shadow-md block hover:bg-[#0A1F44] transition-all lang-en">Enroll Now</a>
+            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#00563F] text-white text-center py-4 rounded-xl font-black text-lg shadow-md block hover:bg-[#0A1F44] transition-all lang-fr">S'inscrire</a>
+            <a href="https://wa.me/201070441115" target="_blank" rel="noopener noreferrer" class="bg-[#00563F] text-white text-center py-4 rounded-xl font-black text-lg shadow-md block hover:bg-[#0A1F44] transition-all lang-ru">Записаться</a>
         </div>
     </div>
-
     <main>
         <section id="home" class="relative pt-40 pb-20 overflow-hidden bg-pattern min-h-[85vh] flex items-center scroll-mt-28">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full text-center">
@@ -1214,17 +1269,16 @@
                 if(btn) btn.setAttribute('aria-expanded', 'false');
             }
         }
-
         function toggleMobileMenu() {
             const menu = document.getElementById('mobile-menu');
-            const menuIcon = document.getElementById('menu-icon');
-            const closeIcon = document.getElementById('close-icon');
+            const backdrop = document.getElementById('mobile-backdrop');
             const btn = document.getElementById('mobile-menu-btn');
             
-            if (window.getComputedStyle(menu).display === 'none') {
-                menu.style.display = 'block';
-                menuIcon.classList.add('hidden');
-                closeIcon.classList.remove('hidden');
+            const isActive = menu.classList.contains('active');
+            
+            if (!isActive) {
+                menu.classList.add('active');
+                backdrop.classList.add('active');
                 btn.setAttribute('aria-expanded', 'true');
                 document.body.style.overflow = 'hidden'; 
             } else {
@@ -1234,19 +1288,18 @@
 
         function closeMobileMenu() {
             const menu = document.getElementById('mobile-menu');
-            const menuIcon = document.getElementById('menu-icon');
-            const closeIcon = document.getElementById('close-icon');
+            const backdrop = document.getElementById('mobile-backdrop');
             const btn = document.getElementById('mobile-menu-btn');
             
-            if (menu) {
-                menu.style.display = 'none';
-                closeIcon.classList.add('hidden');
-                menuIcon.classList.remove('hidden');
+            if (menu && menu.classList.contains('active')) {
+                menu.classList.remove('active');
+                backdrop.classList.remove('active');
                 if(btn) btn.setAttribute('aria-expanded', 'false');
                 document.body.style.overflow = '';
             }
         }
 
+        
         document.addEventListener('click', function(event) {
             if (!event.target.closest('.relative')) closeDropdown();
         });
