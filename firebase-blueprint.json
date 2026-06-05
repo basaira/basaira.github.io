@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Request": {
+      "title": "Registration Request",
+      "description": "A student enrollment request or query",
+      "type": "object",
+      "properties": {
+        "fullName": {
+          "type": "string",
+          "description": "Full name of the student"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number"
+        },
+        "track": {
+          "type": "string",
+          "description": "Selected academic track"
+        },
+        "message": {
+          "type": "string",
+          "description": "Additional message or query"
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "description": "Time the request was created"
+        }
+      },
+      "required": [
+        "fullName",
+        "email",
+        "phone",
+        "track",
+        "message",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "requests/{requestId}": {
+      "schema": "Request",
+      "description": "Collection of student enrollment requests."
+    }
+  }
+}

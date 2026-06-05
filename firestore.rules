@@ -1,0 +1,12 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /enrollment_requests/{document=**} {
+      allow create: if true; // يسمح للجميع بإرسال طلبات التحاق
+      allow read, update, delete: if false; // يمنع أي شخص من قراءة أو حذف طلبات الآخرين
+    }
+    match /settings/{document=**} {
+      allow read, write: if true; // للسماح بقراءة وإنشاء الباسورد
+    }
+  }
+}
