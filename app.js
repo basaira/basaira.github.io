@@ -661,19 +661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 });
 
-window.addEventListener("load", function () {
-  const splashScreen = document.getElementById("splash-screen");
-  if (splashScreen) {
-    // نترك الشاشة لتعرض اللوحة السينمائية لمدة 3.2 ثانية
-    setTimeout(function () {
-      splashScreen.classList.add("splash-hidden"); // بدء تأثير التبدد الزجاجي
-      
-      // إزالة العنصر من الواجهة تماماً بعد انتهاء تأثير التبدد
-      setTimeout(function () {
-        splashScreen.style.display = "none";
-      }, 1000); 
-    }, 3200);
-  }
+
   
   
 
@@ -737,4 +725,108 @@ window.addEventListener("load", function () {
       });
     }
   }
+});
+// ==========================================
+// محرك جسيمات شاشة البداية (Canvas Particle Engine)
+// ==========================================
+window.addEventListener("load", function () {
+    const splashScreen = document.getElementById("splash-screen");
+    const canvas = document.getElementById("particle-canvas");
+    const logoContainer = document.getElementById("splash-logo-container");
+    
+    if (!splashScreen || !canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    let w = canvas.width = window.innerWidth;
+    let h = canvas.height = window.innerHeight;
+    
+    let particles = [];
+    const particleCount = window.innerWidth < 768 ? 150 : 300; // تكثيف الجسيمات في الشاشات الكبيرة
+    let phase = "gathering"; // gathering, exploding, done
+    
+    // إنشاء الجسيمات
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            angle: Math.random() * Math.PI * 2,
+            radius: Math.random() * Math.max(w, h),
+            speed: 0.02 + Math.random() * 0.04,
+            size: Math.random() * 2.5 + 0.5,
+            color: `rgba(212, 175, 55, ${Math.random() * 0.8 + 0.2})`, // ذهبي متدرج
+            friction: 0.95
+        });
+    }
+    
+    let animationFrame;
+    const centerX = w / 2;
+    const centerY = h / 2;
+    
+    function renderParticles() {
+        // تأثير الذيل (Trailing effect) بمسح الشاشة بشفافية بسيطة
+        ctx.fillStyle = "rgba(5, 16, 36, 0.15)";
+        ctx.fillRect(0, 0, w, h);
+        
+        let allGathered = true;
+
+        particles.forEach(p => {
+            if (phase === "gathering") {
+                // الجذب نحو المركز مع الدوران
+                p.radius -= p.radius * 0.06;
+                p.angle += p.speed;
+                if (p.radius > 10) allGathered = false;
+            } else if (phase === "exploding") {
+                // الانفجار للخارج بسرعة هائلة
+                p.radius += (p.radius * 0.15) + 15;
+                p.angle += p.speed * 0.5;
+            }
+            
+            const x = centerX + Math.cos(p.angle) * p.radius;
+            const y = centerY + Math.sin(p.angle) * p.radius;
+            
+            ctx.beginPath();
+            ctx.arc(x, y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+            
+            // رسم خطوط اتصال خفيفة بين الجسيمات القريبة (تأثير شبكي)
+            if (phase === "gathering" && p.radius < 150) {
+                ctx.lineTo(centerX, centerY);
+                ctx.strokeStyle = `rgba(212, 175, 55, ${0.1 - p.radius/1500})`;
+                ctx.stroke();
+            }
+        });
+        
+        // الانتقال للمرحلة التالية
+        if (phase === "gathering" && allGathered) {
+            phase = "exploding";
+            // إظهار الشعار بقوة مع الانفجار
+            logoContainer.classList.remove("opacity-0", "scale-50");
+            logoContainer.classList.add("opacity-100", "scale-100");
+        }
+        
+        if (phase !== "done") {
+            animationFrame = requestAnimationFrame(renderParticles);
+        }
+    }
+    
+    renderParticles();
+    
+    // ضبط أبعاد الشاشة عند تغيير حجم المتصفح
+    window.addEventListener("resize", () => {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    });
+
+    // الجدول الزمني لإنهاء المشهد
+    setTimeout(() => {
+        phase = "done"; // إيقاف المحرك الهندسي لتوفير موارد الجهاز
+        cancelAnimationFrame(animationFrame);
+        
+        // تلاشي الشاشة بأكملها
+        splashScreen.classList.add("opacity-0");
+        splashScreen.style.pointerEvents = "none";
+        
+        setTimeout(() => {
+            splashScreen.style.display = "none";
+        }, 1000);
+    }, 4500); // المشهد بأكمله يستغرق 4.5 ثوانٍ
 });
