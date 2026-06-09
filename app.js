@@ -349,7 +349,7 @@ class UIService {
 }
 
 // ==========================================
-// 4. Enrollment Service (Anti-Spam)
+// 4. Enrollment Service
 // ==========================================
 class EnrollmentService {
   constructor(firebaseService) {
@@ -443,30 +443,30 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Content Service (البصمة الرقمية المعزولة)
+// 5. Content Service (المعمارية الذكية والمحصنة)
 // ==========================================
 class ContentService {
   constructor(firebaseService) {
     this.db = firebaseService.db;
-    // الترتيب الصارم: 1. ختم العناصر الثابتة. 2. تحميل البيانات
     this.tagEditableElements();
     this.loadDynamicContent();
   }
 
   tagEditableElements() {
-    const allTextElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+    const allElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
     
-    // فلترة معمارية صارمة: تجاهل أي نص بداخل فيديو ديناميكي أو قوائم الإدارة
-    const staticTextElements = Array.from(allTextElements).filter(el => {
-      return !el.closest('.dynamic-video') && 
-             !el.closest('#dev-god-mode') && 
-             !el.closest('#password-modal') && 
-             !el.closest('#add-video-modal');
+    // الفلتر المعماري الصارم: تجاهل أي حاوية تصميمية (يمنع تدمير الآراء والأزرار)
+    const safeTextElements = Array.from(allElements).filter(el => {
+      if (el.closest('.dynamic-video') || el.closest('#dev-god-mode') || el.closest('#password-modal') || el.closest('#add-video-modal')) return false;
+      // إذا كان العنصر يحتوي على Div أو Ul بداخله، فهو "حاوية تصميم" وليس نصاً، لذلك نستبعده!
+      if (el.querySelector('div, ul, section, article, nav')) return false;
+      return true;
     });
 
-    staticTextElements.forEach((el, index) => {
+    safeTextElements.forEach((el, index) => {
       if (!el.hasAttribute('data-edit-id')) {
-        el.setAttribute('data-edit-id', `text-block-${index}`);
+        // استخدام بادئة (safe-node) لكي يتجاهل النظام البيانات الفاسدة القديمة آلياً
+        el.setAttribute('data-edit-id', `safe-node-${index}`);
       }
     });
   }
@@ -479,7 +479,6 @@ class ContentService {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // 1. استرجاع الفيديوهات الديناميكية
         if (data.videos && Array.isArray(data.videos)) {
           const grid = document.getElementById('video-grid');
           if (grid) {
@@ -491,7 +490,7 @@ class ContentService {
           }
         }
 
-        // 2. استرجاع النصوص باستخدام البصمة المعزولة (التي لن تتأثر بالفيديوهات)
+        // استرجاع النصوص الصافية فقط
         if (data.texts) {
           Object.keys(data.texts).forEach(id => {
             const el = document.querySelector(`[data-edit-id="${id}"]`);
@@ -671,6 +670,7 @@ class AdminService {
 
   toggleEditingMode(btnElement) {
     this.isEditingMode = !this.isEditingMode;
+    // تحديد العناصر النظيفة والمختومة فقط
     const textElements = document.querySelectorAll("[data-edit-id]");
 
     if (this.isEditingMode) {
@@ -740,6 +740,8 @@ class AdminService {
     `;
 
     document.getElementById("video-grid")?.insertAdjacentHTML('afterbegin', newVideoHTML);
+    
+    if(window.contentService) window.contentService.tagEditableElements();
 
     const modal = document.getElementById("add-video-modal");
     modal.classList.add("opacity-0");
@@ -777,7 +779,7 @@ class AdminService {
       const docRef = doc(this.db, "admin_config", "site_content");
       await setDoc(docRef, { texts, videos }, { merge: true });
       
-      alert("تم الحفظ بنجاح! التعديلات أصبحت دائمة الآن.");
+      alert("تم الحفظ بنجاح! التعديلات أصبحت دائمة الآن ومحصنة.");
     } catch (error) {
       console.error("Save Error:", error);
       alert("تعذر الحفظ! يرجى التأكد من اتصالك.");
