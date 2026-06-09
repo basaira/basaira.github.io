@@ -749,58 +749,35 @@
                 </div>
 
                 <div class="flex flex-wrap justify-center gap-3 mb-12" id="video-filters">
-                    <button data-filter="all" class="filter-btn active bg-[#D4AF37] text-[#0A1F44] px-6 py-2 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)]">الكل</button>
-                    <button data-filter="quran" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">القرآن والتجويد</button>
-                    <button data-filter="arabic" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">اللغة العربية</button>
-                    <button data-filter="specialization" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">علوم الآلة</button>
+                    <button data-filter="all" class="filter-btn active bg-[#D4AF37] text-[#0A1F44] px-6 py-2 rounded-full font-bold text-sm transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)]">
+                        <span class="lang-ar">الكل</span>
+                        <span class="lang-en hidden">All</span>
+                        <span class="lang-fr hidden">Tout</span>
+                        <span class="lang-ru hidden">Все</span>
+                    </button>
+                    <button data-filter="quran" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">
+                        <span class="lang-ar">القرآن والتجويد</span>
+                        <span class="lang-en hidden">Quran & Tajweed</span>
+                        <span class="lang-fr hidden">Coran et Tajwid</span>
+                        <span class="lang-ru hidden">Коран и Таджвид</span>
+                    </button>
+                    <button data-filter="arabic" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">
+                        <span class="lang-ar">اللغة العربية</span>
+                        <span class="lang-en hidden">Arabic Language</span>
+                        <span class="lang-fr hidden">Langue Arabe</span>
+                        <span class="lang-ru hidden">Арабский язык</span>
+                    </button>
+                    <button data-filter="specialization" class="filter-btn bg-white/10 text-white hover:bg-white/20 px-6 py-2 rounded-full font-bold text-sm transition-all border border-white/10">
+                        <span class="lang-ar">علوم الآلة</span>
+                        <span class="lang-en hidden">Instrumental Sciences</span>
+                        <span class="lang-fr hidden">Sciences Instrumentales</span>
+                        <span class="lang-ru hidden">Инструментальные науки</span>
+                    </button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="video-grid">
                     
-                    <div class="video-card group cursor-pointer" data-category="quran">
-                        <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-                            <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-                            <img src="https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000&auto=format&fit=crop" alt="Quran" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-                            <div class="absolute inset-0 flex items-center justify-center z-20">
-                                <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-                                    <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
-                                </div>
-                            </div>
-                            <span class="absolute bottom-3 right-3 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md z-20 font-latin">12:45</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">مخارج الحروف: حرف الضاد</h3>
-                        <p class="text-white/60 text-sm font-medium">الشيخ محمود د. يشرح الآلية الفسيولوجية لنطق حرف الضاد بأسلوب تطبيقي مباشر.</p>
-                    </div>
-
-                    <div class="video-card group cursor-pointer" data-category="arabic">
-                        <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-                            <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-                            <img src="https://images.unsplash.com/photo-1546410531-b4caf6cb6c57?q=80&w=1000&auto=format&fit=crop" alt="Arabic" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-                            <div class="absolute inset-0 flex items-center justify-center z-20">
-                                <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-                                    <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
-                                </div>
-                            </div>
-                            <span class="absolute bottom-3 right-3 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md z-20 font-latin">08:20</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">مقدمة في الطريقة المباشرة</h3>
-                        <p class="text-white/60 text-sm font-medium">كيف تكتسب الفصاحة بدون ترجمة ذهنية؟ محاضرة تفاعلية من الطور المبتدئ.</p>
-                    </div>
-
-                    <div class="video-card group cursor-pointer" data-category="specialization">
-                        <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-                            <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-                            <img src="https://images.unsplash.com/photo-1585829365295-ab7cd400c167?q=80&w=1000&auto=format&fit=crop" alt="Specialization" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-                            <div class="absolute inset-0 flex items-center justify-center z-20">
-                                <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all shadow-[0_0_20px_rgba(0,0,0,0.3)]">
-                                    <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
-                                </div>
-                            </div>
-                            <span class="absolute bottom-3 right-3 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded-md z-20 font-latin">45:10</span>
-                        </div>
-                        <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">إسقاط البلاغة على النص القرآني</h3>
-                        <p class="text-white/60 text-sm font-medium">تحليل بلاغي لآيات التشريع من مسار التخصص اللغوي المتقدم.</p>
-                    </div>
+                    
 
                 </div>
             </div>
