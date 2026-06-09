@@ -27,7 +27,6 @@ class FirebaseService {
     };
     
     this.app = initializeApp(this.config);
-    
     this.db = initializeFirestore(
       this.app,
       { experimentalForceLongPolling: true },
@@ -39,7 +38,7 @@ class FirebaseService {
 const firebaseService = new FirebaseService();
 
 // ==========================================
-// 2. Language & Localization Service
+// 2. Language Service
 // ==========================================
 class LanguageService {
   constructor() {
@@ -138,7 +137,7 @@ class LanguageService {
 }
 
 // ==========================================
-// 3. UI & DOM Interaction Service
+// 3. UI Service
 // ==========================================
 class UIService {
   constructor() {
@@ -350,7 +349,7 @@ class UIService {
 }
 
 // ==========================================
-// 4. Enrollment Service (نظام مكافحة السبام)
+// 4. Enrollment Service (Anti-Spam)
 // ==========================================
 class EnrollmentService {
   constructor(firebaseService) {
@@ -448,12 +447,23 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Content Service (خدمة جلب المحتوى الدائم)
+// 5. Content Service (المعمارية الجديدة: نظام البصمة الرقمية)
 // ==========================================
 class ContentService {
   constructor(firebaseService) {
     this.db = firebaseService.db;
+    this.tagEditableElements();
     this.loadDynamicContent();
+  }
+
+  // وضع بصمة (ID) ثابتة لكل نص حتى لا تختلط النصوص عند إضافة فيديوهات
+  tagEditableElements() {
+    const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+    textElements.forEach((el, index) => {
+      if (!el.hasAttribute('data-edit-id')) {
+        el.setAttribute('data-edit-id', `text-block-${index}`);
+      }
+    });
   }
 
   async loadDynamicContent() {
@@ -464,12 +474,12 @@ class ContentService {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // 1. استرجاع النصوص المعدلة وإسقاطها على الواجهة
+        // 1. استرجاع النصوص باستخدام البصمة الثابتة (Data-edit-id)
         if (data.texts) {
-          const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
-          Object.keys(data.texts).forEach(index => {
-            if (textElements[index]) {
-              textElements[index].innerHTML = data.texts[index];
+          Object.keys(data.texts).forEach(id => {
+            const el = document.querySelector(`[data-edit-id="${id}"]`);
+            if (el) {
+              el.innerHTML = data.texts[id];
             }
           });
         }
@@ -478,12 +488,10 @@ class ContentService {
         if (data.videos && data.videos.length > 0) {
           const grid = document.getElementById('video-grid');
           if (grid) {
-            // إضافة الفيديوهات بالترتيب الصحيح
             [...data.videos].reverse().forEach(videoHTML => {
-              if(!grid.innerHTML.includes('data-category')) return; // Sanity check
+              if(!grid.innerHTML.includes('data-category')) return; 
               grid.insertAdjacentHTML('afterbegin', videoHTML);
             });
-            // إعادة تفعيل فلتر الفيديوهات لتشمل الفيديوهات الجديدة
             if(window.uiService) window.uiService.initVideoFilter();
           }
         }
@@ -548,7 +556,7 @@ class AdminService {
 
     document.getElementById("confirm-add-video")?.addEventListener("click", () => this.injectNewVideo());
 
-    // ربط زر الحفظ بخدمة رفع البيانات إلى فايربيس
+    // ربط زر الحفظ 
     document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
       this.saveChanges(e.currentTarget);
@@ -626,7 +634,7 @@ class AdminService {
       }
     } catch (error) {
       console.error("Access Error:", error);
-      errorTxt.textContent = "فشل التحقق الأمني. تواصل مع الدعم الفني.";
+      errorTxt.textContent = "فشل التحقق الأمني. تأكد من اتصالك.";
       errorTxt.classList.remove("hidden");
     } finally {
       btnText.classList.remove("hidden");
@@ -660,7 +668,8 @@ class AdminService {
 
   toggleEditingMode(btnElement) {
     this.isEditingMode = !this.isEditingMode;
-    const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+    // تحديد العناصر بناءً على البصمة الرقمية فقط
+    const textElements = document.querySelectorAll("[data-edit-id]");
 
     if (this.isEditingMode) {
       btnElement.classList.add("text-[#D4AF37]", "bg-white/10");
@@ -712,7 +721,6 @@ class AdminService {
       return;
     }
 
-    // إضافة كلاس dynamic-video ليتمكن النظام من التعرف عليه وحفظه لاحقاً
     const newVideoHTML = `
       <div class="video-card group cursor-pointer animate-fade-in-up dynamic-video" data-category="${cat}">
           <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
@@ -747,11 +755,13 @@ class AdminService {
     btnElement.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
     try {
-      // 1. تجميع كل النصوص المحررة
-      const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+      this.disableEditing(); // تعطيل وضع التعديل قبل التقاط البيانات
+
+      // 1. تجميع كل النصوص بناءً على البصمة الرقمية (Data-edit-id)
+      const textElements = document.querySelectorAll("[data-edit-id]");
       const texts = {};
-      textElements.forEach((el, index) => {
-        texts[index] = el.innerHTML;
+      textElements.forEach((el) => {
+        texts[el.getAttribute('data-edit-id')] = el.innerHTML;
       });
 
       // 2. تجميع كل الفيديوهات المضافة حديثاً
@@ -765,11 +775,10 @@ class AdminService {
       const docRef = doc(this.db, "admin_config", "site_content");
       await setDoc(docRef, { texts, videos }, { merge: true });
       
-      this.disableEditing();
       alert("تم حفظ جميع التعديلات والإضافات بنجاح! ستظهر هذه التحديثات الآن لجميع الزوار.");
     } catch (error) {
       console.error("Save Error:", error);
-      alert("حدث خطأ أثناء حفظ التعديلات. تأكد من اتصالك بالإنترنت.");
+      alert("حدث خطأ أثناء حفظ التعديلات. تأكد من اتصالك بالإنترنت ومن صلاحيات الخادم.");
     } finally {
       btnElement.innerHTML = originalHTML;
     }
@@ -783,7 +792,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const langService = new LanguageService();
   const uiService = new UIService();
   const enrollmentService = new EnrollmentService(firebaseService);
-  const contentService = new ContentService(firebaseService); // تشغيل خدمة المحتوى الديناميكي
+  const contentService = new ContentService(firebaseService);
   const adminService = new AdminService(firebaseService);
 
   window.uiService = uiService;
