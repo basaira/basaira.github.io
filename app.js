@@ -380,7 +380,7 @@ class EnrollmentService {
     const currentTime = new Date().getTime();
 
     if (lastSubmissionTime && (currentTime - parseInt(lastSubmissionTime) < COOLDOWN_PERIOD_MS)) {
-      errorText.textContent = "عذراً، لقد قمت بإرسال طلب مؤخراً. يرجى المحاولة لاحقاً أو مراسلتنا عبر الواتساب.";
+      errorText.textContent = "عذراً، لقد قمت بإرسال طلب مؤخراً. يرجى المحاولة لاحقاً.";
       errorMsg.classList.remove("hidden");
       successMsg.classList.add("hidden");
       return;
@@ -426,12 +426,8 @@ class EnrollmentService {
       successMsg.classList.remove("hidden");
       setTimeout(() => successMsg.classList.add("hidden"), 8000);
     } catch (error) {
-      console.error("Enrollment Submission Error: ", error);
-      if (error.message === "NETWORK_TIMEOUT") {
-        errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقاً.";
-      } else {
-        errorText.textContent = "حدث خطأ أمني أثناء الإرسال. تأكد من صحة بياناتك.";
-      }
+      console.error("Enrollment Error: ", error);
+      errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقاً.";
       errorMsg.classList.remove("hidden");
     } finally {
       this.unlockFormUI(submitBtn, btnText, btnSpinner);
@@ -447,19 +443,19 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Content Service (المعمارية الجديدة: نظام البصمة الرقمية)
+// 5. Content Service (المعمارية المتقدمة للبصمة الرقمية)
 // ==========================================
 class ContentService {
   constructor(firebaseService) {
     this.db = firebaseService.db;
-    this.tagEditableElements();
+    // نبدأ بجلب البيانات أولاً، ثم نضع البصمات
     this.loadDynamicContent();
   }
 
-  // وضع بصمة (ID) ثابتة لكل نص حتى لا تختلط النصوص عند إضافة فيديوهات
   tagEditableElements() {
     const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
     textElements.forEach((el, index) => {
+      // ختم العناصر التي ليس لها بصمة فقط
       if (!el.hasAttribute('data-edit-id')) {
         el.setAttribute('data-edit-id', `text-block-${index}`);
       }
@@ -474,7 +470,24 @@ class ContentService {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // 1. استرجاع النصوص باستخدام البصمة الثابتة (Data-edit-id)
+        // 1. استرجاع الفيديوهات الديناميكية أولاً لتنزل في الصفحة
+        if (data.videos && Array.isArray(data.videos)) {
+          const grid = document.getElementById('video-grid');
+          if (grid) {
+            // تفريغ الفيديوهات الديناميكية القديمة لمنع التكرار
+            document.querySelectorAll('.dynamic-video').forEach(v => v.remove());
+            
+            data.videos.forEach(videoHTML => {
+              grid.insertAdjacentHTML('afterbegin', videoHTML);
+            });
+            if(window.uiService) window.uiService.initVideoFilter();
+          }
+        }
+
+        // 2. وضع البصمة الرقمية على كل الصفحة (بما فيها الفيديوهات الجديدة)
+        this.tagEditableElements();
+
+        // 3. استرجاع النصوص المعدلة وإسقاطها في أماكنها بدقة
         if (data.texts) {
           Object.keys(data.texts).forEach(id => {
             const el = document.querySelector(`[data-edit-id="${id}"]`);
@@ -483,27 +496,20 @@ class ContentService {
             }
           });
         }
-
-        // 2. استرجاع الفيديوهات المضافة ديناميكياً
-        if (data.videos && data.videos.length > 0) {
-          const grid = document.getElementById('video-grid');
-          if (grid) {
-            [...data.videos].reverse().forEach(videoHTML => {
-              if(!grid.innerHTML.includes('data-category')) return; 
-              grid.insertAdjacentHTML('afterbegin', videoHTML);
-            });
-            if(window.uiService) window.uiService.initVideoFilter();
-          }
-        }
+        console.log("تم تحميل المحتوى الديناميكي بنجاح.");
+      } else {
+        // إذا لم تكن هناك بيانات سابقة، فقط ضع البصمة
+        this.tagEditableElements();
       }
     } catch (error) {
-      console.error("Failed to load dynamic content:", error);
+      console.error("خطأ في تحميل المحتوى:", error);
+      this.tagEditableElements(); // ضمان وجود البصمة حتى لو فشل التحميل
     }
   }
 }
 
 // ==========================================
-// 6. Admin & Security Service (وضع التحرير المباشر)
+// 6. Admin & Security Service (لوحة التحكم والحفظ)
 // ==========================================
 class AdminService {
   constructor(firebaseService) {
@@ -556,7 +562,6 @@ class AdminService {
 
     document.getElementById("confirm-add-video")?.addEventListener("click", () => this.injectNewVideo());
 
-    // ربط زر الحفظ 
     document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
       this.saveChanges(e.currentTarget);
@@ -569,7 +574,6 @@ class AdminService {
     const errorTxt = document.getElementById("password-error");
 
     if (!modal) return;
-
     if (passInput) passInput.value = "";
     if (errorTxt) errorTxt.classList.add("hidden");
     
@@ -634,7 +638,7 @@ class AdminService {
       }
     } catch (error) {
       console.error("Access Error:", error);
-      errorTxt.textContent = "فشل التحقق الأمني. تأكد من اتصالك.";
+      errorTxt.textContent = "فشل التحقق. تأكد من قواعد جدار الحماية.";
       errorTxt.classList.remove("hidden");
     } finally {
       btnText.classList.remove("hidden");
@@ -668,7 +672,6 @@ class AdminService {
 
   toggleEditingMode(btnElement) {
     this.isEditingMode = !this.isEditingMode;
-    // تحديد العناصر بناءً على البصمة الرقمية فقط
     const textElements = document.querySelectorAll("[data-edit-id]");
 
     if (this.isEditingMode) {
@@ -737,7 +740,10 @@ class AdminService {
       </div>
     `;
 
-    document.getElementById("video-grid")?.insertAdjacentHTML("afterbegin", newVideoHTML);
+    document.getElementById("video-grid")?.insertAdjacentHTML('afterbegin', newVideoHTML);
+    
+    // إجبار النظام على وضع بصمة على الفيديو الجديد فوراً لكي يحفظه
+    if(window.contentService) window.contentService.tagEditableElements();
 
     const modal = document.getElementById("add-video-modal");
     modal.classList.add("opacity-0");
@@ -755,30 +761,38 @@ class AdminService {
     btnElement.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
     try {
-      this.disableEditing(); // تعطيل وضع التعديل قبل التقاط البيانات
+      this.disableEditing();
 
-      // 1. تجميع كل النصوص بناءً على البصمة الرقمية (Data-edit-id)
+      // 1. تجميع النصوص المعرفة بالبصمات
       const textElements = document.querySelectorAll("[data-edit-id]");
       const texts = {};
       textElements.forEach((el) => {
-        texts[el.getAttribute('data-edit-id')] = el.innerHTML;
+        texts[el.getAttribute('data-edit-id')] = el.innerHTML.trim();
       });
 
-      // 2. تجميع كل الفيديوهات المضافة حديثاً
+      // 2. تجميع الفيديوهات
       const dynamicVideos = document.querySelectorAll('.dynamic-video');
       const videos = [];
       dynamicVideos.forEach(vid => {
-        videos.push(vid.outerHTML);
+        const clonedVid = vid.cloneNode(true);
+        // تنظيف الكود الوهمي من الفيديو قبل حفظه
+        clonedVid.querySelectorAll('[contenteditable]').forEach(e => {
+            e.removeAttribute('contenteditable');
+            e.style.outline = '';
+            e.style.cursor = '';
+        });
+        videos.push(clonedVid.outerHTML);
       });
 
-      // 3. الرفع المشفر لقاعدة البيانات
+      // 3. الرفع المشفر
       const docRef = doc(this.db, "admin_config", "site_content");
       await setDoc(docRef, { texts, videos }, { merge: true });
       
-      alert("تم حفظ جميع التعديلات والإضافات بنجاح! ستظهر هذه التحديثات الآن لجميع الزوار.");
+      alert("تم الحفظ بنجاح! التعديلات أصبحت دائمة الآن.");
+      console.log("تم حفظ البيانات في Firestore بنجاح:", { textsCount: Object.keys(texts).length, videosCount: videos.length });
     } catch (error) {
       console.error("Save Error:", error);
-      alert("حدث خطأ أثناء حفظ التعديلات. تأكد من اتصالك بالإنترنت ومن صلاحيات الخادم.");
+      alert("تعذر الحفظ! يرجى التأكد من اتصالك وقواعد بيانات Firestore.");
     } finally {
       btnElement.innerHTML = originalHTML;
     }
@@ -795,6 +809,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const contentService = new ContentService(firebaseService);
   const adminService = new AdminService(firebaseService);
 
+  window.contentService = contentService; // لجعلها متاحة لخدمة الأدمن
   window.uiService = uiService;
   window.setLang = (lang) => langService.setLang(lang);
   window.toggleLangMenu = () => uiService.toggleLangMenu();
