@@ -35,12 +35,23 @@
 </head>
 <body id="body-root" class="route-ar relative"> 
     
-    <div id="splash-screen">
-        <img src="logo.png" alt="أكاديمية بصائر" class="w-80 h-80 md:w-[30rem] md:h-[30rem] object-contain -mb-6 animate-logo-pulse" onerror="this.style.display='none'">
-        <h2 class="text-4xl md:text-5xl lg:text-6xl font-black text-[#0A1F44] tracking-wide text-center leading-tight">
-            <span class="text-[#D4AF37] block">نور يهدي،</span> 
-            <span>وعلم يبني</span>
-        </h2>
+    <div id="splash-screen" class="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#051024] overflow-hidden transition-all duration-1000">
+        
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-gradient-to-tr from-[#D4AF37]/10 to-[#00563F]/10 rounded-full blur-[6rem] animate-pulse-slow"></div>
+
+        <div class="relative z-10 flex flex-col items-center">
+            <div class="animate-float">
+                <img src="logo.png" alt="أكاديمية بصائر" class="w-40 md:w-56 mb-8 drop-shadow-[0_0_25px_rgba(212,175,55,0.4)] animate-reveal-logo">
+            </div>
+
+            <h2 class="text-[#D4AF37] font-arabic font-black text-xl md:text-2xl tracking-[0.2em] mb-12 opacity-0 animate-cinematic-text text-center drop-shadow-md">
+                نور يهدي، وعلم يبني
+            </h2>
+
+            <div class="relative w-64 md:w-80 h-[2px] bg-white/10 rounded-full overflow-hidden">
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 h-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent w-0 animate-light-beam shadow-[0_0_10px_#D4AF37]"></div>
+            </div>
+        </div>
     </div>
 
     <header class="fixed w-full top-0 z-50 glass-nav h-28 border-transparent" id="navbar">
