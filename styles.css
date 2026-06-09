@@ -16,66 +16,23 @@ body:not(.route-ar) { font-family: 'Inter', sans-serif; }
     display: none !important;
 }
 
-/* 2. الإظهار المشروط: إظهار اللغة المطلوبة فقط بناءً على فئة الـ body */
-body.route-ar .lang-ar {
-    display: block !important;
-}
-body.route-ar span.lang-ar,
-body.route-ar p.lang-ar,
-body.route-ar h1.lang-ar,
-body.route-ar h2.lang-ar,
-body.route-ar h3.lang-ar,
-body.route-ar h4.lang-ar,
-body.route-ar a.lang-ar {
-    display: inline-block !important;
-}
+/* 2. الإظهار المشروط والتخطيط الذكي */
+body.route-ar .lang-ar { display: block !important; }
+body.route-en .lang-en { display: block !important; }
+body.route-fr .lang-fr { display: block !important; }
+body.route-ru .lang-ru { display: block !important; }
 
-body.route-en .lang-en {
-    display: block !important;
-}
-body.route-en span.lang-en,
-body.route-en p.lang-en,
-body.route-en h1.lang-en,
-body.route-en h2.lang-en,
-body.route-en h3.lang-en,
-body.route-en h4.lang-en,
-body.route-en a.lang-en {
-    display: inline-block !important;
-}
+/* السماح للنصوص الصغيرة (span) بالبقاء في سياقها */
+body.route-ar span.lang-ar, body.route-en span.lang-en, body.route-fr span.lang-fr, body.route-ru span.lang-ru { display: inline !important; }
 
-body.route-fr .lang-fr {
-    display: block !important;
-}
-body.route-fr span.lang-fr,
-body.route-fr p.lang-fr,
-body.route-fr h1.lang-fr,
-body.route-fr h2.lang-fr,
-body.route-fr h3.lang-fr,
-body.route-fr h4.lang-fr,
-body.route-fr a.lang-fr {
-    display: inline-block !important;
-}
+/* السماح للأزرار التي صُممت كـ inline-block بالبقاء كذلك */
+body.route-ar a.lang-ar.inline-block, body.route-en a.lang-en.inline-block, body.route-fr a.lang-fr.inline-block, body.route-ru a.lang-ru.inline-block { display: inline-block !important; }
 
-body.route-ru .lang-ru {
-    display: block !important;
-}
-body.route-ru span.lang-ru,
-body.route-ru p.lang-ru,
-body.route-ru h1.lang-ru,
-body.route-ru h2.lang-ru,
-body.route-ru h3.lang-ru,
-body.route-ru h4.lang-ru,
-body.route-ru a.lang-ru {
-    display: inline-block !important;
-}
+/* السماح للأزرار التي صُممت كـ flex (مثل أزرار الواتساب) بالبقاء كذلك */
+body.route-ar a.lang-ar.flex, body.route-en a.lang-en.flex, body.route-fr a.lang-fr.flex, body.route-ru a.lang-ru.flex { display: flex !important; }
 
-/* إصلاح التداخل المرن (Flexbox Fix) في قسم الآراء وغيرها */
-body.route-ar div.lang-ar.flex-col,
-body.route-en div.lang-en.flex-col,
-body.route-fr div.lang-fr.flex-col,
-body.route-ru div.lang-ru.flex-col {
-    display: flex !important;
-}
+/* إصلاح التداخل المرن (Flexbox) للحاويات كالبطاقات */
+body.route-ar div.lang-ar.flex-col, body.route-en div.lang-en.flex-col, body.route-fr div.lang-fr.flex-col, body.route-ru div.lang-ru.flex-col { display: flex !important; }
 
 /* ==========================================
    التنسيقات العامة للموقع (UI Components)
