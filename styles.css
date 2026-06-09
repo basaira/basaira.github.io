@@ -182,6 +182,65 @@ body.god-mode-editing .lang-ru {
     line-height: 1.6 !important;
     width: 100% !important;
 }
+/* ==========================================
+   (Splash Screen Engine)
+   ========================================== */
+
+/* نبض السديم الخلفي البطيء */
+@keyframes pulseSlow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+}
+.animate-pulse-slow {
+    animation: pulseSlow 4s ease-in-out infinite;
+}
+
+/* ظهور الشعار من العدم مع سطوع */
+@keyframes revealLogo {
+    0% { opacity: 0; transform: scale(0.8) translateY(20px); filter: blur(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+.animate-reveal-logo {
+    animation: revealLogo 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* الطفو الملكي المستمر للشعار */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+.animate-float {
+    animation: float 4s ease-in-out infinite;
+}
+
+/* تأثير التباعد السينمائي للنص (Cinematic Tracking) */
+@keyframes cinematicText {
+    0% { opacity: 0; letter-spacing: 0em; filter: blur(4px); }
+    100% { opacity: 1; letter-spacing: 0.2em; filter: blur(0); }
+}
+.animate-cinematic-text {
+    animation: cinematicText 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation-delay: 0.8s; /* يبدأ بعد ظهور الشعار */
+}
+
+/* خيط التحميل الذهبي المنبثق من المنتصف */
+@keyframes lightBeam {
+    0% { width: 0%; opacity: 0; }
+    20% { opacity: 1; }
+    100% { width: 100%; opacity: 0; }
+}
+.animate-light-beam {
+    animation: lightBeam 2.5s ease-in-out forwards;
+    animation-delay: 0.5s;
+}
+
+/* تأثير التبدد الزجاجي عند الاختفاء (Scale & Fade) */
+.splash-hidden {
+    opacity: 0 !important;
+    transform: scale(1.1) !important;
+    pointer-events: none;
+    filter: blur(10px);
+}
 
 /* شارات تعريف اللغات (Badges) للمطور */
 body.god-mode-editing .lang-ar::before { content: "AR"; position: absolute; top: -14px; right: 10px; background: #00563F; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: sans-serif; letter-spacing: 1px;}
