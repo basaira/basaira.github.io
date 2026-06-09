@@ -1,5 +1,5 @@
 // ==========================================
-// استيراد مكتبات Firebase عبر الـ CDN (بدون Auth)
+// استيراد مكتبات Firebase عبر الـ CDN
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
@@ -350,7 +350,7 @@ class UIService {
 }
 
 // ==========================================
-// 4. Enrollment Service (المحصن ضد الرسائل المزعجة)
+// 4. Enrollment Service (نظام مكافحة السبام)
 // ==========================================
 class EnrollmentService {
   constructor(firebaseService) {
@@ -376,9 +376,7 @@ class EnrollmentService {
     const errorMsg = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
 
-    // التحقق المعماري (Anti-Spam Throttling)
-    // منع المستخدم من إرسال أكثر من طلب خلال 60 دقيقة
-    const COOLDOWN_PERIOD_MS = 60 * 60 * 1000; // ساعة كاملة
+    const COOLDOWN_PERIOD_MS = 60 * 60 * 1000; 
     const lastSubmissionTime = localStorage.getItem("basair_last_submission");
     const currentTime = new Date().getTime();
 
@@ -423,7 +421,6 @@ class EnrollmentService {
       const firebasePromise = addDoc(collection(this.db, "enrollment_requests"), requestData);
       await Promise.race([firebasePromise, timeoutPromise]);
 
-      // توثيق وقت نجاح الإرسال في المتصفح لتفعيل الـ Cooldown
       localStorage.setItem("basair_last_submission", currentTime.toString());
 
       form.reset();
@@ -451,7 +448,54 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Admin & Security Service (God Mode - Database Auth)
+// 5. Content Service (خدمة جلب المحتوى الدائم)
+// ==========================================
+class ContentService {
+  constructor(firebaseService) {
+    this.db = firebaseService.db;
+    this.loadDynamicContent();
+  }
+
+  async loadDynamicContent() {
+    try {
+      const docRef = doc(this.db, "admin_config", "site_content");
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // 1. استرجاع النصوص المعدلة وإسقاطها على الواجهة
+        if (data.texts) {
+          const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+          Object.keys(data.texts).forEach(index => {
+            if (textElements[index]) {
+              textElements[index].innerHTML = data.texts[index];
+            }
+          });
+        }
+
+        // 2. استرجاع الفيديوهات المضافة ديناميكياً
+        if (data.videos && data.videos.length > 0) {
+          const grid = document.getElementById('video-grid');
+          if (grid) {
+            // إضافة الفيديوهات بالترتيب الصحيح
+            [...data.videos].reverse().forEach(videoHTML => {
+              if(!grid.innerHTML.includes('data-category')) return; // Sanity check
+              grid.insertAdjacentHTML('afterbegin', videoHTML);
+            });
+            // إعادة تفعيل فلتر الفيديوهات لتشمل الفيديوهات الجديدة
+            if(window.uiService) window.uiService.initVideoFilter();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load dynamic content:", error);
+    }
+  }
+}
+
+// ==========================================
+// 6. Admin & Security Service (وضع التحرير المباشر)
 // ==========================================
 class AdminService {
   constructor(firebaseService) {
@@ -504,10 +548,10 @@ class AdminService {
 
     document.getElementById("confirm-add-video")?.addEventListener("click", () => this.injectNewVideo());
 
+    // ربط زر الحفظ بخدمة رفع البيانات إلى فايربيس
     document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
-      this.disableEditing();
-      alert("تم تجميد التعديلات مؤقتاً. سيتم حفظها في الخطوة المعمارية القادمة.");
+      this.saveChanges(e.currentTarget);
     });
   }
 
@@ -668,8 +712,9 @@ class AdminService {
       return;
     }
 
+    // إضافة كلاس dynamic-video ليتمكن النظام من التعرف عليه وحفظه لاحقاً
     const newVideoHTML = `
-      <div class="video-card group cursor-pointer animate-fade-in-up" data-category="${cat}">
+      <div class="video-card group cursor-pointer animate-fade-in-up dynamic-video" data-category="${cat}">
           <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
               <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
               <img src="${imgUrl}" alt="${title}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
@@ -680,7 +725,7 @@ class AdminService {
               </div>
           </div>
           <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">${title}</h3>
-          <p class="text-white/60 text-sm font-medium">فيديو مضاف حديثاً عبر وضع المطور.</p>
+          <p class="text-white/60 text-sm font-medium">فيديو مضاف حديثاً.</p>
       </div>
     `;
 
@@ -693,15 +738,52 @@ class AdminService {
       modal.classList.add("hidden");
     }, 300);
   }
+
+  // ==========================================
+  // وظيفة حفظ التعديلات في قاعدة البيانات (The Persistence Engine)
+  // ==========================================
+  async saveChanges(btnElement) {
+    const originalHTML = btnElement.innerHTML;
+    btnElement.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+    try {
+      // 1. تجميع كل النصوص المحررة
+      const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+      const texts = {};
+      textElements.forEach((el, index) => {
+        texts[index] = el.innerHTML;
+      });
+
+      // 2. تجميع كل الفيديوهات المضافة حديثاً
+      const dynamicVideos = document.querySelectorAll('.dynamic-video');
+      const videos = [];
+      dynamicVideos.forEach(vid => {
+        videos.push(vid.outerHTML);
+      });
+
+      // 3. الرفع المشفر لقاعدة البيانات
+      const docRef = doc(this.db, "admin_config", "site_content");
+      await setDoc(docRef, { texts, videos }, { merge: true });
+      
+      this.disableEditing();
+      alert("تم حفظ جميع التعديلات والإضافات بنجاح! ستظهر هذه التحديثات الآن لجميع الزوار.");
+    } catch (error) {
+      console.error("Save Error:", error);
+      alert("حدث خطأ أثناء حفظ التعديلات. تأكد من اتصالك بالإنترنت.");
+    } finally {
+      btnElement.innerHTML = originalHTML;
+    }
+  }
 }
 
 // ==========================================
-// 6. Application Bootstrap & Global Binding
+// 7. Application Bootstrap & Global Binding
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
   const langService = new LanguageService();
   const uiService = new UIService();
   const enrollmentService = new EnrollmentService(firebaseService);
+  const contentService = new ContentService(firebaseService); // تشغيل خدمة المحتوى الديناميكي
   const adminService = new AdminService(firebaseService);
 
   window.uiService = uiService;
