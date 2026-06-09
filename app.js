@@ -5,8 +5,10 @@ import {
   addDoc,
   serverTimestamp,
   getDoc,
+  getDocs,
   doc,
   setDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ==========================================
@@ -121,7 +123,6 @@ window.toggleMobileMenu = function () {
   const menu = document.getElementById("mobile-menu");
   const backdrop = document.getElementById("mobile-backdrop");
   const btn = document.getElementById("mobile-menu-btn");
-
   const isActive = menu.classList.contains("active");
 
   if (!isActive) {
@@ -148,7 +149,81 @@ window.closeMobileMenu = function () {
 };
 
 // ==========================================
-// 3. وضع المعمار الأعظم وحالة التطبيق (Global States)
+// 3. نظام المحتوى الديناميكي (Headless CMS Logic)
+// ==========================================
+
+// أداة فهرسة النصوص وترقيمها
+function indexEditableElements() {
+  const textElements = document.querySelectorAll(
+    ".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)"
+  );
+  textElements.forEach((el, index) => {
+    // إعطاء هوية ثابتة لكل نص بناءً على ترتيبه في الهيكل
+    el.setAttribute("data-edit-id", "content_" + index);
+  });
+  return textElements;
+}
+
+// دالة جلب النصوص المحفوظة من قاعدة البيانات
+async function loadSavedContent() {
+  const textElements = indexEditableElements();
+  try {
+    const snap = await getDoc(doc(db, "settings", "content"));
+    if (snap.exists()) {
+      const data = snap.data();
+      textElements.forEach((el) => {
+        const id = el.getAttribute("data-edit-id");
+        if (data[id]) {
+          el.innerHTML = data[id]; // استبدال النص بالنص المحفوظ
+        }
+      });
+    }
+  } catch (error) {
+    console.warn("تنبيه: لم يتم العثور على تعديلات سابقة أو لا توجد صلاحية للقراءة.");
+  }
+}
+
+// دالة جلب الفيديوهات من قاعدة البيانات
+async function loadSavedVideos() {
+  const grid = document.getElementById("video-grid");
+  if (!grid) return;
+
+  try {
+    const querySnapshot = await getDocs(collection(db, "videos"));
+    querySnapshot.forEach((docSnap) => {
+      const vid = docSnap.data();
+      renderVideoCard(docSnap.id, vid.title, vid.category, vid.imgUrl, grid);
+    });
+  } catch (error) {
+    console.error("خطأ في جلب الفيديوهات:", error);
+  }
+}
+
+// دالة رسم بطاقة الفيديو (تُستخدم عند الجلب وعند الإضافة الحية)
+function renderVideoCard(id, title, cat, imgUrl, grid) {
+  const newVideoHTML = `
+      <div class="video-card group cursor-pointer animate-fade-in-up relative" data-category="${cat}" id="vid-${id}">
+          <button data-delete-id="${id}" class="delete-vid-btn absolute top-2 right-2 z-30 bg-red-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" title="حذف الفيديو نهائياً">
+              <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+          <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
+              <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
+              <img src="${imgUrl}" alt="${title}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
+              <div class="absolute inset-0 flex items-center justify-center z-20">
+                  <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all">
+                      <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
+                  </div>
+              </div>
+          </div>
+          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">${title}</h3>
+          <p class="text-white/60 text-sm font-medium">مكتبة بصائر المرئية</p>
+      </div>
+  `;
+  grid.insertAdjacentHTML("afterbegin", newVideoHTML);
+}
+
+// ==========================================
+// 4. وضع المعمار الأعظم وحالة التطبيق (Global States)
 // ==========================================
 window.isEditingMode = false;
 window.godModeActive = false;
@@ -214,9 +289,13 @@ window.hidePasswordModal = function () {
 };
 
 // ==========================================
-// 4. الأحداث الرئيسية (DOM Content Loaded)
+// 5. الأحداث الرئيسية (DOM Content Loaded)
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // --- تحميل المحتوى الديناميكي فوراً ---
+  await loadSavedContent();
+  await loadSavedVideos();
+
   // --- إعداد اللغة ---
   const savedLang = localStorage.getItem("academy_lang") || "ar";
   window.setLang(savedLang);
@@ -267,7 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- معالجة الاستمارة ---
+  // --- معالجة استمارة التسجيل ---
   const form = document.getElementById("enrollment-form");
   const submitBtn = document.getElementById("submit-btn");
   const btnText = document.getElementById("btn-text");
@@ -313,7 +392,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 15000)
         );
-
         const firebasePromise = addDoc(collection(db, "enrollment_requests"), data);
 
         await Promise.race([firebasePromise, timeoutPromise]);
@@ -322,7 +400,6 @@ document.addEventListener("DOMContentLoaded", () => {
         successMsg.classList.remove("hidden");
         setTimeout(() => successMsg.classList.add("hidden"), 5000);
       } catch (error) {
-        console.error("Firebase/Network Error: ", error);
         if (error.message === "NETWORK_TIMEOUT") {
           errorText.textContent = "فشل الاتصال. تأكد من تفعيل قاعدة بيانات Firestore في مشروعك.";
         } else {
@@ -338,9 +415,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- المكتبة المرئية (Video Filter Logic) ---
+  // --- تصفية المكتبة المرئية (Video Filter) ---
   const filterBtns = document.querySelectorAll(".filter-btn");
-  const videoCards = document.querySelectorAll(".video-card");
+  const videoGrid = document.getElementById("video-grid");
 
   filterBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -352,6 +429,8 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.classList.add("bg-[#D4AF37]", "text-[#0A1F44]", "shadow-[0_0_15px_rgba(212,175,55,0.4)]");
 
       const filterValue = btn.getAttribute("data-filter");
+      const videoCards = document.querySelectorAll(".video-card");
+      
       videoCards.forEach((card) => {
         if (filterValue === "all" || card.getAttribute("data-category") === filterValue) {
           card.style.display = "block";
@@ -362,6 +441,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
     });
+  });
+
+  // --- حذف الفيديو (حدث تفويضي للتعامل مع الفيديوهات المضافة حياً) ---
+  videoGrid?.addEventListener("click", async (e) => {
+    if (e.target.closest('.delete-vid-btn')) {
+        e.stopPropagation();
+        if (!window.isEditingMode) {
+            alert("يرجى تفعيل وضع التحرير (أيقونة القلم) أولاً لتتمكن من حذف الفيديوهات.");
+            return;
+        }
+        
+        const btn = e.target.closest('.delete-vid-btn');
+        const id = btn.getAttribute("data-delete-id");
+        
+        if (confirm("تحذير: هل أنت متأكد من حذف هذا الفيديو نهائياً من قاعدة البيانات؟")) {
+            try {
+                // الحذف من قاعدة البيانات
+                await deleteDoc(doc(db, "videos", id));
+                // الحذف من واجهة المستخدم
+                const card = document.getElementById(`vid-${id}`);
+                if (card) card.remove();
+                alert("تم الحذف بنجاح.");
+            } catch (err) {
+                console.error(err);
+                alert("حدث خطأ أثناء الحذف. تأكد من الصلاحيات.");
+            }
+        }
+    }
   });
 
   // --- وضع المعمار الأعظم و أحداث الأزرار ---
@@ -440,7 +547,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // أزرار لوحة المطور
   document.getElementById("dev-close-btn")?.addEventListener("click", (e) => {
     e.preventDefault();
     window.toggleGodMode();
@@ -480,46 +586,78 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  document.getElementById("confirm-add-video")?.addEventListener("click", () => {
+  // إضافة وحفظ الفيديو في Firebase
+  document.getElementById("confirm-add-video")?.addEventListener("click", async () => {
     const title = document.getElementById("new-vid-title").value;
     const cat = document.getElementById("new-vid-cat").value;
     const imgUrl = document.getElementById("new-vid-img").value || "https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000";
+    const btn = document.getElementById("confirm-add-video");
 
     if (!title) {
-      alert("أدخل العنوان");
+      alert("أدخل عنوان الفيديو أولاً");
       return;
     }
 
-    const newVideoHTML = `
-      <div class="video-card group cursor-pointer animate-fade-in-up" data-category="${cat}">
-          <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-              <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-              <img src="${imgUrl}" alt="${title}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-              <div class="absolute inset-0 flex items-center justify-center z-20">
-                  <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all">
-                      <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
-                  </div>
-              </div>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">${title}</h3>
-          <p class="text-white/60 text-sm font-medium">فيديو مضاف حديثاً عبر وضع المطور.</p>
-      </div>
-    `;
+    btn.textContent = "جاري الحفظ...";
+    btn.disabled = true;
 
-    document.getElementById("video-grid")?.insertAdjacentHTML("afterbegin", newVideoHTML);
+    try {
+        const docRef = await addDoc(collection(db, "videos"), {
+            title: title,
+            category: cat,
+            imgUrl: imgUrl,
+            createdAt: serverTimestamp()
+        });
 
-    const modal = document.getElementById("add-video-modal");
-    modal.classList.add("opacity-0");
-    document.getElementById("video-modal-content")?.classList.add("scale-95");
-    setTimeout(() => {
-      modal.classList.add("hidden");
-    }, 300);
+        // رسم الفيديو فوراً بعد حصوله على المعرف من فايربيس
+        renderVideoCard(docRef.id, title, cat, imgUrl, document.getElementById("video-grid"));
+
+        const modal = document.getElementById("add-video-modal");
+        modal.classList.add("opacity-0");
+        document.getElementById("video-modal-content")?.classList.add("scale-95");
+        setTimeout(() => { modal.classList.add("hidden"); }, 300);
+        
+        document.getElementById("new-vid-title").value = "";
+        document.getElementById("new-vid-img").value = "";
+
+    } catch (error) {
+        console.error("خطأ في حفظ الفيديو:", error);
+        alert("حدث خطأ أثناء الحفظ. تأكد من قواعد الأمان في فايربيس.");
+    } finally {
+        btn.textContent = "إدراج في المكتبة";
+        btn.disabled = false;
+    }
   });
 
-  document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
+  // زر الحفظ الشامل (جمع النصوص وحفظها في Firebase)
+  document.getElementById("dev-save-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    window.disableEditing();
-    alert("تم تجميد التعديلات. تم حفظ التعديلات محلياً بنجاح.");
+    const btn = e.currentTarget;
+    const originalHTML = btn.innerHTML;
+    
+    // تحويل الزر إلى حالة الدوران
+    btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+    try {
+        const textElements = document.querySelectorAll('[data-edit-id]');
+        const dataToSave = {};
+        
+        textElements.forEach(el => {
+            const id = el.getAttribute('data-edit-id');
+            if(id) dataToSave[id] = el.innerHTML;
+        });
+
+        // الحفظ الدائم في قاعدة البيانات
+        await setDoc(doc(db, "settings", "content"), dataToSave, { merge: true });
+        
+        window.disableEditing();
+        alert("نجاح معماري: تم حفظ جميع التعديلات النصية بنجاح في قاعدة البيانات الحية!");
+    } catch (err) {
+        console.error("خطأ الحفظ:", err);
+        alert("فشل الحفظ. تأكد من أن قواعد أمان Firebase تسمح بالكتابة (write) لمستند settings/content.");
+    } finally {
+        btn.innerHTML = originalHTML; // إعادة أيقونة الزر
+    }
   });
 });
 
@@ -534,7 +672,7 @@ window.addEventListener("load", function () {
     }, 2500);
   }
 
-  // إعداد حركة الآراء
+  // إعداد حركة الآراء اللانهائية
   const track = document.getElementById("testimonials-track");
   if (track) {
     const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
