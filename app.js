@@ -1,19 +1,16 @@
 // ==========================================
-// استيراد مكتبات Firebase عبر الـ CDN (متوافق مع بيئة الرفع المباشر)
+// استيراد مكتبات Firebase (بدون مكتبة Auth المغلقة)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
   initializeFirestore, 
   collection, 
   addDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  getDoc,
+  doc,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { 
-  getAuth, 
-  signInWithEmailAndPassword, 
-  onAuthStateChanged, 
-  signOut 
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ==========================================
 // 1. Firebase Service (Core Infrastructure)
@@ -31,14 +28,11 @@ class FirebaseService {
     
     this.app = initializeApp(this.config);
     
-    // تهيئة قاعدة البيانات بالمعرف الخاص ببيئة AI Studio
     this.db = initializeFirestore(
       this.app,
       { experimentalForceLongPolling: true },
       "ai-studio-6df2ea0b-0738-4940-b98e-7efdd9b010d0"
     );
-    
-    this.auth = getAuth(this.app);
   }
 }
 
@@ -442,16 +436,15 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Admin & Security Service (God Mode)
+// 5. Admin & Security Service (God Mode - Database Auth)
 // ==========================================
 class AdminService {
   constructor(firebaseService) {
-    this.auth = firebaseService.auth;
+    this.db = firebaseService.db;
     this.isEditingMode = false;
     this.godModeActive = false;
     
     this.initKeyboardShortcuts();
-    this.initAuthListeners();
     this.initAdminUI();
   }
 
@@ -468,18 +461,6 @@ class AdminService {
     });
   }
 
-  initAuthListeners() {
-    onAuthStateChanged(this.auth, (user) => {
-      if (user) {
-        this.godModeActive = true;
-      } else {
-        this.godModeActive = false;
-        this.disableEditing();
-        this.closeGodModePanel();
-      }
-    });
-  }
-
   initAdminUI() {
     document.getElementById("verify-password-btn")?.addEventListener("click", () => this.handleAuthentication());
     
@@ -492,9 +473,8 @@ class AdminService {
 
     document.getElementById("dev-close-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
-      signOut(this.auth).then(() => {
-        this.closeGodModePanel();
-      });
+      this.godModeActive = false;
+      this.closeGodModePanel();
     });
 
     document.getElementById("dev-edit-btn")?.addEventListener("click", (e) => {
@@ -518,13 +498,11 @@ class AdminService {
 
   showPasswordModal() {
     const modal = document.getElementById("password-modal");
-    const emailInput = document.getElementById("god-mode-email");
     const passInput = document.getElementById("god-mode-password");
     const errorTxt = document.getElementById("password-error");
 
     if (!modal) return;
 
-    if (emailInput) emailInput.value = "";
     if (passInput) passInput.value = "";
     if (errorTxt) errorTxt.classList.add("hidden");
     
@@ -532,7 +510,7 @@ class AdminService {
     setTimeout(() => {
       modal.classList.remove("opacity-0");
       document.getElementById("password-modal-content")?.classList.remove("scale-95");
-      if (emailInput) emailInput.focus();
+      if (passInput) passInput.focus();
     }, 10);
   }
 
@@ -548,14 +526,13 @@ class AdminService {
   }
 
   async handleAuthentication() {
-    const emailInput = document.getElementById("god-mode-email")?.value;
     const passInput = document.getElementById("god-mode-password")?.value;
     const errorTxt = document.getElementById("password-error");
     const btnText = document.getElementById("verify-btn-text");
     const spinner = document.getElementById("verify-spinner");
 
-    if (!emailInput || !passInput) {
-      errorTxt.textContent = "يرجى إدخال البريد الإلكتروني والمفتاح السري!";
+    if (!passInput) {
+      errorTxt.textContent = "يرجى إدخال المفتاح السري!";
       errorTxt.classList.remove("hidden");
       return;
     }
@@ -565,12 +542,35 @@ class AdminService {
     errorTxt.classList.add("hidden");
 
     try {
-      await signInWithEmailAndPassword(this.auth, emailInput, passInput);
-      this.hidePasswordModal();
-      this.openGodModePanel();
+      // الاتصال بقاعدة البيانات للتحقق من المفتاح السري
+      const docRef = doc(this.db, "admin_config", "access");
+      const docSnap = await getDoc(docRef);
+
+      if (!docSnap.exists()) {
+        // تهيئة مبدئية إذا لم يكن المستند موجوداً
+        if (passInput === "Basair@2026") {
+          await setDoc(docRef, { secretKey: "Basair@2026" });
+          this.godModeActive = true;
+          this.hidePasswordModal();
+          this.openGodModePanel();
+        } else {
+          errorTxt.textContent = "المفتاح الأمني غير صحيح!";
+          errorTxt.classList.remove("hidden");
+        }
+      } else {
+        // التحقق من المفتاح المخزن
+        if (docSnap.data().secretKey === passInput) {
+          this.godModeActive = true;
+          this.hidePasswordModal();
+          this.openGodModePanel();
+        } else {
+          errorTxt.textContent = "المفتاح الأمني غير صحيح!";
+          errorTxt.classList.remove("hidden");
+        }
+      }
     } catch (error) {
-      console.error("Auth Error:", error.code);
-      errorTxt.textContent = "بيانات الاعتماد غير صحيحة أو تفتقر للصلاحية!";
+      console.error("Access Error:", error);
+      errorTxt.textContent = "فشل التحقق. تأكد من قواعد أمان Firestore.";
       errorTxt.classList.remove("hidden");
     } finally {
       btnText.classList.remove("hidden");
