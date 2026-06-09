@@ -664,13 +664,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 window.addEventListener("load", function () {
   const splashScreen = document.getElementById("splash-screen");
   if (splashScreen) {
+    // نترك الشاشة لتعرض اللوحة السينمائية لمدة 3.2 ثانية
     setTimeout(function () {
-      splashScreen.classList.add("splash-hidden");
+      splashScreen.classList.add("splash-hidden"); // بدء تأثير التبدد الزجاجي
+      
+      // إزالة العنصر من الواجهة تماماً بعد انتهاء تأثير التبدد
       setTimeout(function () {
         splashScreen.style.display = "none";
-      }, 800);
-    }, 2500);
+      }, 1000); 
+    }, 3200);
   }
+  
+  
 
   // إعداد حركة الآراء اللانهائية
   const track = document.getElementById("testimonials-track");
