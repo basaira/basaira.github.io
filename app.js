@@ -443,19 +443,28 @@ class EnrollmentService {
 }
 
 // ==========================================
-// 5. Content Service (المعمارية المتقدمة للبصمة الرقمية)
+// 5. Content Service (البصمة الرقمية المعزولة)
 // ==========================================
 class ContentService {
   constructor(firebaseService) {
     this.db = firebaseService.db;
-    // نبدأ بجلب البيانات أولاً، ثم نضع البصمات
+    // الترتيب الصارم: 1. ختم العناصر الثابتة. 2. تحميل البيانات
+    this.tagEditableElements();
     this.loadDynamicContent();
   }
 
   tagEditableElements() {
-    const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
-    textElements.forEach((el, index) => {
-      // ختم العناصر التي ليس لها بصمة فقط
+    const allTextElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
+    
+    // فلترة معمارية صارمة: تجاهل أي نص بداخل فيديو ديناميكي أو قوائم الإدارة
+    const staticTextElements = Array.from(allTextElements).filter(el => {
+      return !el.closest('.dynamic-video') && 
+             !el.closest('#dev-god-mode') && 
+             !el.closest('#password-modal') && 
+             !el.closest('#add-video-modal');
+    });
+
+    staticTextElements.forEach((el, index) => {
       if (!el.hasAttribute('data-edit-id')) {
         el.setAttribute('data-edit-id', `text-block-${index}`);
       }
@@ -470,13 +479,11 @@ class ContentService {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // 1. استرجاع الفيديوهات الديناميكية أولاً لتنزل في الصفحة
+        // 1. استرجاع الفيديوهات الديناميكية
         if (data.videos && Array.isArray(data.videos)) {
           const grid = document.getElementById('video-grid');
           if (grid) {
-            // تفريغ الفيديوهات الديناميكية القديمة لمنع التكرار
             document.querySelectorAll('.dynamic-video').forEach(v => v.remove());
-            
             data.videos.forEach(videoHTML => {
               grid.insertAdjacentHTML('afterbegin', videoHTML);
             });
@@ -484,10 +491,7 @@ class ContentService {
           }
         }
 
-        // 2. وضع البصمة الرقمية على كل الصفحة (بما فيها الفيديوهات الجديدة)
-        this.tagEditableElements();
-
-        // 3. استرجاع النصوص المعدلة وإسقاطها في أماكنها بدقة
+        // 2. استرجاع النصوص باستخدام البصمة المعزولة (التي لن تتأثر بالفيديوهات)
         if (data.texts) {
           Object.keys(data.texts).forEach(id => {
             const el = document.querySelector(`[data-edit-id="${id}"]`);
@@ -496,20 +500,15 @@ class ContentService {
             }
           });
         }
-        console.log("تم تحميل المحتوى الديناميكي بنجاح.");
-      } else {
-        // إذا لم تكن هناك بيانات سابقة، فقط ضع البصمة
-        this.tagEditableElements();
       }
     } catch (error) {
       console.error("خطأ في تحميل المحتوى:", error);
-      this.tagEditableElements(); // ضمان وجود البصمة حتى لو فشل التحميل
     }
   }
 }
 
 // ==========================================
-// 6. Admin & Security Service (لوحة التحكم والحفظ)
+// 6. Admin Service (وضع التحرير)
 // ==========================================
 class AdminService {
   constructor(firebaseService) {
@@ -638,7 +637,7 @@ class AdminService {
       }
     } catch (error) {
       console.error("Access Error:", error);
-      errorTxt.textContent = "فشل التحقق. تأكد من قواعد جدار الحماية.";
+      errorTxt.textContent = "فشل التحقق الأمني.";
       errorTxt.classList.remove("hidden");
     } finally {
       btnText.classList.remove("hidden");
@@ -741,9 +740,6 @@ class AdminService {
     `;
 
     document.getElementById("video-grid")?.insertAdjacentHTML('afterbegin', newVideoHTML);
-    
-    // إجبار النظام على وضع بصمة على الفيديو الجديد فوراً لكي يحفظه
-    if(window.contentService) window.contentService.tagEditableElements();
 
     const modal = document.getElementById("add-video-modal");
     modal.classList.add("opacity-0");
@@ -753,9 +749,6 @@ class AdminService {
     }, 300);
   }
 
-  // ==========================================
-  // وظيفة حفظ التعديلات في قاعدة البيانات (The Persistence Engine)
-  // ==========================================
   async saveChanges(btnElement) {
     const originalHTML = btnElement.innerHTML;
     btnElement.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
@@ -763,19 +756,16 @@ class AdminService {
     try {
       this.disableEditing();
 
-      // 1. تجميع النصوص المعرفة بالبصمات
       const textElements = document.querySelectorAll("[data-edit-id]");
       const texts = {};
       textElements.forEach((el) => {
         texts[el.getAttribute('data-edit-id')] = el.innerHTML.trim();
       });
 
-      // 2. تجميع الفيديوهات
       const dynamicVideos = document.querySelectorAll('.dynamic-video');
       const videos = [];
       dynamicVideos.forEach(vid => {
         const clonedVid = vid.cloneNode(true);
-        // تنظيف الكود الوهمي من الفيديو قبل حفظه
         clonedVid.querySelectorAll('[contenteditable]').forEach(e => {
             e.removeAttribute('contenteditable');
             e.style.outline = '';
@@ -784,15 +774,13 @@ class AdminService {
         videos.push(clonedVid.outerHTML);
       });
 
-      // 3. الرفع المشفر
       const docRef = doc(this.db, "admin_config", "site_content");
       await setDoc(docRef, { texts, videos }, { merge: true });
       
       alert("تم الحفظ بنجاح! التعديلات أصبحت دائمة الآن.");
-      console.log("تم حفظ البيانات في Firestore بنجاح:", { textsCount: Object.keys(texts).length, videosCount: videos.length });
     } catch (error) {
       console.error("Save Error:", error);
-      alert("تعذر الحفظ! يرجى التأكد من اتصالك وقواعد بيانات Firestore.");
+      alert("تعذر الحفظ! يرجى التأكد من اتصالك.");
     } finally {
       btnElement.innerHTML = originalHTML;
     }
@@ -809,7 +797,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const contentService = new ContentService(firebaseService);
   const adminService = new AdminService(firebaseService);
 
-  window.contentService = contentService; // لجعلها متاحة لخدمة الأدمن
+  window.contentService = contentService;
   window.uiService = uiService;
   window.setLang = (lang) => langService.setLang(lang);
   window.toggleLangMenu = () => uiService.toggleLangMenu();
