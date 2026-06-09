@@ -1,3 +1,6 @@
+// ==========================================
+// استيراد مكتبات Firebase عبر الـ CDN (متوافق مع بيئة الرفع المباشر)
+// ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
   initializeFirestore, 
@@ -114,7 +117,6 @@ class LanguageService {
     localStorage.setItem("academy_lang", langCode);
     this.updateDynamicSelect(langCode);
     
-    // إغلاق القوائم عند تغيير اللغة
     if (window.uiService) {
       window.uiService.closeDropdown();
       window.uiService.closeMobileMenu();
@@ -282,7 +284,6 @@ class UIService {
       const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
       if (slides.length === 0) return;
 
-      // استنساخ الشريحة الأولى والأخيرة لإنشاء الانزلاق اللانهائي برمجياً
       const firstClone = slides[0].cloneNode(true);
       const lastClone = slides[slides.length - 1].cloneNode(true);
       track.appendChild(firstClone);
@@ -381,7 +382,6 @@ class EnrollmentService {
     const errorMsg = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
 
-    // UI Lock state
     submitBtn.disabled = true;
     submitBtn.classList.add("opacity-70", "cursor-not-allowed");
     btnText.classList.add("hidden");
@@ -409,7 +409,6 @@ class EnrollmentService {
     };
 
     try {
-      // حماية ضد التعليق اللانهائي للاتصال (Timeout Pattern)
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 15000)
       );
@@ -458,7 +457,6 @@ class AdminService {
 
   initKeyboardShortcuts() {
     document.addEventListener("keydown", (e) => {
-      // اختصار: Ctrl + Shift + M
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "m" || e.key === "M")) {
         e.preventDefault();
         if (!this.godModeActive) {
@@ -471,7 +469,6 @@ class AdminService {
   }
 
   initAuthListeners() {
-    // تتبع حالة تسجيل الدخول تلقائياً (Security Auth State)
     onAuthStateChanged(this.auth, (user) => {
       if (user) {
         this.godModeActive = true;
@@ -495,7 +492,6 @@ class AdminService {
 
     document.getElementById("dev-close-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
-      // تسجيل خروج المعمار لضمان الأمان
       signOut(this.auth).then(() => {
         this.closeGodModePanel();
       });
@@ -564,13 +560,11 @@ class AdminService {
       return;
     }
 
-    // إقفال الواجهة أثناء التحقق
     btnText.classList.add("hidden");
     spinner.classList.remove("hidden");
     errorTxt.classList.add("hidden");
 
     try {
-      // الاتصال الفعلي بخوادم فايربيس للمصادقة (إلغاء الثغرة السابقة)
       await signInWithEmailAndPassword(this.auth, emailInput, passInput);
       this.hidePasswordModal();
       this.openGodModePanel();
@@ -698,7 +692,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const enrollmentService = new EnrollmentService(firebaseService);
   const adminService = new AdminService(firebaseService);
 
-  // ربط الوظائف بكائن الـ Window لضمان استجابة أزرار الـ HTML القديمة
   window.uiService = uiService;
   window.setLang = (lang) => langService.setLang(lang);
   window.toggleLangMenu = () => uiService.toggleLangMenu();
