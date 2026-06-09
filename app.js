@@ -1,5 +1,5 @@
 // ==========================================
-// استيراد مكتبات Firebase (بدون مكتبة Auth المغلقة)
+// استيراد مكتبات Firebase عبر الـ CDN (بدون Auth)
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
@@ -350,7 +350,7 @@ class UIService {
 }
 
 // ==========================================
-// 4. Enrollment & Form Service
+// 4. Enrollment Service (المحصن ضد الرسائل المزعجة)
 // ==========================================
 class EnrollmentService {
   constructor(firebaseService) {
@@ -375,6 +375,19 @@ class EnrollmentService {
     const successMsg = document.getElementById("success-message");
     const errorMsg = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
+
+    // التحقق المعماري (Anti-Spam Throttling)
+    // منع المستخدم من إرسال أكثر من طلب خلال 60 دقيقة
+    const COOLDOWN_PERIOD_MS = 60 * 60 * 1000; // ساعة كاملة
+    const lastSubmissionTime = localStorage.getItem("basair_last_submission");
+    const currentTime = new Date().getTime();
+
+    if (lastSubmissionTime && (currentTime - parseInt(lastSubmissionTime) < COOLDOWN_PERIOD_MS)) {
+      errorText.textContent = "عذراً، لقد قمت بإرسال طلب مؤخراً. يرجى المحاولة لاحقاً أو مراسلتنا عبر الواتساب.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
+      return;
+    }
 
     submitBtn.disabled = true;
     submitBtn.classList.add("opacity-70", "cursor-not-allowed");
@@ -408,18 +421,20 @@ class EnrollmentService {
       );
 
       const firebasePromise = addDoc(collection(this.db, "enrollment_requests"), requestData);
-
       await Promise.race([firebasePromise, timeoutPromise]);
+
+      // توثيق وقت نجاح الإرسال في المتصفح لتفعيل الـ Cooldown
+      localStorage.setItem("basair_last_submission", currentTime.toString());
 
       form.reset();
       successMsg.classList.remove("hidden");
-      setTimeout(() => successMsg.classList.add("hidden"), 5000);
+      setTimeout(() => successMsg.classList.add("hidden"), 8000);
     } catch (error) {
       console.error("Enrollment Submission Error: ", error);
       if (error.message === "NETWORK_TIMEOUT") {
         errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقاً.";
       } else {
-        errorText.textContent = "حدث خطأ: " + error.message;
+        errorText.textContent = "حدث خطأ أمني أثناء الإرسال. تأكد من صحة بياناتك.";
       }
       errorMsg.classList.remove("hidden");
     } finally {
@@ -492,7 +507,7 @@ class AdminService {
     document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
       e.preventDefault();
       this.disableEditing();
-      alert("تم تجميد التعديلات مؤقتاً. الواجهة الآن في وضع القراءة فقط.");
+      alert("تم تجميد التعديلات مؤقتاً. سيتم حفظها في الخطوة المعمارية القادمة.");
     });
   }
 
@@ -542,12 +557,10 @@ class AdminService {
     errorTxt.classList.add("hidden");
 
     try {
-      // الاتصال بقاعدة البيانات للتحقق من المفتاح السري
       const docRef = doc(this.db, "admin_config", "access");
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists()) {
-        // تهيئة مبدئية إذا لم يكن المستند موجوداً
         if (passInput === "Basair@2026") {
           await setDoc(docRef, { secretKey: "Basair@2026" });
           this.godModeActive = true;
@@ -558,7 +571,6 @@ class AdminService {
           errorTxt.classList.remove("hidden");
         }
       } else {
-        // التحقق من المفتاح المخزن
         if (docSnap.data().secretKey === passInput) {
           this.godModeActive = true;
           this.hidePasswordModal();
@@ -570,7 +582,7 @@ class AdminService {
       }
     } catch (error) {
       console.error("Access Error:", error);
-      errorTxt.textContent = "فشل التحقق. تأكد من قواعد أمان Firestore.";
+      errorTxt.textContent = "فشل التحقق الأمني. تواصل مع الدعم الفني.";
       errorTxt.classList.remove("hidden");
     } finally {
       btnText.classList.remove("hidden");
