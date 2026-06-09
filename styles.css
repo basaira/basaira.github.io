@@ -1,13 +1,85 @@
+/* ==========================================
+   إعدادات الخطوط والخلفية الأساسية
+   ========================================== */
 body { background-color: #FDFDF5; color: #0A1F44; -webkit-font-smoothing: antialiased; }
 
 body.route-ar { font-family: 'Tajawal', sans-serif; }
 body:not(.route-ar) { font-family: 'Inter', sans-serif; }
 
-body:not(.route-ar) .lang-ar { display: none !important; }
-body:not(.route-en) .lang-en { display: none !important; }
-body:not(.route-fr) .lang-fr { display: none !important; }
-body:not(.route-ru) .lang-ru { display: none !important; }
+/* ==========================================
+  نظام العرض اللغوي المحصن (Language Display System)
+  يضمن إخفاء كل اللغات باستثناء اللغة النشطة ويمنع التداخل
+  ==========================================
+*/
+/* 1. الإخفاء الافتراضي: إخفاء جميع اللغات أولاً */
+.lang-ar, .lang-en, .lang-fr, .lang-ru {
+    display: none !important;
+}
 
+/* 2. الإظهار المشروط: إظهار اللغة المطلوبة فقط بناءً على فئة الـ body */
+body.route-ar .lang-ar {
+    display: block !important;
+}
+body.route-ar span.lang-ar,
+body.route-ar p.lang-ar,
+body.route-ar h1.lang-ar,
+body.route-ar h2.lang-ar,
+body.route-ar h3.lang-ar,
+body.route-ar h4.lang-ar,
+body.route-ar a.lang-ar {
+    display: inline-block !important;
+}
+
+body.route-en .lang-en {
+    display: block !important;
+}
+body.route-en span.lang-en,
+body.route-en p.lang-en,
+body.route-en h1.lang-en,
+body.route-en h2.lang-en,
+body.route-en h3.lang-en,
+body.route-en h4.lang-en,
+body.route-en a.lang-en {
+    display: inline-block !important;
+}
+
+body.route-fr .lang-fr {
+    display: block !important;
+}
+body.route-fr span.lang-fr,
+body.route-fr p.lang-fr,
+body.route-fr h1.lang-fr,
+body.route-fr h2.lang-fr,
+body.route-fr h3.lang-fr,
+body.route-fr h4.lang-fr,
+body.route-fr a.lang-fr {
+    display: inline-block !important;
+}
+
+body.route-ru .lang-ru {
+    display: block !important;
+}
+body.route-ru span.lang-ru,
+body.route-ru p.lang-ru,
+body.route-ru h1.lang-ru,
+body.route-ru h2.lang-ru,
+body.route-ru h3.lang-ru,
+body.route-ru h4.lang-ru,
+body.route-ru a.lang-ru {
+    display: inline-block !important;
+}
+
+/* إصلاح التداخل المرن (Flexbox Fix) في قسم الآراء وغيرها */
+body.route-ar div.lang-ar.flex-col,
+body.route-en div.lang-en.flex-col,
+body.route-fr div.lang-fr.flex-col,
+body.route-ru div.lang-ru.flex-col {
+    display: flex !important;
+}
+
+/* ==========================================
+   التنسيقات العامة للموقع (UI Components)
+   ========================================== */
 .glass-nav {
     background: rgba(253, 253, 245, 0.98);
     -webkit-backdrop-filter: blur(12px);
@@ -149,6 +221,7 @@ body:not(.route-ar) .slider-track {
     0% { transform: translateX(0); }
     100% { transform: translateX(-50%); } 
 }
+
 /* تأثيرات الانبثاق (Fade-in Up) الفاخرة للاستمارة */
 @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(30px); }
@@ -156,12 +229,13 @@ body:not(.route-ar) .slider-track {
 }
 .animate-fade-in-up {
     animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0; /* يبدأ مخفياً حتى يتم الانبثاق */
+    opacity: 0;
 }
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
+
 /* ==========================================
    وضع الإحاطة اللغوية الشاملة (Omniscience Edit Mode)
    ========================================== */
