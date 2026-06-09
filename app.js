@@ -151,20 +151,16 @@ window.closeMobileMenu = function () {
 // ==========================================
 // 3. نظام المحتوى الديناميكي (Headless CMS Logic)
 // ==========================================
-
-// أداة فهرسة النصوص وترقيمها
 function indexEditableElements() {
   const textElements = document.querySelectorAll(
     ".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)"
   );
   textElements.forEach((el, index) => {
-    // إعطاء هوية ثابتة لكل نص بناءً على ترتيبه في الهيكل
     el.setAttribute("data-edit-id", "content_" + index);
   });
   return textElements;
 }
 
-// دالة جلب النصوص المحفوظة من قاعدة البيانات
 async function loadSavedContent() {
   const textElements = indexEditableElements();
   try {
@@ -174,16 +170,15 @@ async function loadSavedContent() {
       textElements.forEach((el) => {
         const id = el.getAttribute("data-edit-id");
         if (data[id]) {
-          el.innerHTML = data[id]; // استبدال النص بالنص المحفوظ
+          el.innerHTML = data[id];
         }
       });
     }
   } catch (error) {
-    console.warn("تنبيه: لم يتم العثور على تعديلات سابقة أو لا توجد صلاحية للقراءة.");
+    console.warn("لم يتم العثور على تعديلات سابقة للنصوص.");
   }
 }
 
-// دالة جلب الفيديوهات من قاعدة البيانات
 async function loadSavedVideos() {
   const grid = document.getElementById("video-grid");
   if (!grid) return;
@@ -199,7 +194,6 @@ async function loadSavedVideos() {
   }
 }
 
-// دالة رسم بطاقة الفيديو (تُستخدم عند الجلب وعند الإضافة الحية)
 function renderVideoCard(id, title, cat, imgUrl, grid) {
   const newVideoHTML = `
       <div class="video-card group cursor-pointer animate-fade-in-up relative" data-category="${cat}" id="vid-${id}">
@@ -223,7 +217,7 @@ function renderVideoCard(id, title, cat, imgUrl, grid) {
 }
 
 // ==========================================
-// 4. وضع المعمار الأعظم وحالة التطبيق (Global States)
+// 4. وضع المعمار الأعظم (Global States)
 // ==========================================
 window.isEditingMode = false;
 window.godModeActive = false;
@@ -292,11 +286,11 @@ window.hidePasswordModal = function () {
 // 5. الأحداث الرئيسية (DOM Content Loaded)
 // ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
-  // --- تحميل المحتوى الديناميكي فوراً ---
+  // تحميل المحتوى الديناميكي والفيديوهات
   await loadSavedContent();
   await loadSavedVideos();
 
-  // --- إعداد اللغة ---
+  // إعداد اللغة
   const savedLang = localStorage.getItem("academy_lang") || "ar";
   window.setLang(savedLang);
 
@@ -346,7 +340,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // --- معالجة استمارة التسجيل ---
+  // معالجة استمارة التسجيل
   const form = document.getElementById("enrollment-form");
   const submitBtn = document.getElementById("submit-btn");
   const btnText = document.getElementById("btn-text");
@@ -415,7 +409,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // --- تصفية المكتبة المرئية (Video Filter) ---
+  // تصفية المكتبة المرئية
   const filterBtns = document.querySelectorAll(".filter-btn");
   const videoGrid = document.getElementById("video-grid");
 
@@ -443,7 +437,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // --- حذف الفيديو (حدث تفويضي للتعامل مع الفيديوهات المضافة حياً) ---
+  // حذف الفيديو من قاعدة البيانات
   videoGrid?.addEventListener("click", async (e) => {
     if (e.target.closest('.delete-vid-btn')) {
         e.stopPropagation();
@@ -455,11 +449,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const btn = e.target.closest('.delete-vid-btn');
         const id = btn.getAttribute("data-delete-id");
         
-        if (confirm("تحذير: هل أنت متأكد من حذف هذا الفيديو نهائياً من قاعدة البيانات؟")) {
+        if (confirm("تحذير أمني حاسم: هل أنت متأكد من حذف هذا الفيديو نهائياً من قاعدة البيانات السحابية؟")) {
             try {
-                // الحذف من قاعدة البيانات
                 await deleteDoc(doc(db, "videos", id));
-                // الحذف من واجهة المستخدم
                 const card = document.getElementById(`vid-${id}`);
                 if (card) card.remove();
                 alert("تم الحذف بنجاح.");
@@ -471,7 +463,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // --- وضع المعمار الأعظم و أحداث الأزرار ---
+  // وضع المعمار الأعظم و أحداث الأزرار
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "m" || e.key === "M")) {
       e.preventDefault();
@@ -586,7 +578,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // إضافة وحفظ الفيديو في Firebase
   document.getElementById("confirm-add-video")?.addEventListener("click", async () => {
     const title = document.getElementById("new-vid-title").value;
     const cat = document.getElementById("new-vid-cat").value;
@@ -609,7 +600,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             createdAt: serverTimestamp()
         });
 
-        // رسم الفيديو فوراً بعد حصوله على المعرف من فايربيس
         renderVideoCard(docRef.id, title, cat, imgUrl, document.getElementById("video-grid"));
 
         const modal = document.getElementById("add-video-modal");
@@ -629,13 +619,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // زر الحفظ الشامل (جمع النصوص وحفظها في Firebase)
   document.getElementById("dev-save-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
     const btn = e.currentTarget;
     const originalHTML = btn.innerHTML;
     
-    // تحويل الزر إلى حالة الدوران
     btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
     try {
@@ -647,186 +635,178 @@ document.addEventListener("DOMContentLoaded", async () => {
             if(id) dataToSave[id] = el.innerHTML;
         });
 
-        // الحفظ الدائم في قاعدة البيانات
         await setDoc(doc(db, "settings", "content"), dataToSave, { merge: true });
         
         window.disableEditing();
-        alert("نجاح معماري: تم حفظ جميع التعديلات النصية بنجاح في قاعدة البيانات الحية!");
+        alert("نجاح معماري: تم حفظ التعديلات بنجاح في قاعدة البيانات!");
     } catch (err) {
         console.error("خطأ الحفظ:", err);
-        alert("فشل الحفظ. تأكد من أن قواعد أمان Firebase تسمح بالكتابة (write) لمستند settings/content.");
+        alert("فشل الحفظ. تأكد من الصلاحيات.");
     } finally {
-        btn.innerHTML = originalHTML; // إعادة أيقونة الزر
+        btn.innerHTML = originalHTML;
     }
   });
 });
 
-
-  
-  
-
-  // إعداد حركة الآراء اللانهائية
-  const track = document.getElementById("testimonials-track");
-  if (track) {
-    const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
-    if (slides.length > 0) {
-      const firstClone = slides[0].cloneNode(true);
-      const lastClone = slides[slides.length - 1].cloneNode(true);
-      track.appendChild(firstClone);
-      track.insertBefore(lastClone, slides[0]);
-
-      let allSlides = document.querySelectorAll(".testimonial-slide");
-      let currentIndex = 1;
-      const slideWidth = 100;
-
-      track.style.transition = "none";
-      track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
-
-      function updateSlider(animate = true) {
-        track.style.transition = animate ? "transform 0.7s ease-in-out" : "none";
-        track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
-      }
-
-      track.addEventListener("transitionend", () => {
-        if (allSlides[currentIndex].isEqualNode(firstClone)) {
-          currentIndex = 1;
-          updateSlider(false);
-        }
-        if (allSlides[currentIndex].isEqualNode(lastClone)) {
-          currentIndex = allSlides.length - 2;
-          updateSlider(false);
-        }
-      });
-
-      const nextBtn = document.getElementById("slider-next-btn");
-      const prevBtn = document.getElementById("slider-prev-btn");
-
-      function moveToNext() {
-        if (currentIndex >= allSlides.length - 1) return;
-        currentIndex++;
-        updateSlider();
-      }
-
-      function moveToPrev() {
-        if (currentIndex <= 0) return;
-        currentIndex--;
-        updateSlider();
-      }
-
-      if (nextBtn) nextBtn.addEventListener("click", moveToNext);
-      if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
-
-      let autoPlay = setInterval(moveToNext, 6000);
-      [nextBtn, prevBtn].forEach((btn) => {
-        if (btn) {
-          btn.addEventListener("mouseenter", () => clearInterval(autoPlay));
-          btn.addEventListener("mouseleave", () => (autoPlay = setInterval(moveToNext, 6000)));
-        }
-      });
-    }
-  }
-});
 // ==========================================
-// محرك جسيمات شاشة البداية (Canvas Particle Engine)
+// 6. شاشة البداية والآراء (Splash Screen & Testimonials)
 // ==========================================
 window.addEventListener("load", function () {
+    
+    // 1. نظام الفشل الآمن لإخفاء السبلاش
     const splashScreen = document.getElementById("splash-screen");
-    const canvas = document.getElementById("particle-canvas");
-    const logoContainer = document.getElementById("splash-logo-container");
-    
-    if (!splashScreen || !canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    let w = canvas.width = window.innerWidth;
-    let h = canvas.height = window.innerHeight;
-    
-    let particles = [];
-    const particleCount = window.innerWidth < 768 ? 150 : 300; // تكثيف الجسيمات في الشاشات الكبيرة
-    let phase = "gathering"; // gathering, exploding, done
-    
-    // إنشاء الجسيمات
-    for (let i = 0; i < particleCount; i++) {
-        particles.push({
-            angle: Math.random() * Math.PI * 2,
-            radius: Math.random() * Math.max(w, h),
-            speed: 0.02 + Math.random() * 0.04,
-            size: Math.random() * 2.5 + 0.5,
-            color: `rgba(212, 175, 55, ${Math.random() * 0.8 + 0.2})`, // ذهبي متدرج
-            friction: 0.95
-        });
-    }
-    
-    let animationFrame;
-    const centerX = w / 2;
-    const centerY = h / 2;
-    
-    function renderParticles() {
-        // تأثير الذيل (Trailing effect) بمسح الشاشة بشفافية بسيطة
-        ctx.fillStyle = "rgba(5, 16, 36, 0.15)";
-        ctx.fillRect(0, 0, w, h);
-        
-        let allGathered = true;
-
-        particles.forEach(p => {
-            if (phase === "gathering") {
-                // الجذب نحو المركز مع الدوران
-                p.radius -= p.radius * 0.06;
-                p.angle += p.speed;
-                if (p.radius > 10) allGathered = false;
-            } else if (phase === "exploding") {
-                // الانفجار للخارج بسرعة هائلة
-                p.radius += (p.radius * 0.15) + 15;
-                p.angle += p.speed * 0.5;
-            }
-            
-            const x = centerX + Math.cos(p.angle) * p.radius;
-            const y = centerY + Math.sin(p.angle) * p.radius;
-            
-            ctx.beginPath();
-            ctx.arc(x, y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = p.color;
-            ctx.fill();
-            
-            // رسم خطوط اتصال خفيفة بين الجسيمات القريبة (تأثير شبكي)
-            if (phase === "gathering" && p.radius < 150) {
-                ctx.lineTo(centerX, centerY);
-                ctx.strokeStyle = `rgba(212, 175, 55, ${0.1 - p.radius/1500})`;
-                ctx.stroke();
-            }
-        });
-        
-        // الانتقال للمرحلة التالية
-        if (phase === "gathering" && allGathered) {
-            phase = "exploding";
-            // إظهار الشعار بقوة مع الانفجار
-            logoContainer.classList.remove("opacity-0", "scale-50");
-            logoContainer.classList.add("opacity-100", "scale-100");
-        }
-        
-        if (phase !== "done") {
-            animationFrame = requestAnimationFrame(renderParticles);
-        }
-    }
-    
-    renderParticles();
-    
-    // ضبط أبعاد الشاشة عند تغيير حجم المتصفح
-    window.addEventListener("resize", () => {
-        w = canvas.width = window.innerWidth;
-        h = canvas.height = window.innerHeight;
-    });
-
-    // الجدول الزمني لإنهاء المشهد
-    setTimeout(() => {
-        phase = "done"; // إيقاف المحرك الهندسي لتوفير موارد الجهاز
-        cancelAnimationFrame(animationFrame);
-        
-        // تلاشي الشاشة بأكملها
-        splashScreen.classList.add("opacity-0");
-        splashScreen.style.pointerEvents = "none";
-        
+    if (splashScreen) {
         setTimeout(() => {
-            splashScreen.style.display = "none";
-        }, 1000);
-    }, 4500); // المشهد بأكمله يستغرق 4.5 ثوانٍ
+            splashScreen.classList.add("opacity-0");
+            splashScreen.style.pointerEvents = "none";
+            setTimeout(() => {
+                splashScreen.style.display = "none";
+            }, 1000);
+        }, 4500); 
+    }
+
+    // 2. محرك الجسيمات
+    try {
+        const canvas = document.getElementById("particle-canvas");
+        const logoContainer = document.getElementById("splash-logo-container");
+        
+        if (canvas && splashScreen && logoContainer) {
+            const ctx = canvas.getContext("2d");
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+            
+            let particles = [];
+            const particleCount = window.innerWidth < 768 ? 150 : 300;
+            let phase = "gathering";
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    angle: Math.random() * Math.PI * 2,
+                    radius: Math.random() * Math.max(w, h),
+                    speed: 0.02 + Math.random() * 0.04,
+                    size: Math.random() * 2.5 + 0.5,
+                    color: `rgba(212, 175, 55, ${Math.random() * 0.8 + 0.2})`,
+                    friction: 0.95
+                });
+            }
+            
+            let animationFrame;
+            const centerX = w / 2;
+            const centerY = h / 2;
+            
+            function renderParticles() {
+                ctx.fillStyle = "rgba(5, 16, 36, 0.15)";
+                ctx.fillRect(0, 0, w, h);
+                
+                let allGathered = true;
+
+                particles.forEach(p => {
+                    if (phase === "gathering") {
+                        p.radius -= p.radius * 0.06;
+                        p.angle += p.speed;
+                        if (p.radius > 10) allGathered = false;
+                    } else if (phase === "exploding") {
+                        p.radius += (p.radius * 0.15) + 15;
+                        p.angle += p.speed * 0.5;
+                    }
+                    
+                    const x = centerX + Math.cos(p.angle) * p.radius;
+                    const y = centerY + Math.sin(p.angle) * p.radius;
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    
+                    if (phase === "gathering" && p.radius < 150) {
+                        ctx.lineTo(centerX, centerY);
+                        ctx.strokeStyle = `rgba(212, 175, 55, ${0.1 - p.radius/1500})`;
+                        ctx.stroke();
+                    }
+                });
+                
+                if (phase === "gathering" && allGathered) {
+                    phase = "exploding";
+                    logoContainer.classList.remove("opacity-0", "scale-50");
+                    logoContainer.classList.add("opacity-100", "scale-100");
+                }
+                
+                animationFrame = requestAnimationFrame(renderParticles);
+            }
+            
+            renderParticles();
+            
+            window.addEventListener("resize", () => {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            });
+
+            setTimeout(() => {
+                cancelAnimationFrame(animationFrame);
+            }, 4500);
+        }
+    } catch (err) {
+        console.error("تم تجاوز خطأ الرسوميات لضمان عمل الموقع:", err);
+    }
+
+    // 3. استعادة كود حركة الآراء (Testimonials)
+    const track = document.getElementById("testimonials-track");
+    if (track) {
+        const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
+        if (slides.length > 0) {
+            const firstClone = slides[0].cloneNode(true);
+            const lastClone = slides[slides.length - 1].cloneNode(true);
+            track.appendChild(firstClone);
+            track.insertBefore(lastClone, slides[0]);
+
+            let allSlides = document.querySelectorAll(".testimonial-slide");
+            let currentIndex = 1;
+            const slideWidth = 100;
+
+            track.style.transition = "none";
+            track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
+
+            function updateSlider(animate = true) {
+                track.style.transition = animate ? "transform 0.7s ease-in-out" : "none";
+                track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
+            }
+
+            track.addEventListener("transitionend", () => {
+                if (allSlides[currentIndex].isEqualNode(firstClone)) {
+                    currentIndex = 1;
+                    updateSlider(false);
+                }
+                if (allSlides[currentIndex].isEqualNode(lastClone)) {
+                    currentIndex = allSlides.length - 2;
+                    updateSlider(false);
+                }
+            });
+
+            const nextBtn = document.getElementById("slider-next-btn");
+            const prevBtn = document.getElementById("slider-prev-btn");
+
+            function moveToNext() {
+                if (currentIndex >= allSlides.length - 1) return;
+                currentIndex++;
+                updateSlider();
+            }
+
+            function moveToPrev() {
+                if (currentIndex <= 0) return;
+                currentIndex--;
+                updateSlider();
+            }
+
+            if (nextBtn) nextBtn.addEventListener("click", moveToNext);
+            if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
+
+            let autoPlay = setInterval(moveToNext, 6000);
+            [nextBtn, prevBtn].forEach((btn) => {
+                if (btn) {
+                    btn.addEventListener("mouseenter", () => clearInterval(autoPlay));
+                    btn.addEventListener("mouseleave", () => (autoPlay = setInterval(moveToNext, 6000)));
+                }
+            });
+        }
+    }
 });
