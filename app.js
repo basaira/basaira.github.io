@@ -170,7 +170,10 @@ async function loadSavedContent() {
       textElements.forEach((el) => {
         const id = el.getAttribute("data-edit-id");
         if (data[id]) {
-          el.innerHTML = data[id];
+            // فلتر التعقيم: إزالة أي خاصية تحرير تسربت لقاعدة البيانات سابقاً
+            let cleanHTML = data[id].replace(/contenteditable="true"/gi, "");
+            cleanHTML = cleanHTML.replace(/contenteditable=""/gi, "");
+            el.innerHTML = cleanHTML;
         }
       });
     }
@@ -232,8 +235,12 @@ window.disableEditing = function () {
   const textElements = document.querySelectorAll('[contenteditable="true"]');
   textElements.forEach((el) => {
     el.removeAttribute("contenteditable");
-    el.style.outline = "none";
-    el.style.cursor = "";
+    el.style.removeProperty("outline");
+    el.style.removeProperty("cursor");
+    // تنظيف ستايل العنصر إذا أصبح فارغاً
+    if (el.getAttribute("style") === "") {
+        el.removeAttribute("style");
+    }
   });
 };
 
@@ -619,6 +626,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // زر الحفظ الشامل (المحمي من فخ اللقطة الملوثة)
   document.getElementById("dev-save-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
     const btn = e.currentTarget;
@@ -627,18 +635,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-[#0A1F44]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
     try {
+        // 1. إغلاق وضع التحرير أولاً لتجريد النصوص من خصائص التعديل
+        window.disableEditing();
+
         const textElements = document.querySelectorAll('[data-edit-id]');
         const dataToSave = {};
         
         textElements.forEach(el => {
             const id = el.getAttribute('data-edit-id');
-            if(id) dataToSave[id] = el.innerHTML;
+            if(id) {
+                // 2. فلتر التعقيم لضمان عدم مرور أي كلاس تحرير للسحابة
+                let cleanHTML = el.innerHTML.replace(/contenteditable="true"/gi, "");
+                cleanHTML = cleanHTML.replace(/contenteditable=""/gi, "");
+                dataToSave[id] = cleanHTML;
+            }
         });
 
         await setDoc(doc(db, "settings", "content"), dataToSave, { merge: true });
         
-        window.disableEditing();
-        alert("نجاح معماري: تم حفظ التعديلات بنجاح في قاعدة البيانات!");
+        alert("نجاح معماري: تم تنظيف النصوص وحفظها بنجاح في قاعدة البيانات!");
     } catch (err) {
         console.error("خطأ الحفظ:", err);
         alert("فشل الحفظ. تأكد من الصلاحيات.");
