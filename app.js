@@ -1,3 +1,6 @@
+// ==========================================
+// Firebase imports
+// ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   initializeFirestore,
@@ -5,12 +8,11 @@ import {
   addDoc,
   serverTimestamp,
   getDoc,
-  doc,
-  setDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ==========================================
-// 1. تهيئة فايربيس (Firebase Config)
+// Firebase setup
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyBTsosPoNUekZNywFgrBkVmtTrOSK-XyB8",
@@ -18,225 +20,217 @@ const firebaseConfig = {
   projectId: "jumping-unfolding-3v7sv",
   storageBucket: "jumping-unfolding-3v7sv.firebasestorage.app",
   messagingSenderId: "998742851624",
-  appId: "1:998742851624:web:98cab99ce0bc19505cf51d",
+  appId: "1:998742851624:web:98cab99ce0bc19505cf51d"
 };
 
-const app = initializeApp(firebaseConfig);
+const firebaseApp = initializeApp(firebaseConfig);
 const db = initializeFirestore(
-  app,
+  firebaseApp,
   { experimentalForceLongPolling: true },
   "ai-studio-6df2ea0b-0738-4940-b98e-7efdd9b010d0"
 );
 
 // ==========================================
-// 2. القواميس واللغات (Language & Translation)
+// Splash screen safety
 // ==========================================
+function hideSplash(delay) {
+  const wait = typeof delay === "number" ? delay : 1200;
+  window.setTimeout(function () {
+    const splash = document.getElementById("splash-screen");
+    if (!splash) return;
+    splash.classList.add("splash-hidden");
+    window.setTimeout(function () {
+      splash.style.display = "none";
+    }, 800);
+  }, wait);
+}
+
+window.addEventListener("load", function () { hideSplash(1200); }, { once: true });
+window.setTimeout(function () { hideSplash(0); }, 4500);
+
+// ==========================================
+// Language system
+// ==========================================
+const supportedLanguages = ["ar", "en", "fr", "ru"];
+
+const pageTitles = {
+  ar: "أكاديمية بصائر | نور يهدي، وعلم يبني",
+  en: "Basair Academy | Guided by Light",
+  fr: "Académie Bassaïr | Lumière qui guide",
+  ru: "Академия Басаир | Свет, который ведет"
+};
+
 const trackTranslations = {
   ar: [
     { value: "", text: "-- اختر المسار الأكاديمي --" },
     { value: "Quran and Tajweed", text: "مسار حفظ القرآن وإتقان التجويد" },
     { value: "Arabic from Scratch", text: "دورة اللغة العربية من الصفر" },
-    { value: "Specialization", text: "التخصص اللغوي وعلوم الآلة" },
+    { value: "Specialization", text: "التخصص اللغوي وعلوم الآلة" }
   ],
   en: [
     { value: "", text: "-- Select Academic Track --" },
     { value: "Quran and Tajweed", text: "Track of Quran Memorization & Tajweed" },
     { value: "Arabic from Scratch", text: "Arabic Language from Scratch" },
-    { value: "Specialization", text: "Linguistic Specialization & Instrumental" },
+    { value: "Specialization", text: "Linguistic Specialization & Instrumental" }
   ],
   fr: [
     { value: "", text: "-- Choisir le Parcours --" },
     { value: "Quran and Tajweed", text: "Parcours de Mémorisation du Coran" },
     { value: "Arabic from Scratch", text: "Langue Arabe de Zéro" },
-    { value: "Specialization", text: "Spécialisation Linguistique" },
+    { value: "Specialization", text: "Spécialisation Linguistique" }
   ],
   ru: [
     { value: "", text: "-- Выберите курс --" },
     { value: "Quran and Tajweed", text: "Путь заучивания Корана" },
     { value: "Arabic from Scratch", text: "Арабский язык с нуля" },
-    { value: "Specialization", text: "Лингвистическая специализация" },
-  ],
+    { value: "Specialization", text: "Лингвистическая специализация" }
+  ]
 };
 
-function updateDynamicSelect(lang) {
-  const selectEl = document.getElementById("dynamic-track-select");
-  if (!selectEl) return;
+function getSafeLang(lang) {
+  return supportedLanguages.includes(lang) ? lang : "ar";
+}
 
-  selectEl.innerHTML = "";
-  const options = trackTranslations[lang] || trackTranslations["ar"];
+function updateDynamicTrackSelect(lang) {
+  const select = document.getElementById("dynamic-track-select");
+  if (!select) return;
 
-  options.forEach((opt) => {
-    const optionEl = document.createElement("option");
-    optionEl.value = opt.value;
-    optionEl.textContent = opt.text;
-    if (opt.value === "") {
-      optionEl.disabled = true;
-      optionEl.selected = true;
+  select.textContent = "";
+  const options = trackTranslations[lang] || trackTranslations.ar;
+
+  options.forEach(function (item) {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.text;
+    if (item.value === "") {
+      option.disabled = true;
+      option.selected = true;
     }
-    selectEl.appendChild(optionEl);
+    select.appendChild(option);
   });
 }
 
-window.setLang = function (langCode) {
+function setLang(lang) {
+  const safeLang = getSafeLang(lang);
   const root = document.getElementById("html-root");
   const body = document.getElementById("body-root");
 
-  body.className = "route-" + langCode + " relative";
-  root.lang = langCode;
-  root.dir = langCode === "ar" ? "rtl" : "ltr";
-
-  const pageTitle = document.getElementById("page-title");
-  if (pageTitle) {
-    if (langCode === "ar") pageTitle.textContent = "أكاديمية بصائر | نور يهدي، وعلم يبني";
-    else if (langCode === "en") pageTitle.textContent = "Basair Academy | Guided by Light";
-    else if (langCode === "fr") pageTitle.textContent = "Académie Bassaïr | Lumière qui guide";
-    else if (langCode === "ru") pageTitle.textContent = "Академия Басаир | Свет, который ведет";
+  if (root) {
+    root.lang = safeLang;
+    root.dir = safeLang === "ar" ? "rtl" : "ltr";
   }
 
-  localStorage.setItem("academy_lang", langCode);
-  updateDynamicSelect(langCode);
-  window.closeDropdown();
-  window.closeMobileMenu();
-};
+  if (body) {
+    body.className = "route-" + safeLang + " relative";
+  }
 
-window.toggleLangMenu = function () {
+  const title = document.getElementById("page-title");
+  if (title) title.textContent = pageTitles[safeLang] || pageTitles.ar;
+
+  localStorage.setItem("academy_lang", safeLang);
+  updateDynamicTrackSelect(safeLang);
+  closeDropdown();
+  closeMobileMenu();
+}
+
+// ==========================================
+// UI helpers exposed for inline HTML handlers
+// ==========================================
+function toggleLangMenu() {
   const dropdown = document.getElementById("langDropdown");
   const btn = document.getElementById("lang-btn");
-  if (dropdown && btn) {
-    dropdown.classList.toggle("active");
-    btn.setAttribute("aria-expanded", dropdown.classList.contains("active"));
-  }
-};
+  if (!dropdown || !btn) return;
+  dropdown.classList.toggle("active");
+  btn.setAttribute("aria-expanded", dropdown.classList.contains("active") ? "true" : "false");
+}
 
-window.closeDropdown = function () {
-  const menu = document.getElementById("langDropdown");
+function closeDropdown() {
+  const dropdown = document.getElementById("langDropdown");
   const btn = document.getElementById("lang-btn");
-  if (menu && menu.classList.contains("active")) {
-    menu.classList.remove("active");
-    if (btn) btn.setAttribute("aria-expanded", "false");
-  }
-};
+  if (dropdown) dropdown.classList.remove("active");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
 
-window.toggleMobileMenu = function () {
+function toggleMobileMenu() {
   const menu = document.getElementById("mobile-menu");
   const backdrop = document.getElementById("mobile-backdrop");
   const btn = document.getElementById("mobile-menu-btn");
+  if (!menu) return;
 
-  const isActive = menu.classList.contains("active");
-
-  if (!isActive) {
-    menu.classList.add("active");
-    if (backdrop) backdrop.classList.add("active");
-    if (btn) btn.setAttribute("aria-expanded", "true");
-    document.body.style.overflow = "hidden";
-  } else {
-    window.closeMobileMenu();
+  const active = menu.classList.contains("active");
+  if (active) {
+    closeMobileMenu();
+    return;
   }
-};
 
-window.closeMobileMenu = function () {
+  menu.classList.add("active");
+  if (backdrop) backdrop.classList.add("active");
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  document.body.style.overflow = "hidden";
+}
+
+function closeMobileMenu() {
   const menu = document.getElementById("mobile-menu");
   const backdrop = document.getElementById("mobile-backdrop");
   const btn = document.getElementById("mobile-menu-btn");
+  if (menu) menu.classList.remove("active");
+  if (backdrop) backdrop.classList.remove("active");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  document.body.style.overflow = "";
+}
 
-  if (menu && menu.classList.contains("active")) {
-    menu.classList.remove("active");
-    if (backdrop) backdrop.classList.remove("active");
-    if (btn) btn.setAttribute("aria-expanded", "false");
-    document.body.style.overflow = "";
-  }
-};
-
-// ==========================================
-// 3. وضع المعمار الأعظم وحالة التطبيق (Global States)
-// ==========================================
-window.isEditingMode = false;
-window.godModeActive = false;
-
-window.disableEditing = function () {
-  window.isEditingMode = false;
-  const btn = document.getElementById("dev-edit-btn");
-  if (btn) btn.classList.remove("text-[#D4AF37]", "bg-white/10");
-
-  document.body.classList.remove("god-mode-editing");
-
-  const textElements = document.querySelectorAll('[contenteditable="true"]');
-  textElements.forEach((el) => {
-    el.removeAttribute("contenteditable");
-    el.style.outline = "none";
-    el.style.cursor = "";
-  });
-};
-
-window.toggleGodMode = function (forceOpen = false) {
-  const dock = document.getElementById("dev-god-mode");
-  if (!dock) return;
-
-  if (forceOpen) window.godModeActive = true;
-  else window.godModeActive = !window.godModeActive;
-
-  if (window.godModeActive) {
-    dock.classList.remove("translate-y-32", "opacity-0", "pointer-events-none");
-    dock.classList.add("translate-y-0", "opacity-100", "pointer-events-auto");
-  } else {
-    dock.classList.add("translate-y-32", "opacity-0", "pointer-events-none");
-    dock.classList.remove("translate-y-0", "opacity-100", "pointer-events-auto");
-    window.disableEditing();
-  }
-};
-
+window.setLang = setLang;
+window.toggleLangMenu = toggleLangMenu;
+window.closeDropdown = closeDropdown;
+window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
 window.showPasswordModal = function () {
-  const modal = document.getElementById("password-modal");
-  const input = document.getElementById("god-mode-password");
-  const errorTxt = document.getElementById("password-error");
-
-  if (!modal || !input) return;
-
-  input.value = "";
-  if (errorTxt) errorTxt.classList.add("hidden");
-  modal.classList.remove("hidden");
-  setTimeout(() => {
-    modal.classList.remove("opacity-0");
-    document.getElementById("password-modal-content")?.classList.remove("scale-95");
-    input.focus();
-  }, 10);
+  alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
 };
-
-window.hidePasswordModal = function () {
-  const modal = document.getElementById("password-modal");
-  if (!modal) return;
-  
-  modal.classList.add("opacity-0");
-  document.getElementById("password-modal-content")?.classList.add("scale-95");
-  setTimeout(() => {
-    modal.classList.add("hidden");
-  }, 300);
-};
+window.hidePasswordModal = function () {};
 
 // ==========================================
-// 4. الأحداث الرئيسية (DOM Content Loaded)
+// General UI initialization
 // ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-  // --- إعداد اللغة ---
-  const savedLang = localStorage.getItem("academy_lang") || "ar";
-  window.setLang(savedLang);
+function initLanguageButtons() {
+  document.querySelectorAll("[data-lang]").forEach(function (button) {
+    if (button.dataset.langBound === "true") return;
+    button.dataset.langBound = "true";
 
-  document.querySelectorAll("[data-lang]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const targetBtn = e.target.closest("[data-lang]");
-      if (targetBtn) window.setLang(targetBtn.getAttribute("data-lang"));
+    button.addEventListener("click", function (event) {
+      const target = event.target.closest("[data-lang]");
+      if (!target) return;
+      setLang(target.getAttribute("data-lang"));
     });
   });
+}
 
+function initGlobalClicks() {
   document.addEventListener("click", function (event) {
-    if (!event.target.closest(".relative")) window.closeDropdown();
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+
+    if (!target.closest("#lang-btn") && !target.closest("#langDropdown")) {
+      closeDropdown();
+    }
   });
 
-  window.addEventListener("resize", () => {
-    if (window.innerWidth >= 1024) window.closeMobileMenu();
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      closeDropdown();
+      closeMobileMenu();
+    }
   });
 
-  window.addEventListener("scroll", () => {
+  window.addEventListener("resize", function () {
+    if (window.innerWidth >= 1024) closeMobileMenu();
+  });
+}
+
+function initScrollEffects() {
+  let ticking = false;
+
+  function run() {
     const nav = document.getElementById("navbar");
     if (nav) {
       if (window.scrollY > 20) {
@@ -250,348 +244,400 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sections = document.querySelectorAll("section");
     const navLinks = document.querySelectorAll(".nav-link");
-
     let current = "";
-    sections.forEach((section) => {
-      const sectionTop = section.offsetTop;
-      if (scrollY >= sectionTop - 100) {
-        current = section.getAttribute("id");
+
+    sections.forEach(function (section) {
+      if (window.scrollY >= section.offsetTop - 100) {
+        current = section.getAttribute("id") || "";
       }
     });
 
-    navLinks.forEach((link) => {
+    navLinks.forEach(function (link) {
       link.classList.remove("active-section");
-      if (link.getAttribute("href").includes(current)) {
+      const href = link.getAttribute("href") || "";
+      if (current && href.indexOf(current) !== -1) {
         link.classList.add("active-section");
       }
     });
-  });
-
-  // --- معالجة الاستمارة ---
-  const form = document.getElementById("enrollment-form");
-  const submitBtn = document.getElementById("submit-btn");
-  const btnText = document.getElementById("btn-text");
-  const btnSpinner = document.getElementById("btn-spinner");
-  const successMsg = document.getElementById("success-message");
-  const errorMsg = document.getElementById("error-message");
-  const errorText = document.getElementById("error-text");
-
-  if (form) {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      submitBtn.disabled = true;
-      submitBtn.classList.add("opacity-70", "cursor-not-allowed");
-      btnText.classList.add("hidden");
-      btnSpinner.classList.remove("hidden");
-      successMsg.classList.add("hidden");
-      errorMsg.classList.add("hidden");
-
-      const formData = new FormData(form);
-      const trackValue = formData.get("track");
-
-      if (!trackValue) {
-        errorText.textContent = "يرجى اختيار المسار الأكاديمي أولاً.";
-        errorMsg.classList.remove("hidden");
-        submitBtn.disabled = false;
-        submitBtn.classList.remove("opacity-70", "cursor-not-allowed");
-        btnText.classList.remove("hidden");
-        btnSpinner.classList.add("hidden");
-        return;
-      }
-
-      const data = {
-        fullName: formData.get("fullName"),
-        phone: formData.get("phone"),
-        track: trackValue,
-        message: formData.get("message") || "لا يوجد",
-        submissionDate: serverTimestamp(),
-        status: "new",
-      };
-
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 15000)
-        );
-
-        const firebasePromise = addDoc(collection(db, "enrollment_requests"), data);
-
-        await Promise.race([firebasePromise, timeoutPromise]);
-
-        form.reset();
-        successMsg.classList.remove("hidden");
-        setTimeout(() => successMsg.classList.add("hidden"), 5000);
-      } catch (error) {
-        console.error("Firebase/Network Error: ", error);
-        if (error.message === "NETWORK_TIMEOUT") {
-          errorText.textContent = "فشل الاتصال. تأكد من تفعيل قاعدة بيانات Firestore في مشروعك.";
-        } else {
-          errorText.textContent = "حدث خطأ: " + error.message;
-        }
-        errorMsg.classList.remove("hidden");
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.classList.remove("opacity-70", "cursor-not-allowed");
-        btnText.classList.remove("hidden");
-        btnSpinner.classList.add("hidden");
-      }
-    });
   }
 
-  // --- المكتبة المرئية (Video Filter Logic) ---
-  const filterBtns = document.querySelectorAll(".filter-btn");
-  const videoCards = document.querySelectorAll(".video-card");
+  window.addEventListener("scroll", function () {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      run();
+      ticking = false;
+    });
+  });
 
-  filterBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      filterBtns.forEach((b) => {
+  run();
+}
+
+function initVideoFilter() {
+  const filterButtons = document.querySelectorAll(".filter-btn");
+  if (!filterButtons.length) return;
+
+  filterButtons.forEach(function (btn) {
+    if (btn.dataset.filterBound === "true") return;
+    btn.dataset.filterBound = "true";
+
+    btn.addEventListener("click", function () {
+      filterButtons.forEach(function (b) {
         b.classList.remove("bg-[#D4AF37]", "text-[#0A1F44]", "shadow-[0_0_15px_rgba(212,175,55,0.4)]");
         b.classList.add("bg-white/10", "text-white");
+        b.setAttribute("aria-pressed", "false");
       });
+
       btn.classList.remove("bg-white/10", "text-white");
       btn.classList.add("bg-[#D4AF37]", "text-[#0A1F44]", "shadow-[0_0_15px_rgba(212,175,55,0.4)]");
-
-      const filterValue = btn.getAttribute("data-filter");
-      videoCards.forEach((card) => {
-        if (filterValue === "all" || card.getAttribute("data-category") === filterValue) {
-          card.style.display = "block";
-          setTimeout(() => (card.style.opacity = "1"), 50);
-        } else {
-          card.style.opacity = "0";
-          setTimeout(() => (card.style.display = "none"), 300);
-        }
-      });
+      btn.setAttribute("aria-pressed", "true");
+      applyVideoFilter(btn.getAttribute("data-filter") || "all");
     });
   });
 
-  // --- وضع المعمار الأعظم و أحداث الأزرار ---
-  document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "m" || e.key === "M")) {
-      e.preventDefault();
-      if (!window.godModeActive) window.showPasswordModal();
-      else window.toggleGodMode();
-    }
+  const active = Array.from(filterButtons).find(function (btn) {
+    return btn.getAttribute("aria-pressed") === "true" || btn.classList.contains("bg-[#D4AF37]");
+  }) || Array.from(filterButtons).find(function (btn) {
+    return btn.getAttribute("data-filter") === "all";
   });
 
-  document.getElementById("verify-password-btn")?.addEventListener("click", async () => {
-    const passInput = document.getElementById("god-mode-password").value;
-    const errorTxt = document.getElementById("password-error");
-    const btnText = document.getElementById("verify-btn-text");
-    const spinner = document.getElementById("verify-spinner");
+  applyVideoFilter(active ? active.getAttribute("data-filter") || "all" : "all");
+}
 
-    if (!passInput) {
-      errorTxt.textContent = "يرجى إدخال المفتاح!";
-      errorTxt.classList.remove("hidden");
+function applyVideoFilter(filterValue) {
+  document.querySelectorAll(".video-card").forEach(function (card) {
+    const category = card.getAttribute("data-category") || "all";
+    if (filterValue === "all" || category === filterValue) {
+      card.style.display = "block";
+      window.setTimeout(function () {
+        card.style.opacity = "1";
+      }, 50);
+    } else {
+      card.style.opacity = "0";
+      window.setTimeout(function () {
+        card.style.display = "none";
+      }, 300);
+    }
+  });
+}
+
+function initSlider() {
+  const setup = function () {
+    const track = document.getElementById("testimonials-track");
+    if (!track || track.dataset.sliderInitialized === "true") return;
+
+    const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
+    if (!slides.length) return;
+
+    track.dataset.sliderInitialized = "true";
+    const firstClone = slides[0].cloneNode(true);
+    const lastClone = slides[slides.length - 1].cloneNode(true);
+    track.appendChild(firstClone);
+    track.insertBefore(lastClone, slides[0]);
+
+    const allSlides = document.querySelectorAll(".testimonial-slide");
+    let currentIndex = 1;
+    const slideWidth = 100;
+
+    function updateSlider(animate) {
+      track.style.transition = animate === false ? "none" : "transform 0.7s ease-in-out";
+      track.style.transform = "translateX(" + currentIndex * slideWidth + "%)";
+    }
+
+    updateSlider(false);
+
+    track.addEventListener("transitionend", function () {
+      if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(firstClone)) {
+        currentIndex = 1;
+        updateSlider(false);
+      }
+      if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(lastClone)) {
+        currentIndex = allSlides.length - 2;
+        updateSlider(false);
+      }
+    });
+
+    function moveToNext() {
+      if (currentIndex >= allSlides.length - 1) return;
+      currentIndex += 1;
+      updateSlider(true);
+    }
+
+    function moveToPrev() {
+      if (currentIndex <= 0) return;
+      currentIndex -= 1;
+      updateSlider(true);
+    }
+
+    const nextBtn = document.getElementById("slider-next-btn");
+    const prevBtn = document.getElementById("slider-prev-btn");
+    if (nextBtn) nextBtn.addEventListener("click", moveToNext);
+    if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
+
+    let autoPlay = window.setInterval(moveToNext, 6000);
+    [nextBtn, prevBtn].forEach(function (btn) {
+      if (!btn) return;
+      btn.addEventListener("mouseenter", function () { window.clearInterval(autoPlay); });
+      btn.addEventListener("mouseleave", function () { autoPlay = window.setInterval(moveToNext, 6000); });
+    });
+  };
+
+  if (document.readyState === "complete") setup();
+  else window.addEventListener("load", setup, { once: true });
+}
+
+// ==========================================
+// Enrollment form
+// ==========================================
+function initEnrollmentForm() {
+  const form = document.getElementById("enrollment-form");
+  if (!form) return;
+
+  form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById("submit-btn");
+    const btnText = document.getElementById("btn-text");
+    const btnSpinner = document.getElementById("btn-spinner");
+    const successMsg = document.getElementById("success-message");
+    const errorMsg = document.getElementById("error-message");
+    const errorText = document.getElementById("error-text");
+
+    if (!submitBtn || !btnText || !btnSpinner || !successMsg || !errorMsg || !errorText) return;
+
+    function unlock() {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("opacity-70", "cursor-not-allowed");
+      btnText.classList.remove("hidden");
+      btnSpinner.classList.add("hidden");
+    }
+
+    const lastSubmissionTime = localStorage.getItem("basair_last_submission");
+    const currentTime = Date.now();
+    const cooldown = 60 * 60 * 1000;
+
+    if (lastSubmissionTime && currentTime - Number.parseInt(lastSubmissionTime, 10) < cooldown) {
+      errorText.textContent = "عذراً، لقد قمت بإرسال طلب مؤخراً. يرجى المحاولة لاحقاً.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
       return;
     }
 
+    submitBtn.disabled = true;
+    submitBtn.classList.add("opacity-70", "cursor-not-allowed");
     btnText.classList.add("hidden");
-    spinner.classList.remove("hidden");
-    errorTxt.classList.add("hidden");
+    btnSpinner.classList.remove("hidden");
+    successMsg.classList.add("hidden");
+    errorMsg.classList.add("hidden");
+
+    const formData = new FormData(form);
+    const fullName = String(formData.get("fullName") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const track = String(formData.get("track") || "").trim();
+    const message = String(formData.get("message") || "").trim();
+
+    if (!track) {
+      errorText.textContent = "يرجى اختيار المسار الأكاديمي أولاً.";
+      errorMsg.classList.remove("hidden");
+      unlock();
+      return;
+    }
+
+    if (fullName.length < 3 || fullName.length > 80) {
+      errorText.textContent = "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.";
+      errorMsg.classList.remove("hidden");
+      unlock();
+      return;
+    }
+
+    if (phone.length < 6 || phone.length > 30) {
+      errorText.textContent = "يرجى إدخال رقم هاتف صحيح.";
+      errorMsg.classList.remove("hidden");
+      unlock();
+      return;
+    }
+
+    if (message.length > 1000) {
+      errorText.textContent = "الرسالة طويلة جدًا. يرجى اختصارها.";
+      errorMsg.classList.remove("hidden");
+      unlock();
+      return;
+    }
 
     try {
-      const docRef = doc(db, "settings", "security");
-      const docSnap = await getDoc(docRef);
+      const timeoutPromise = new Promise(function (_, reject) {
+        window.setTimeout(function () { reject(new Error("NETWORK_TIMEOUT")); }, 15000);
+      });
 
-      if (!docSnap.exists()) {
-        try {
-          await setDoc(docRef, { adminPassword: "Basair@2026" });
-          if (passInput === "Basair@2026") {
-            window.hidePasswordModal();
-            window.toggleGodMode(true);
-            return;
-          } else {
-            errorTxt.textContent = "المفتاح الأمني غير صحيح!";
-            errorTxt.classList.remove("hidden");
-            return;
-          }
-        } catch (e) {
-          if (passInput === "Basair@2026") {
-            window.hidePasswordModal();
-            window.toggleGodMode(true);
-            return;
-          }
-          errorTxt.textContent = "المستند غير موجود وتفقد الصلاحيات.";
-          errorTxt.classList.remove("hidden");
-          return;
-        }
-      }
+      const writePromise = addDoc(collection(db, "enrollment_requests"), {
+        fullName: fullName,
+        phone: phone,
+        track: track,
+        message: message || "لا يوجد",
+        submissionDate: serverTimestamp(),
+        status: "new"
+      });
 
-      if (docSnap.data().adminPassword === passInput) {
-        window.hidePasswordModal();
-        window.toggleGodMode(true);
-      } else {
-        errorTxt.textContent = "المفتاح الأمني غير صحيح!";
-        errorTxt.classList.remove("hidden");
-      }
+      await Promise.race([writePromise, timeoutPromise]);
+      localStorage.setItem("basair_last_submission", String(currentTime));
+      form.reset();
+      successMsg.classList.remove("hidden");
+      window.setTimeout(function () { successMsg.classList.add("hidden"); }, 8000);
     } catch (error) {
-      errorTxt.textContent = "تأكد من صلاحيات قاعدة البيانات.";
-      errorTxt.classList.remove("hidden");
+      console.error("Enrollment Error:", error);
+      errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقاً.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
     } finally {
-      btnText.classList.remove("hidden");
-      spinner.classList.add("hidden");
+      unlock();
     }
   });
+}
 
-  document.getElementById("god-mode-password")?.addEventListener("keypress", function (e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      document.getElementById("verify-password-btn").click();
-    }
-  });
+// ==========================================
+// Dynamic content
+// ==========================================
+function escapeCssIdentifier(value) {
+  if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(value);
+  return value.replace(/["\\]/g, "\\$&");
+}
 
-  // أزرار لوحة المطور
-  document.getElementById("dev-close-btn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.toggleGodMode();
-  });
-
-  document.getElementById("dev-edit-btn")?.addEventListener("click", function (e) {
-    e.preventDefault();
-    window.isEditingMode = !window.isEditingMode;
-
-    const textElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
-
-    if (window.isEditingMode) {
-      this.classList.add("text-[#D4AF37]", "bg-white/10");
-      document.body.classList.add("god-mode-editing");
-
-      textElements.forEach((el) => {
-        el.setAttribute("contenteditable", "true");
-        el.style.cursor = "text";
-        if (!el.className.includes("lang-")) {
-          el.style.outline = "1px dashed rgba(212, 175, 55, 0.4)";
-        }
-      });
-    } else {
-      window.disableEditing();
-    }
-  });
-
-  document.getElementById("dev-add-video-btn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    const modal = document.getElementById("add-video-modal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      setTimeout(() => {
-        modal.classList.remove("opacity-0");
-        document.getElementById("video-modal-content")?.classList.remove("scale-95");
-      }, 10);
-    }
-  });
-
-  document.getElementById("confirm-add-video")?.addEventListener("click", () => {
-    const title = document.getElementById("new-vid-title").value;
-    const cat = document.getElementById("new-vid-cat").value;
-    const imgUrl = document.getElementById("new-vid-img").value || "https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000";
-
-    if (!title) {
-      alert("أدخل العنوان");
-      return;
-    }
-
-    const newVideoHTML = `
-      <div class="video-card group cursor-pointer animate-fade-in-up" data-category="${cat}">
-          <div class="relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-              <div class="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10"></div>
-              <img src="${imgUrl}" alt="${title}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700">
-              <div class="absolute inset-0 flex items-center justify-center z-20">
-                  <div class="w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all">
-                      <svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>
-                  </div>
-              </div>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors">${title}</h3>
-          <p class="text-white/60 text-sm font-medium">فيديو مضاف حديثاً عبر وضع المطور.</p>
-      </div>
-    `;
-
-    document.getElementById("video-grid")?.insertAdjacentHTML("afterbegin", newVideoHTML);
-
-    const modal = document.getElementById("add-video-modal");
-    modal.classList.add("opacity-0");
-    document.getElementById("video-modal-content")?.classList.add("scale-95");
-    setTimeout(() => {
-      modal.classList.add("hidden");
-    }, 300);
-  });
-
-  document.getElementById("dev-save-btn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.disableEditing();
-    alert("تم تجميد التعديلات. تم حفظ التعديلات محلياً بنجاح.");
-  });
-});
-
-window.addEventListener("load", function () {
-  const splashScreen = document.getElementById("splash-screen");
-  if (splashScreen) {
-    setTimeout(function () {
-      splashScreen.classList.add("splash-hidden");
-      setTimeout(function () {
-        splashScreen.style.display = "none";
-      }, 800);
-    }, 2500);
+function isSafeUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === "https:";
+  } catch (error) {
+    return false;
   }
+}
 
-  // إعداد حركة الآراء
-  const track = document.getElementById("testimonials-track");
-  if (track) {
-    const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
-    if (slides.length > 0) {
-      const firstClone = slides[0].cloneNode(true);
-      const lastClone = slides[slides.length - 1].cloneNode(true);
-      track.appendChild(firstClone);
-      track.insertBefore(lastClone, slides[0]);
+function normalizeVideo(video) {
+  if (!video || typeof video !== "object") return null;
 
-      let allSlides = document.querySelectorAll(".testimonial-slide");
-      let currentIndex = 1;
-      const slideWidth = 100;
+  const title = typeof video.title === "string" ? video.title.trim() : "";
+  const category = typeof video.category === "string" ? video.category.trim() : "all";
+  const imageUrl = typeof video.imageUrl === "string" ? video.imageUrl.trim() : "";
+  const videoUrl = typeof video.videoUrl === "string" ? video.videoUrl.trim() : "";
 
-      track.style.transition = "none";
-      track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
+  if (!title || title.length > 120) return null;
 
-      function updateSlider(animate = true) {
-        track.style.transition = animate ? "transform 0.7s ease-in-out" : "none";
-        track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
-      }
+  const allowedCategories = ["all", "quran", "arabic", "islamic", "tajweed", "grammar", "specialization"];
+  const fallbackImage = "https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000";
 
-      track.addEventListener("transitionend", () => {
-        if (allSlides[currentIndex].isEqualNode(firstClone)) {
-          currentIndex = 1;
-          updateSlider(false);
-        }
-        if (allSlides[currentIndex].isEqualNode(lastClone)) {
-          currentIndex = allSlides.length - 2;
-          updateSlider(false);
-        }
-      });
+  return {
+    title: title,
+    category: allowedCategories.includes(category) ? category : "all",
+    imageUrl: isSafeUrl(imageUrl) ? imageUrl : fallbackImage,
+    videoUrl: isSafeUrl(videoUrl) ? videoUrl : "#"
+  };
+}
 
-      const nextBtn = document.getElementById("slider-next-btn");
-      const prevBtn = document.getElementById("slider-prev-btn");
+function createVideoCard(video) {
+  const card = document.createElement("article");
+  card.className = "video-card group cursor-pointer animate-fade-in-up dynamic-video";
+  card.setAttribute("data-category", video.category);
 
-      function moveToNext() {
-        if (currentIndex >= allSlides.length - 1) return;
-        currentIndex++;
-        updateSlider();
-      }
+  const imageWrapper = document.createElement("div");
+  imageWrapper.className = "relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg";
 
-      function moveToPrev() {
-        if (currentIndex <= 0) return;
-        currentIndex--;
-        updateSlider();
-      }
+  const overlay = document.createElement("div");
+  overlay.className = "absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10";
 
-      if (nextBtn) nextBtn.addEventListener("click", moveToNext);
-      if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
+  const img = document.createElement("img");
+  img.src = video.imageUrl;
+  img.alt = video.title;
+  img.loading = "lazy";
+  img.className = "w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700";
 
-      let autoPlay = setInterval(moveToNext, 6000);
-      [nextBtn, prevBtn].forEach((btn) => {
-        if (btn) {
-          btn.addEventListener("mouseenter", () => clearInterval(autoPlay));
-          btn.addEventListener("mouseleave", () => (autoPlay = setInterval(moveToNext, 6000)));
-        }
+  const playLayer = document.createElement("div");
+  playLayer.className = "absolute inset-0 flex items-center justify-center z-20";
+
+  const playCircle = document.createElement("a");
+  playCircle.href = video.videoUrl;
+  playCircle.target = "_blank";
+  playCircle.rel = "noopener noreferrer";
+  playCircle.setAttribute("aria-label", "تشغيل فيديو: " + video.title);
+  playCircle.className = "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "w-6 h-6 text-white translate-x-0.5");
+  svg.setAttribute("fill", "currentColor");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z");
+  svg.appendChild(path);
+  playCircle.appendChild(svg);
+
+  const title = document.createElement("h3");
+  title.className = "text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors";
+  title.textContent = video.title;
+
+  const desc = document.createElement("p");
+  desc.className = "text-white/60 text-sm font-medium";
+  desc.textContent = "فيديو مضاف حديثًا.";
+
+  playLayer.appendChild(playCircle);
+  imageWrapper.appendChild(overlay);
+  imageWrapper.appendChild(img);
+  imageWrapper.appendChild(playLayer);
+  card.appendChild(imageWrapper);
+  card.appendChild(title);
+  card.appendChild(desc);
+  return card;
+}
+
+async function loadDynamicContent() {
+  try {
+    const docRef = doc(db, "site_content", "public");
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return;
+
+    const data = docSnap.data();
+
+    if (data.texts && typeof data.texts === "object") {
+      Object.entries(data.texts).forEach(function ([id, value]) {
+        if (typeof id !== "string" || typeof value !== "string") return;
+        const selector = "[data-content-id=\"" + escapeCssIdentifier(id) + "\"]";
+        const el = document.querySelector(selector);
+        if (el) el.textContent = value;
       });
     }
+
+    if (Array.isArray(data.videos)) {
+      const grid = document.getElementById("video-grid");
+      if (grid) {
+        document.querySelectorAll(".dynamic-video").forEach(function (el) { el.remove(); });
+        data.videos.slice().reverse().forEach(function (item) {
+          const video = normalizeVideo(item);
+          if (video) grid.prepend(createVideoCard(video));
+        });
+        initVideoFilter();
+      }
+    }
+  } catch (error) {
+    console.error("خطأ في تحميل المحتوى العام:", error);
+  }
+}
+
+// ==========================================
+// Bootstrap
+// ==========================================
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    setLang(localStorage.getItem("academy_lang") || "ar");
+    initLanguageButtons();
+    initGlobalClicks();
+    initScrollEffects();
+    initVideoFilter();
+    initSlider();
+    initEnrollmentForm();
+    loadDynamicContent();
+    hideSplash(1200);
+  } catch (error) {
+    console.error("Application bootstrap error:", error);
+    hideSplash(0);
   }
 });
