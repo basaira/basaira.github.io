@@ -468,69 +468,162 @@ const requestData = {
 }
 
 // ==========================================
-// 5. Content Service (المعمارية الذكية والمحصنة)
+// 5. Content Service — Safe Public Content Loader
 // ==========================================
 class ContentService {
   constructor(firebaseService) {
     this.db = firebaseService.db;
-    this.tagEditableElements();
     this.loadDynamicContent();
-  }
-
-  tagEditableElements() {
-    const allElements = document.querySelectorAll(".lang-ar, .lang-en, .lang-fr, .lang-ru, h1, h2, h3, h4, p, li, blockquote, span:not(.logo-fallback)");
-    
-    // الفلتر المعماري الصارم: تجاهل أي حاوية تصميمية (يمنع تدمير الآراء والأزرار)
-    const safeTextElements = Array.from(allElements).filter(el => {
-      if (el.closest('.dynamic-video') || el.closest('#dev-god-mode') || el.closest('#password-modal') || el.closest('#add-video-modal')) return false;
-      // إذا كان العنصر يحتوي على Div أو Ul بداخله، فهو "حاوية تصميم" وليس نصاً، لذلك نستبعده!
-      if (el.querySelector('div, ul, section, article, nav')) return false;
-      return true;
-    });
-
-    safeTextElements.forEach((el, index) => {
-      if (!el.hasAttribute('data-edit-id')) {
-        // استخدام بادئة (safe-node) لكي يتجاهل النظام البيانات الفاسدة القديمة آلياً
-        el.setAttribute('data-edit-id', `safe-node-${index}`);
-      }
-    });
   }
 
   async loadDynamicContent() {
     try {
-      const docRef = doc(this.db, "admin_config", "site_content");
+      const docRef = doc(this.db, "site_content", "public");
       const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        
-        if (data.videos && Array.isArray(data.videos)) {
-          const grid = document.getElementById('video-grid');
-          if (grid) {
-            document.querySelectorAll('.dynamic-video').forEach(v => v.remove());
-            data.videos.forEach(videoHTML => {
-              grid.insertAdjacentHTML('afterbegin', videoHTML);
-            });
-            if(window.uiService) window.uiService.initVideoFilter();
-          }
-        }
+      if (!docSnap.exists()) {
+        console.info("لا يوجد محتوى ديناميكي عام محفوظ حتى الآن.");
+        return;
+      }
 
-        // استرجاع النصوص الصافية فقط
-        if (data.texts) {
-          Object.keys(data.texts).forEach(id => {
-            const el = document.querySelector(`[data-edit-id="${id}"]`);
-            if (el) {
-              el.innerHTML = data.texts[id];
-            }
-          });
-        }
+      const data = docSnap.data();
+
+      if (data.texts && typeof data.texts === "object") {
+        this.renderTexts(data.texts);
+      }
+
+      if (Array.isArray(data.videos)) {
+        this.renderVideos(data.videos);
       }
     } catch (error) {
-      console.error("خطأ في تحميل المحتوى:", error);
+      console.error("خطأ في تحميل المحتوى العام:", error);
     }
   }
-}
 
+  renderTexts(texts) {
+    Object.entries(texts).forEach(([id, value]) => {
+      if (typeof id !== "string") return;
+      if (typeof value !== "string") return;
+
+      const el = document.querySelector(`[data-content-id="${CSS.escape(id)}"]`);
+
+      if (!el) return;
+
+      // مهم جدًا:
+      // textContent لا ينفذ HTML، بل يعامل النص كنص فقط.
+      el.textContent = value;
+    });
+  }
+
+  renderVideos(videos) {
+    const grid = document.getElementById("video-grid");
+    if (!grid) return;
+
+    document.querySelectorAll(".dynamic-video").forEach((video) => video.remove());
+
+    videos.forEach((video) => {
+      const safeVideo = this.normalizeVideo(video);
+      if (!safeVideo) return;
+
+      const card = this.createVideoCard(safeVideo);
+      grid.prepend(card);
+    });
+
+    if (window.uiService) {
+      window.uiService.initVideoFilter();
+    }
+  }
+
+  normalizeVideo(video) {
+    if (!video || typeof video !== "object") return null;
+
+    const title = typeof video.title === "string" ? video.title.trim() : "";
+    const category = typeof video.category === "string" ? video.category.trim() : "all";
+    const imageUrl = typeof video.imageUrl === "string" ? video.imageUrl.trim() : "";
+    const videoUrl = typeof video.videoUrl === "string" ? video.videoUrl.trim() : "";
+
+    if (!title || title.length > 120) return null;
+
+    const allowedCategories = ["all", "quran", "arabic", "islamic", "tajweed", "grammar"];
+    const finalCategory = allowedCategories.includes(category) ? category : "all";
+
+    const fallbackImage =
+      "https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000";
+
+    return {
+      title,
+      category: finalCategory,
+      imageUrl: this.isSafeUrl(imageUrl) ? imageUrl : fallbackImage,
+      videoUrl: this.isSafeUrl(videoUrl) ? videoUrl : "#",
+    };
+  }
+
+  isSafeUrl(url) {
+    if (!url) return false;
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      return ["https:", "http:"].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  }
+
+  createVideoCard(video) {
+    const card = document.createElement("article");
+    card.className = "video-card group cursor-pointer animate-fade-in-up dynamic-video";
+    card.setAttribute("data-category", video.category);
+
+    const imageWrapper = document.createElement("div");
+    imageWrapper.className =
+      "relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg";
+
+    const overlay = document.createElement("div");
+    overlay.className =
+      "absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10";
+
+    const img = document.createElement("img");
+    img.src = video.imageUrl;
+    img.alt = video.title;
+    img.loading = "lazy";
+    img.className =
+      "w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700";
+
+    const playLayer = document.createElement("div");
+    playLayer.className = "absolute inset-0 flex items-center justify-center z-20";
+
+    const playCircle = document.createElement("a");
+    playCircle.href = video.videoUrl;
+    playCircle.target = "_blank";
+    playCircle.rel = "noopener noreferrer";
+    playCircle.setAttribute("aria-label", `تشغيل فيديو: ${video.title}`);
+    playCircle.className =
+      "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
+
+    playCircle.innerHTML =
+      '<svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>';
+
+    const title = document.createElement("h3");
+    title.className =
+      "text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors";
+    title.textContent = video.title;
+
+    const desc = document.createElement("p");
+    desc.className = "text-white/60 text-sm font-medium";
+    desc.textContent = "فيديو مضاف حديثًا.";
+
+    playLayer.appendChild(playCircle);
+    imageWrapper.appendChild(overlay);
+    imageWrapper.appendChild(img);
+    imageWrapper.appendChild(playLayer);
+
+    card.appendChild(imageWrapper);
+    card.appendChild(title);
+    card.appendChild(desc);
+
+    return card;
+  }
+}
 // ==========================================
 // 6. Admin Service (وضع التحرير)
 // ==========================================
@@ -801,7 +894,7 @@ class AdminService {
         videos.push(clonedVid.outerHTML);
       });
 
-      const docRef = doc(this.db, "admin_config", "site_content");
+      const docRef = doc(this.db, "site_content", "public");
       await setDoc(docRef, { texts, videos }, { merge: true });
       
       alert("تم الحفظ بنجاح! التعديلات أصبحت دائمة الآن ومحصنة.");
