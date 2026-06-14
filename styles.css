@@ -1,3 +1,4 @@
+```css
 /* ==========================================
    إعدادات الخطوط والخلفية الأساسية
    ========================================== */
@@ -23,16 +24,36 @@ body.route-fr .lang-fr { display: block !important; }
 body.route-ru .lang-ru { display: block !important; }
 
 /* السماح للنصوص الصغيرة (span) بالبقاء في سياقها */
-body.route-ar span.lang-ar, body.route-en span.lang-en, body.route-fr span.lang-fr, body.route-ru span.lang-ru { display: inline !important; }
+body.route-ar span.lang-ar,
+body.route-en span.lang-en,
+body.route-fr span.lang-fr,
+body.route-ru span.lang-ru {
+    display: inline !important;
+}
 
 /* السماح للأزرار التي صُممت كـ inline-block بالبقاء كذلك */
-body.route-ar a.lang-ar.inline-block, body.route-en a.lang-en.inline-block, body.route-fr a.lang-fr.inline-block, body.route-ru a.lang-ru.inline-block { display: inline-block !important; }
+body.route-ar a.lang-ar.inline-block,
+body.route-en a.lang-en.inline-block,
+body.route-fr a.lang-fr.inline-block,
+body.route-ru a.lang-ru.inline-block {
+    display: inline-block !important;
+}
 
 /* السماح للأزرار التي صُممت كـ flex (مثل أزرار الواتساب) بالبقاء كذلك */
-body.route-ar a.lang-ar.flex, body.route-en a.lang-en.flex, body.route-fr a.lang-fr.flex, body.route-ru a.lang-ru.flex { display: flex !important; }
+body.route-ar a.lang-ar.flex,
+body.route-en a.lang-en.flex,
+body.route-fr a.lang-fr.flex,
+body.route-ru a.lang-ru.flex {
+    display: flex !important;
+}
 
 /* إصلاح التداخل المرن (Flexbox) للحاويات كالبطاقات */
-body.route-ar div.lang-ar.flex-col, body.route-en div.lang-en.flex-col, body.route-fr div.lang-fr.flex-col, body.route-ru div.lang-ru.flex-col { display: flex !important; }
+body.route-ar div.lang-ar.flex-col,
+body.route-en div.lang-en.flex-col,
+body.route-fr div.lang-fr.flex-col,
+body.route-ru div.lang-ru.flex-col {
+    display: flex !important;
+}
 
 /* ==========================================
    التنسيقات العامة للموقع (UI Components)
@@ -58,6 +79,7 @@ body.route-ar div.lang-ar.flex-col, body.route-en div.lang-en.flex-col, body.rou
     visibility: hidden;
     box-shadow: 0 10px 25px -5px rgba(10, 31, 68, 0.15);
 }
+
 .dropdown-menu.active {
     transform: scaleY(1);
     opacity: 1;
@@ -65,27 +87,109 @@ body.route-ar div.lang-ar.flex-col, body.route-en div.lang-en.flex-col, body.rou
 }
 
 /* تنسيقات المحتوى الأكاديمي */
-.academic-doc p { color: rgba(10, 31, 68, 0.85); line-height: 2; margin-bottom: 1.5rem; font-size: 1.125rem; font-weight: 500; }
-.academic-doc h3 { font-weight: 900; margin-top: 3rem; margin-bottom: 1.5rem; font-size: 1.75rem; color: #0A1F44; }
-.academic-doc h4 { font-weight: 800; margin-top: 2.5rem; margin-bottom: 1.25rem; font-size: 1.35rem; color: #00563F; }
-.academic-doc ul { margin-bottom: 2.5rem; list-style-type: none; padding-inline-start: 0; }
-.academic-doc li { color: rgba(10, 31, 68, 0.85); margin-bottom: 1.25rem; line-height: 1.9; position: relative; padding-inline-start: 1.5rem; font-weight: 500; }
-.academic-doc li::before { content: "■"; position: absolute; inset-inline-start: 0; font-size: 0.85rem; color: #D4AF37; top: 0.4rem;}
-.academic-doc strong { color: #0A1F44; font-weight: 900; opacity: 1;}
-.academic-doc blockquote { border-inline-start: 4px solid #D4AF37; padding-inline-start: 1.25rem; margin-inline-start: 0; background: transparent; font-weight: 800; margin-bottom: 2.5rem; font-size: 1.35rem; color: #0A1F44;}
-
-details > summary { list-style: none; }
-details > summary::-webkit-details-marker { display: none; }
-details[open] summary ~ * { animation: sweep .3s ease-in-out; }
-@keyframes sweep {
-    0%    {opacity: 0; transform: translateY(-10px)}
-    100%  {opacity: 1; transform: translateY(0)}
+.academic-doc p {
+    color: rgba(10, 31, 68, 0.85);
+    line-height: 2;
+    margin-bottom: 1.5rem;
+    font-size: 1.125rem;
+    font-weight: 500;
 }
 
-.nav-link.active-section { color: #D4AF37; }
+.academic-doc h3 {
+    font-weight: 900;
+    margin-top: 3rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.75rem;
+    color: #0A1F44;
+}
 
-.logo-fallback { display: none; font-weight: 900; color: #0A1F44; font-size: 1.5rem; }
-img[style*="display: none"] + .logo-fallback { display: block; }
+.academic-doc h4 {
+    font-weight: 800;
+    margin-top: 2.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 1.35rem;
+    color: #00563F;
+}
+
+.academic-doc ul {
+    margin-bottom: 2.5rem;
+    list-style-type: none;
+    padding-inline-start: 0;
+}
+
+.academic-doc li {
+    color: rgba(10, 31, 68, 0.85);
+    margin-bottom: 1.25rem;
+    line-height: 1.9;
+    position: relative;
+    padding-inline-start: 1.5rem;
+    font-weight: 500;
+}
+
+.academic-doc li::before {
+    content: "■";
+    position: absolute;
+    inset-inline-start: 0;
+    font-size: 0.85rem;
+    color: #D4AF37;
+    top: 0.4rem;
+}
+
+.academic-doc strong {
+    color: #0A1F44;
+    font-weight: 900;
+    opacity: 1;
+}
+
+.academic-doc blockquote {
+    border-inline-start: 4px solid #D4AF37;
+    padding-inline-start: 1.25rem;
+    margin-inline-start: 0;
+    background: transparent;
+    font-weight: 800;
+    margin-bottom: 2.5rem;
+    font-size: 1.35rem;
+    color: #0A1F44;
+}
+
+details > summary {
+    list-style: none;
+}
+
+details > summary::-webkit-details-marker {
+    display: none;
+}
+
+details[open] summary ~ * {
+    animation: sweep 0.3s ease-in-out;
+}
+
+@keyframes sweep {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.nav-link.active-section {
+    color: #D4AF37;
+}
+
+.logo-fallback {
+    display: none;
+    font-weight: 900;
+    color: #0A1F44;
+    font-size: 1.5rem;
+}
+
+img[style*="display: none"] + .logo-fallback {
+    display: block;
+}
 
 /* تنسيقات شاشة الترحيب */
 #splash-screen {
@@ -106,9 +210,20 @@ img[style*="display: none"] + .logo-fallback { display: block; }
 }
 
 @keyframes pulse-scale {
-    0% { transform: scale(0.95); opacity: 0.8; }
-    50% { transform: scale(1.05); opacity: 1; }
-    100% { transform: scale(0.95); opacity: 0.8; }
+    0% {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(0.95);
+        opacity: 0.8;
+    }
 }
 
 .animate-logo-pulse {
@@ -127,10 +242,12 @@ img[style*="display: none"] + .logo-fallback { display: block; }
     visibility: hidden;
     transition: all 0.4s ease;
 }
+
 .mobile-backdrop.active {
     opacity: 1;
     visibility: visible;
 }
+
 .mobile-drawer {
     position: fixed;
     top: 0;
@@ -143,17 +260,21 @@ img[style*="display: none"] + .logo-fallback { display: block; }
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .route-ar .mobile-drawer {
     right: 0;
     transform: translateX(100%);
 }
+
 .route-ar .mobile-drawer.active {
     transform: translateX(0);
 }
+
 body:not(.route-ar) .mobile-drawer {
     left: 0;
     transform: translateX(-100%);
 }
+
 body:not(.route-ar) .mobile-drawer.active {
     transform: translateX(0);
 }
@@ -164,58 +285,89 @@ body:not(.route-ar) .mobile-drawer.active {
     width: max-content;
     animation: scroll-rtl 40s linear infinite;
 }
+
 body:not(.route-ar) .slider-track {
     animation: scroll-ltr 40s linear infinite;
 }
+
 .slider-track:hover {
     animation-play-state: paused;
 }
+
 @keyframes scroll-rtl {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(50%); } 
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(50%);
+    }
 }
+
 @keyframes scroll-ltr {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); } 
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
 }
 
 /* تأثيرات الانبثاق (Fade-in Up) الفاخرة للاستمارة */
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
+
 .animate-fade-in-up {
     animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     opacity: 0;
 }
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
 
-/* ==========================================
-   وضع الإحاطة اللغوية الشاملة (Omniscience Edit Mode)
-   ========================================== */
-body.god-mode-editing .lang-ar,
-body.god-mode-editing .lang-en,
-body.god-mode-editing .lang-fr,
-body.god-mode-editing .lang-ru {
-    display: block !important;
-    position: relative !important;
-    outline: 2px dashed rgba(212, 175, 55, 0.6) !important;
-    outline-offset: 4px;
-    margin-top: 1rem !important;
-    margin-bottom: 1rem !important;
-    padding: 0.5rem 1rem !important;
-    background: rgba(255, 255, 255, 0.05) !important;
-    border-radius: 0.5rem;
-    min-height: 2.5rem;
-    line-height: 1.6 !important;
-    width: 100% !important;
+.delay-100 {
+    animation-delay: 100ms;
 }
 
-/* شارات تعريف اللغات (Badges) للمطور */
-body.god-mode-editing .lang-ar::before { content: "AR"; position: absolute; top: -14px; right: 10px; background: #00563F; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: sans-serif; letter-spacing: 1px;}
-body.god-mode-editing .lang-en::before { content: "EN"; position: absolute; top: -14px; left: 10px; background: #0A1F44; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: sans-serif; letter-spacing: 1px;}
-body.god-mode-editing .lang-fr::before { content: "FR"; position: absolute; top: -14px; left: 10px; background: #2AABEE; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: sans-serif; letter-spacing: 1px;}
-body.god-mode-editing .lang-ru::before { content: "RU"; position: absolute; top: -14px; left: 10px; background: #8B0000; color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-family: sans-serif; letter-spacing: 1px;}
+.delay-200 {
+    animation-delay: 200ms;
+}
+
+.delay-300 {
+    animation-delay: 300ms;
+}
+
+.delay-400 {
+    animation-delay: 400ms;
+}
+
+/* ==========================================
+   تحسينات الوصول وتقليل الحركة
+   ========================================== */
+:focus-visible {
+    outline: 3px solid rgba(212, 175, 55, 0.85);
+    outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .slider-track {
+        animation: none !important;
+    }
+}
+```
