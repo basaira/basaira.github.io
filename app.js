@@ -463,90 +463,92 @@ videoCards.forEach(function (card) {
 }
 
 initSlider() {
-if (this.sliderInitialized) return;
-this.sliderInitialized = true;
+    if (this.sliderInitialized) return;
+    this.sliderInitialized = true;
 
-```
-var setupSlider = function () {
-  var track = document.getElementById("testimonials-track");
-  if (!track) return;
+    var setupSlider = function () {
+      var track = document.getElementById("testimonials-track");
+      if (!track) return;
 
-  if (track.dataset.sliderInitialized === "true") return;
-  track.dataset.sliderInitialized = "true";
+      if (track.dataset.sliderInitialized === "true") return;
+      track.dataset.sliderInitialized = "true";
 
-  var slides = Array.prototype.slice.call(document.querySelectorAll(".testimonial-slide"));
-  if (slides.length === 0) return;
+      var slides = Array.prototype.slice.call(document.querySelectorAll(".testimonial-slide"));
+      if (slides.length === 0) return;
 
-  var firstClone = slides[0].cloneNode(true);
-  var lastClone = slides[slides.length - 1].cloneNode(true);
+      var firstClone = slides[0].cloneNode(true);
+      var lastClone = slides[slides.length - 1].cloneNode(true);
 
-  track.appendChild(firstClone);
-  track.insertBefore(lastClone, slides[0]);
+      track.appendChild(firstClone);
+      track.insertBefore(lastClone, slides[0]);
 
-  var allSlides = document.querySelectorAll(".testimonial-slide");
-  var currentIndex = 1;
-  var slideWidth = 100;
+      var allSlides = document.querySelectorAll(".testimonial-slide");
+      var currentIndex = 1;
+      var slideWidth = 100;
 
-  track.style.transition = "none";
-  track.style.transform = "translateX(" + (currentIndex * slideWidth) + "%)";
+      // [التصحيح 1]: استخدام Template Literals لضمان سلامة النحو
+      track.style.transition = "none";
+      track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
 
-  var updateSlider = function (animate) {
-    var shouldAnimate = animate !== false;
-    track.style.transition = shouldAnimate ? "transform 0.7s ease-in-out" : "none";
-    track.style.transform = "translateX(" + (currentIndex * slideWidth) + "%)";
-  };
+      var updateSlider = function (animate) {
+        var shouldAnimate = animate !== false;
+        track.style.transition = shouldAnimate ? "transform 0.7s ease-in-out" : "none";
+        
+        // [التصحيح 2]: تطبيق ذات القاعدة في دالة التحديث
+        track.style.transform = `translateX(${currentIndex * slideWidth}%)`;
+      };
 
-  track.addEventListener("transitionend", function () {
-    if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(firstClone)) {
-      currentIndex = 1;
-      updateSlider(false);
+      track.addEventListener("transitionend", function () {
+        if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(firstClone)) {
+          currentIndex = 1;
+          updateSlider(false);
+        }
+
+        if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(lastClone)) {
+          currentIndex = allSlides.length - 2;
+          updateSlider(false);
+        }
+      });
+
+      var moveToNext = function () {
+        if (currentIndex >= allSlides.length - 1) return;
+        currentIndex++;
+        updateSlider(true);
+      };
+
+      var moveToPrev = function () {
+        if (currentIndex <= 0) return;
+        currentIndex--;
+        updateSlider(true);
+      };
+
+      var nextBtn = document.getElementById("slider-next-btn");
+      var prevBtn = document.getElementById("slider-prev-btn");
+
+      if (nextBtn) nextBtn.addEventListener("click", moveToNext);
+      if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
+
+      var autoPlay = window.setInterval(moveToNext, 6000);
+
+      [nextBtn, prevBtn].forEach(function (btn) {
+        if (!btn) return;
+
+        btn.addEventListener("mouseenter", function () {
+          window.clearInterval(autoPlay);
+        });
+
+        btn.addEventListener("mouseleave", function () {
+          autoPlay = window.setInterval(moveToNext, 6000);
+        });
+      });
+    };
+
+    if (document.readyState === "complete") {
+      setupSlider();
+    } else {
+      window.addEventListener("load", setupSlider, { once: true });
     }
-
-    if (allSlides[currentIndex] && allSlides[currentIndex].isEqualNode(lastClone)) {
-      currentIndex = allSlides.length - 2;
-      updateSlider(false);
-    }
-  });
-
-  var moveToNext = function () {
-    if (currentIndex >= allSlides.length - 1) return;
-    currentIndex++;
-    updateSlider(true);
-  };
-
-  var moveToPrev = function () {
-    if (currentIndex <= 0) return;
-    currentIndex--;
-    updateSlider(true);
-  };
-
-  var nextBtn = document.getElementById("slider-next-btn");
-  var prevBtn = document.getElementById("slider-prev-btn");
-
-  if (nextBtn) nextBtn.addEventListener("click", moveToNext);
-  if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
-
-  var autoPlay = window.setInterval(moveToNext, 6000);
-
-  [nextBtn, prevBtn].forEach(function (btn) {
-    if (!btn) return;
-
-    btn.addEventListener("mouseenter", function () {
-      window.clearInterval(autoPlay);
-    });
-
-    btn.addEventListener("mouseleave", function () {
-      autoPlay = window.setInterval(moveToNext, 6000);
-    });
-  });
-};
-
-if (document.readyState === "complete") {
-  setupSlider();
-} else {
-  window.addEventListener("load", setupSlider, { once: true });
-}
-```
+  }
 
 }
 
