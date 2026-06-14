@@ -13,6 +13,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ==========================================
+// حماية عاجلة: لا تترك شاشة البداية معلقة أبدًا
+// ==========================================
+function hideSplashScreenSafely(delay = 1200) {
+  const splashScreen = document.getElementById("splash-screen");
+  if (!splashScreen) return;
+
+  window.setTimeout(() => {
+    splashScreen.classList.add("splash-hidden");
+
+    window.setTimeout(() => {
+      splashScreen.style.display = "none";
+    }, 800);
+  }, delay);
+}
+
+// ==========================================
 // 1. Firebase Service (Core Infrastructure)
 // ==========================================
 class FirebaseService {
@@ -43,6 +59,8 @@ const firebaseService = new FirebaseService();
 // ==========================================
 class LanguageService {
   constructor() {
+    this.supportedLanguages = ["ar", "en", "fr", "ru"];
+
     this.trackTranslations = {
       ar: [
         { value: "", text: "-- اختر المسار الأكاديمي --" },
@@ -78,25 +96,29 @@ class LanguageService {
     this.setLang(savedLang);
 
     document.querySelectorAll("[data-lang]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const targetBtn = e.target.closest("[data-lang]");
-        if (targetBtn) {
-          this.setLang(targetBtn.getAttribute("data-lang"));
-        }
+      btn.addEventListener("click", (event) => {
+        const targetBtn = event.target.closest("[data-lang]");
+        if (!targetBtn) return;
+
+        const selectedLang = targetBtn.getAttribute("data-lang");
+        this.setLang(selectedLang);
       });
     });
   }
 
+  getSafeLang(langCode) {
+    return this.supportedLanguages.includes(langCode) ? langCode : "ar";
+  }
+
   setLang(langCode) {
-    const supportedLanguages = ["ar", "en", "fr", "ru"];
-    const safeLang = supportedLanguages.includes(langCode) ? langCode : "ar";
+    const safeLang = this.getSafeLang(langCode);
 
     const root = document.getElementById("html-root");
     const body = document.getElementById("body-root");
 
     if (!root || !body) return;
 
-    body.className = "route-" + safeLang + " relative";
+    body.className = `route-${safeLang} relative`;
     root.lang = safeLang;
     root.dir = safeLang === "ar" ? "rtl" : "ltr";
 
@@ -150,31 +172,40 @@ class LanguageService {
 class UIService {
   constructor() {
     this.videoFilterInitialized = false;
+    this.scrollEffectsInitialized = false;
+    this.globalClicksInitialized = false;
+    this.sliderInitialized = false;
+    this.splashInitialized = false;
 
+    this.initSplashScreen();
     this.initScrollEffects();
     this.initGlobalClicks();
     this.initVideoFilter();
     this.initSlider();
-    this.initSplashScreen();
   }
 
   toggleLangMenu() {
     const dropdown = document.getElementById("langDropdown");
     const btn = document.getElementById("lang-btn");
 
-    if (dropdown && btn) {
-      dropdown.classList.toggle("active");
-      btn.setAttribute("aria-expanded", dropdown.classList.contains("active"));
-    }
+    if (!dropdown || !btn) return;
+
+    dropdown.classList.toggle("active");
+    btn.setAttribute("aria-expanded", dropdown.classList.contains("active"));
   }
 
   closeDropdown() {
     const menu = document.getElementById("langDropdown");
     const btn = document.getElementById("lang-btn");
 
-    if (menu && menu.classList.contains("active")) {
+    if (!menu) return;
+
+    if (menu.classList.contains("active")) {
       menu.classList.remove("active");
-      if (btn) btn.setAttribute("aria-expanded", "false");
+    }
+
+    if (btn) {
+      btn.setAttribute("aria-expanded", "false");
     }
   }
 
@@ -204,16 +235,29 @@ class UIService {
 
     if (menu && menu.classList.contains("active")) {
       menu.classList.remove("active");
-      if (backdrop) backdrop.classList.remove("active");
-      if (btn) btn.setAttribute("aria-expanded", "false");
-      document.body.style.overflow = "";
     }
+
+    if (backdrop && backdrop.classList.contains("active")) {
+      backdrop.classList.remove("active");
+    }
+
+    if (btn) {
+      btn.setAttribute("aria-expanded", "false");
+    }
+
+    document.body.style.overflow = "";
   }
 
   initGlobalClicks() {
+    if (this.globalClicksInitialized) return;
+    this.globalClicksInitialized = true;
+
     document.addEventListener("click", (event) => {
-      const clickedInsideLangButton = event.target.closest("#lang-btn");
-      const clickedInsideLangDropdown = event.target.closest("#langDropdown");
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+
+      const clickedInsideLangButton = target.closest("#lang-btn");
+      const clickedInsideLangDropdown = target.closest("#langDropdown");
 
       if (!clickedInsideLangButton && !clickedInsideLangDropdown) {
         this.closeDropdown();
@@ -235,60 +279,69 @@ class UIService {
   }
 
   initScrollEffects() {
+    if (this.scrollEffectsInitialized) return;
+    this.scrollEffectsInitialized = true;
+
     let ticking = false;
+
+    const runScrollEffects = () => {
+      const nav = document.getElementById("navbar");
+
+      if (nav) {
+        if (window.scrollY > 20) {
+          nav.classList.add("shadow-sm", "border-[#D4AF37]/20");
+          nav.classList.remove("border-transparent");
+        } else {
+          nav.classList.add("border-transparent");
+          nav.classList.remove("shadow-sm", "border-[#D4AF37]/20");
+        }
+      }
+
+      const sections = document.querySelectorAll("section");
+      const navLinks = document.querySelectorAll(".nav-link");
+      let current = "";
+
+      sections.forEach((section) => {
+        const sectionTop = section.offsetTop;
+
+        if (window.scrollY >= sectionTop - 100) {
+          current = section.getAttribute("id") || "";
+        }
+      });
+
+      navLinks.forEach((link) => {
+        link.classList.remove("active-section");
+
+        const href = link.getAttribute("href") || "";
+        if (current && href.includes(current)) {
+          link.classList.add("active-section");
+        }
+      });
+    };
 
     window.addEventListener("scroll", () => {
       if (ticking) return;
 
       window.requestAnimationFrame(() => {
-        const nav = document.getElementById("navbar");
-
-        if (nav) {
-          if (window.scrollY > 20) {
-            nav.classList.add("shadow-sm", "border-[#D4AF37]/20");
-            nav.classList.remove("border-transparent");
-          } else {
-            nav.classList.add("border-transparent");
-            nav.classList.remove("shadow-sm", "border-[#D4AF37]/20");
-          }
-        }
-
-        const sections = document.querySelectorAll("section");
-        const navLinks = document.querySelectorAll(".nav-link");
-        let current = "";
-
-        sections.forEach((section) => {
-          const sectionTop = section.offsetTop;
-
-          if (window.scrollY >= sectionTop - 100) {
-            current = section.getAttribute("id") || "";
-          }
-        });
-
-        navLinks.forEach((link) => {
-          link.classList.remove("active-section");
-
-          const href = link.getAttribute("href") || "";
-          if (current && href.includes(current)) {
-            link.classList.add("active-section");
-          }
-        });
-
+        runScrollEffects();
         ticking = false;
       });
 
       ticking = true;
     });
+
+    runScrollEffects();
   }
 
   initVideoFilter() {
+    const filterBtns = document.querySelectorAll(".filter-btn");
+
+    if (!filterBtns.length) return;
+
     if (this.videoFilterInitialized) {
       this.applyCurrentVideoFilter();
       return;
     }
-
-    const filterBtns = document.querySelectorAll(".filter-btn");
-    if (!filterBtns.length) return;
 
     filterBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -322,10 +375,12 @@ class UIService {
   }
 
   applyCurrentVideoFilter() {
+    const buttons = Array.from(document.querySelectorAll(".filter-btn"));
+
     const activeBtn =
-      document.querySelector('.filter-btn[aria-pressed="true"]') ||
-      document.querySelector(".filter-btn.bg-\\[\\#D4AF37\\]") ||
-      document.querySelector('.filter-btn[data-filter="all"]');
+      buttons.find((btn) => btn.getAttribute("aria-pressed") === "true") ||
+      buttons.find((btn) => btn.classList.contains("bg-[#D4AF37]")) ||
+      buttons.find((btn) => btn.getAttribute("data-filter") === "all");
 
     const filterValue = activeBtn?.getAttribute("data-filter") || "all";
     this.applyVideoFilter(filterValue);
@@ -335,13 +390,17 @@ class UIService {
     const videoCards = document.querySelectorAll(".video-card");
 
     videoCards.forEach((card) => {
-      if (filterValue === "all" || card.getAttribute("data-category") === filterValue) {
+      const category = card.getAttribute("data-category") || "all";
+
+      if (filterValue === "all" || category === filterValue) {
         card.style.display = "block";
+
         window.setTimeout(() => {
           card.style.opacity = "1";
         }, 50);
       } else {
         card.style.opacity = "0";
+
         window.setTimeout(() => {
           card.style.display = "none";
         }, 300);
@@ -350,7 +409,10 @@ class UIService {
   }
 
   initSlider() {
-    window.addEventListener("load", () => {
+    if (this.sliderInitialized) return;
+    this.sliderInitialized = true;
+
+    const setupSlider = () => {
       const track = document.getElementById("testimonials-track");
       if (!track) return;
 
@@ -421,22 +483,29 @@ class UIService {
           autoPlay = window.setInterval(moveToNext, 6000);
         });
       });
-    });
+    };
+
+    if (document.readyState === "complete") {
+      setupSlider();
+    } else {
+      window.addEventListener("load", setupSlider, { once: true });
+    }
   }
 
   initSplashScreen() {
-    window.addEventListener("load", () => {
-      const splashScreen = document.getElementById("splash-screen");
-      if (!splashScreen) return;
+    if (this.splashInitialized) return;
+    this.splashInitialized = true;
 
-      window.setTimeout(() => {
-        splashScreen.classList.add("splash-hidden");
+    const hideSplash = () => hideSplashScreenSafely(1200);
 
-        window.setTimeout(() => {
-          splashScreen.style.display = "none";
-        }, 800);
-      }, 2500);
-    });
+    if (document.readyState === "complete") {
+      hideSplash();
+    } else {
+      window.addEventListener("load", hideSplash, { once: true });
+
+      // حماية إضافية: لا نترك شاشة البداية معلقة أبدًا
+      window.setTimeout(() => hideSplashScreenSafely(0), 3500);
+    }
   }
 }
 
@@ -453,8 +522,8 @@ class EnrollmentService {
     const form = document.getElementById("enrollment-form");
     if (!form) return;
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
       await this.handleSubmission(form);
     });
   }
@@ -617,7 +686,9 @@ class ContentService {
       if (typeof id !== "string") return;
       if (typeof value !== "string") return;
 
-      const el = document.querySelector(`[data-content-id="${CSS.escape(id)}"]`);
+      const selector = `[data-content-id="${this.escapeCssIdentifier(id)}"]`;
+      const el = document.querySelector(selector);
+
       if (!el) return;
 
       el.textContent = value;
@@ -632,7 +703,7 @@ class ContentService {
       video.remove();
     });
 
-    videos.forEach((video) => {
+    [...videos].reverse().forEach((video) => {
       const safeVideo = this.normalizeVideo(video);
       if (!safeVideo) return;
 
@@ -655,7 +726,16 @@ class ContentService {
 
     if (!title || title.length > 120) return null;
 
-    const allowedCategories = ["all", "quran", "arabic", "islamic", "tajweed", "grammar"];
+    const allowedCategories = [
+      "all",
+      "quran",
+      "arabic",
+      "islamic",
+      "tajweed",
+      "grammar",
+      "specialization"
+    ];
+
     const finalCategory = allowedCategories.includes(category) ? category : "all";
 
     const fallbackImage =
@@ -674,10 +754,18 @@ class ContentService {
 
     try {
       const parsed = new URL(url, window.location.origin);
-      return ["https:", "http:"].includes(parsed.protocol);
+      return parsed.protocol === "https:";
     } catch {
       return false;
     }
+  }
+
+  escapeCssIdentifier(value) {
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return window.CSS.escape(value);
+    }
+
+    return value.replace(/["\\]/g, "\\$&");
   }
 
   createVideoCard(video) {
@@ -759,29 +847,34 @@ class ContentService {
 // 7. Application Bootstrap & Global Binding
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-  const langService = new LanguageService();
-  const uiService = new UIService();
-  const enrollmentService = new EnrollmentService(firebaseService);
-  const contentService = new ContentService(firebaseService);
+  try {
+    const langService = new LanguageService();
+    const uiService = new UIService();
+    const enrollmentService = new EnrollmentService(firebaseService);
+    const contentService = new ContentService(firebaseService);
 
-  window.contentService = contentService;
-  window.uiService = uiService;
+    window.uiService = uiService;
+    window.contentService = contentService;
 
-  window.setLang = (lang) => langService.setLang(lang);
+    window.setLang = (lang) => langService.setLang(lang);
 
-  window.toggleLangMenu = () => uiService.toggleLangMenu();
-  window.closeDropdown = () => uiService.closeDropdown();
+    window.toggleLangMenu = () => uiService.toggleLangMenu();
+    window.closeDropdown = () => uiService.closeDropdown();
 
-  window.toggleMobileMenu = () => uiService.toggleMobileMenu();
-  window.closeMobileMenu = () => uiService.closeMobileMenu();
+    window.toggleMobileMenu = () => uiService.toggleMobileMenu();
+    window.closeMobileMenu = () => uiService.closeMobileMenu();
 
-  window.showPasswordModal = () => {
-    alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
-  };
+    window.showPasswordModal = () => {
+      alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
+    };
 
-  window.hidePasswordModal = () => {};
+    window.hidePasswordModal = () => {};
 
-  void enrollmentService;
-  void contentService;
+    void enrollmentService;
+    void contentService;
+  } catch (error) {
+    console.error("Application bootstrap error:", error);
+    hideSplashScreenSafely(0);
+  }
 });
 ```
