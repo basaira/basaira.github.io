@@ -1,15 +1,15 @@
+```js
 // ==========================================
 // استيراد مكتبات Firebase عبر الـ CDN
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
-  initializeFirestore, 
-  collection, 
-  addDoc, 
+import {
+  initializeFirestore,
+  collection,
+  addDoc,
   serverTimestamp,
   getDoc,
-  doc,
-  setDoc
+  doc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ==========================================
@@ -25,8 +25,9 @@ class FirebaseService {
       messagingSenderId: "998742851624",
       appId: "1:998742851624:web:98cab99ce0bc19505cf51d",
     };
-    
+
     this.app = initializeApp(this.config);
+
     this.db = initializeFirestore(
       this.app,
       { experimentalForceLongPolling: true },
@@ -87,14 +88,17 @@ class LanguageService {
   }
 
   setLang(langCode) {
+    const supportedLanguages = ["ar", "en", "fr", "ru"];
+    const safeLang = supportedLanguages.includes(langCode) ? langCode : "ar";
+
     const root = document.getElementById("html-root");
     const body = document.getElementById("body-root");
 
     if (!root || !body) return;
 
-    body.className = "route-" + langCode + " relative";
-    root.lang = langCode;
-    root.dir = langCode === "ar" ? "rtl" : "ltr";
+    body.className = "route-" + safeLang + " relative";
+    root.lang = safeLang;
+    root.dir = safeLang === "ar" ? "rtl" : "ltr";
 
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) {
@@ -102,14 +106,15 @@ class LanguageService {
         ar: "أكاديمية بصائر | نور يهدي، وعلم يبني",
         en: "Basair Academy | Guided by Light",
         fr: "Académie Bassaïr | Lumière qui guide",
-        ru: "Академия Басаир | Свет, который ведет"
+        ru: "Академия Басаир | Свет, который ведет",
       };
-      pageTitle.textContent = titles[langCode] || titles["ar"];
+
+      pageTitle.textContent = titles[safeLang] || titles.ar;
     }
 
-    localStorage.setItem("academy_lang", langCode);
-    this.updateDynamicSelect(langCode);
-    
+    localStorage.setItem("academy_lang", safeLang);
+    this.updateDynamicSelect(safeLang);
+
     if (window.uiService) {
       window.uiService.closeDropdown();
       window.uiService.closeMobileMenu();
@@ -120,17 +125,20 @@ class LanguageService {
     const selectEl = document.getElementById("dynamic-track-select");
     if (!selectEl) return;
 
-    selectEl.innerHTML = "";
-    const options = this.trackTranslations[lang] || this.trackTranslations["ar"];
+    selectEl.textContent = "";
+
+    const options = this.trackTranslations[lang] || this.trackTranslations.ar;
 
     options.forEach((opt) => {
       const optionEl = document.createElement("option");
       optionEl.value = opt.value;
       optionEl.textContent = opt.text;
+
       if (opt.value === "") {
         optionEl.disabled = true;
         optionEl.selected = true;
       }
+
       selectEl.appendChild(optionEl);
     });
   }
@@ -141,6 +149,8 @@ class LanguageService {
 // ==========================================
 class UIService {
   constructor() {
+    this.videoFilterInitialized = false;
+
     this.initScrollEffects();
     this.initGlobalClicks();
     this.initVideoFilter();
@@ -151,6 +161,7 @@ class UIService {
   toggleLangMenu() {
     const dropdown = document.getElementById("langDropdown");
     const btn = document.getElementById("lang-btn");
+
     if (dropdown && btn) {
       dropdown.classList.toggle("active");
       btn.setAttribute("aria-expanded", dropdown.classList.contains("active"));
@@ -160,6 +171,7 @@ class UIService {
   closeDropdown() {
     const menu = document.getElementById("langDropdown");
     const btn = document.getElementById("lang-btn");
+
     if (menu && menu.classList.contains("active")) {
       menu.classList.remove("active");
       if (btn) btn.setAttribute("aria-expanded", "false");
@@ -170,10 +182,11 @@ class UIService {
     const menu = document.getElementById("mobile-menu");
     const backdrop = document.getElementById("mobile-backdrop");
     const btn = document.getElementById("mobile-menu-btn");
-    
+
     if (!menu) return;
 
     const isActive = menu.classList.contains("active");
+
     if (!isActive) {
       menu.classList.add("active");
       if (backdrop) backdrop.classList.add("active");
@@ -199,73 +212,140 @@ class UIService {
 
   initGlobalClicks() {
     document.addEventListener("click", (event) => {
-      if (!event.target.closest(".relative") && !event.target.closest("#langDropdown")) {
+      const clickedInsideLangButton = event.target.closest("#lang-btn");
+      const clickedInsideLangDropdown = event.target.closest("#langDropdown");
+
+      if (!clickedInsideLangButton && !clickedInsideLangDropdown) {
         this.closeDropdown();
       }
     });
 
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        this.closeDropdown();
+        this.closeMobileMenu();
+      }
+    });
+
     window.addEventListener("resize", () => {
-      if (window.innerWidth >= 1024) this.closeMobileMenu();
+      if (window.innerWidth >= 1024) {
+        this.closeMobileMenu();
+      }
     });
   }
 
   initScrollEffects() {
+    let ticking = false;
+
     window.addEventListener("scroll", () => {
-      const nav = document.getElementById("navbar");
-      if (nav) {
-        if (window.scrollY > 20) {
-          nav.classList.add("shadow-sm", "border-[#D4AF37]/20");
-          nav.classList.remove("border-transparent");
-        } else {
-          nav.classList.add("border-transparent");
-          nav.classList.remove("shadow-sm", "border-[#D4AF37]/20");
-        }
-      }
+      if (ticking) return;
 
-      const sections = document.querySelectorAll("section");
-      const navLinks = document.querySelectorAll(".nav-link");
-      let current = "";
-      
-      sections.forEach((section) => {
-        const sectionTop = section.offsetTop;
-        if (scrollY >= sectionTop - 100) {
-          current = section.getAttribute("id");
+      window.requestAnimationFrame(() => {
+        const nav = document.getElementById("navbar");
+
+        if (nav) {
+          if (window.scrollY > 20) {
+            nav.classList.add("shadow-sm", "border-[#D4AF37]/20");
+            nav.classList.remove("border-transparent");
+          } else {
+            nav.classList.add("border-transparent");
+            nav.classList.remove("shadow-sm", "border-[#D4AF37]/20");
+          }
         }
+
+        const sections = document.querySelectorAll("section");
+        const navLinks = document.querySelectorAll(".nav-link");
+        let current = "";
+
+        sections.forEach((section) => {
+          const sectionTop = section.offsetTop;
+
+          if (window.scrollY >= sectionTop - 100) {
+            current = section.getAttribute("id") || "";
+          }
+        });
+
+        navLinks.forEach((link) => {
+          link.classList.remove("active-section");
+
+          const href = link.getAttribute("href") || "";
+          if (current && href.includes(current)) {
+            link.classList.add("active-section");
+          }
+        });
+
+        ticking = false;
       });
 
-      navLinks.forEach((link) => {
-        link.classList.remove("active-section");
-        if (current && link.getAttribute("href").includes(current)) {
-          link.classList.add("active-section");
-        }
-      });
+      ticking = true;
     });
   }
 
   initVideoFilter() {
+    if (this.videoFilterInitialized) {
+      this.applyCurrentVideoFilter();
+      return;
+    }
+
     const filterBtns = document.querySelectorAll(".filter-btn");
-    const videoCards = document.querySelectorAll(".video-card");
+    if (!filterBtns.length) return;
 
     filterBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         filterBtns.forEach((b) => {
-          b.classList.remove("bg-[#D4AF37]", "text-[#0A1F44]", "shadow-[0_0_15px_rgba(212,175,55,0.4)]");
-          b.classList.add("bg-white/10", "text-white");
-        });
-        btn.classList.remove("bg-white/10", "text-white");
-        btn.classList.add("bg-[#D4AF37]", "text-[#0A1F44]", "shadow-[0_0_15px_rgba(212,175,55,0.4)]");
+          b.classList.remove(
+            "bg-[#D4AF37]",
+            "text-[#0A1F44]",
+            "shadow-[0_0_15px_rgba(212,175,55,0.4)]"
+          );
 
-        const filterValue = btn.getAttribute("data-filter");
-        videoCards.forEach((card) => {
-          if (filterValue === "all" || card.getAttribute("data-category") === filterValue) {
-            card.style.display = "block";
-            setTimeout(() => (card.style.opacity = "1"), 50);
-          } else {
-            card.style.opacity = "0";
-            setTimeout(() => (card.style.display = "none"), 300);
-          }
+          b.classList.add("bg-white/10", "text-white");
+          b.setAttribute("aria-pressed", "false");
         });
+
+        btn.classList.remove("bg-white/10", "text-white");
+
+        btn.classList.add(
+          "bg-[#D4AF37]",
+          "text-[#0A1F44]",
+          "shadow-[0_0_15px_rgba(212,175,55,0.4)]"
+        );
+
+        btn.setAttribute("aria-pressed", "true");
+
+        this.applyVideoFilter(btn.getAttribute("data-filter") || "all");
       });
+    });
+
+    this.videoFilterInitialized = true;
+    this.applyCurrentVideoFilter();
+  }
+
+  applyCurrentVideoFilter() {
+    const activeBtn =
+      document.querySelector('.filter-btn[aria-pressed="true"]') ||
+      document.querySelector(".filter-btn.bg-\\[\\#D4AF37\\]") ||
+      document.querySelector('.filter-btn[data-filter="all"]');
+
+    const filterValue = activeBtn?.getAttribute("data-filter") || "all";
+    this.applyVideoFilter(filterValue);
+  }
+
+  applyVideoFilter(filterValue) {
+    const videoCards = document.querySelectorAll(".video-card");
+
+    videoCards.forEach((card) => {
+      if (filterValue === "all" || card.getAttribute("data-category") === filterValue) {
+        card.style.display = "block";
+        window.setTimeout(() => {
+          card.style.opacity = "1";
+        }, 50);
+      } else {
+        card.style.opacity = "0";
+        window.setTimeout(() => {
+          card.style.display = "none";
+        }, 300);
+      }
     });
   }
 
@@ -274,15 +354,19 @@ class UIService {
       const track = document.getElementById("testimonials-track");
       if (!track) return;
 
+      if (track.dataset.sliderInitialized === "true") return;
+      track.dataset.sliderInitialized = "true";
+
       const slides = Array.from(document.querySelectorAll(".testimonial-slide"));
       if (slides.length === 0) return;
 
       const firstClone = slides[0].cloneNode(true);
       const lastClone = slides[slides.length - 1].cloneNode(true);
+
       track.appendChild(firstClone);
       track.insertBefore(lastClone, slides[0]);
 
-      let allSlides = document.querySelectorAll(".testimonial-slide");
+      const allSlides = document.querySelectorAll(".testimonial-slide");
       let currentIndex = 1;
       const slideWidth = 100;
 
@@ -295,11 +379,12 @@ class UIService {
       };
 
       track.addEventListener("transitionend", () => {
-        if (allSlides[currentIndex].isEqualNode(firstClone)) {
+        if (allSlides[currentIndex]?.isEqualNode(firstClone)) {
           currentIndex = 1;
           updateSlider(false);
         }
-        if (allSlides[currentIndex].isEqualNode(lastClone)) {
+
+        if (allSlides[currentIndex]?.isEqualNode(lastClone)) {
           currentIndex = allSlides.length - 2;
           updateSlider(false);
         }
@@ -323,12 +408,18 @@ class UIService {
       if (nextBtn) nextBtn.addEventListener("click", moveToNext);
       if (prevBtn) prevBtn.addEventListener("click", moveToPrev);
 
-      let autoPlay = setInterval(moveToNext, 6000);
+      let autoPlay = window.setInterval(moveToNext, 6000);
+
       [nextBtn, prevBtn].forEach((btn) => {
-        if (btn) {
-          btn.addEventListener("mouseenter", () => clearInterval(autoPlay));
-          btn.addEventListener("mouseleave", () => (autoPlay = setInterval(moveToNext, 6000)));
-        }
+        if (!btn) return;
+
+        btn.addEventListener("mouseenter", () => {
+          window.clearInterval(autoPlay);
+        });
+
+        btn.addEventListener("mouseleave", () => {
+          autoPlay = window.setInterval(moveToNext, 6000);
+        });
       });
     });
   }
@@ -336,14 +427,15 @@ class UIService {
   initSplashScreen() {
     window.addEventListener("load", () => {
       const splashScreen = document.getElementById("splash-screen");
-      if (splashScreen) {
-        setTimeout(() => {
-          splashScreen.classList.add("splash-hidden");
-          setTimeout(() => {
-            splashScreen.style.display = "none";
-          }, 800);
-        }, 2500);
-      }
+      if (!splashScreen) return;
+
+      window.setTimeout(() => {
+        splashScreen.classList.add("splash-hidden");
+
+        window.setTimeout(() => {
+          splashScreen.style.display = "none";
+        }, 800);
+      }, 2500);
     });
   }
 }
@@ -375,11 +467,19 @@ class EnrollmentService {
     const errorMsg = document.getElementById("error-message");
     const errorText = document.getElementById("error-text");
 
-    const COOLDOWN_PERIOD_MS = 60 * 60 * 1000; 
-    const lastSubmissionTime = localStorage.getItem("basair_last_submission");
-    const currentTime = new Date().getTime();
+    if (!submitBtn || !btnText || !btnSpinner || !successMsg || !errorMsg || !errorText) {
+      console.error("Enrollment form UI elements are missing.");
+      return;
+    }
 
-    if (lastSubmissionTime && (currentTime - parseInt(lastSubmissionTime) < COOLDOWN_PERIOD_MS)) {
+    const COOLDOWN_PERIOD_MS = 60 * 60 * 1000;
+    const lastSubmissionTime = localStorage.getItem("basair_last_submission");
+    const currentTime = Date.now();
+
+    if (
+      lastSubmissionTime &&
+      currentTime - Number.parseInt(lastSubmissionTime, 10) < COOLDOWN_PERIOD_MS
+    ) {
       errorText.textContent = "عذراً، لقد قمت بإرسال طلب مؤخراً. يرجى المحاولة لاحقاً.";
       errorMsg.classList.remove("hidden");
       successMsg.classList.add("hidden");
@@ -394,66 +494,78 @@ class EnrollmentService {
     errorMsg.classList.add("hidden");
 
     const formData = new FormData(form);
-    const trackValue = formData.get("track");
+    const trackValue = String(formData.get("track") || "").trim();
 
     if (!trackValue) {
       errorText.textContent = "يرجى اختيار المسار الأكاديمي أولاً.";
       errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
       this.unlockFormUI(submitBtn, btnText, btnSpinner);
       return;
     }
 
-   const fullName = String(formData.get("fullName") || "").trim();
-const phone = String(formData.get("phone") || "").trim();
-const message = String(formData.get("message") || "").trim();
+    const fullName = String(formData.get("fullName") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const message = String(formData.get("message") || "").trim();
 
-if (fullName.length < 3 || fullName.length > 80) {
-  errorText.textContent = "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.";
-  errorMsg.classList.remove("hidden");
-  this.unlockFormUI(submitBtn, btnText, btnSpinner);
-  return;
-}
+    if (fullName.length < 3 || fullName.length > 80) {
+      errorText.textContent = "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
+      this.unlockFormUI(submitBtn, btnText, btnSpinner);
+      return;
+    }
 
-if (phone.length < 6 || phone.length > 30) {
-  errorText.textContent = "يرجى إدخال رقم هاتف صحيح.";
-  errorMsg.classList.remove("hidden");
-  this.unlockFormUI(submitBtn, btnText, btnSpinner);
-  return;
-}
+    if (phone.length < 6 || phone.length > 30) {
+      errorText.textContent = "يرجى إدخال رقم هاتف صحيح.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
+      this.unlockFormUI(submitBtn, btnText, btnSpinner);
+      return;
+    }
 
-if (message.length > 1000) {
-  errorText.textContent = "الرسالة طويلة جدًا. يرجى اختصارها.";
-  errorMsg.classList.remove("hidden");
-  this.unlockFormUI(submitBtn, btnText, btnSpinner);
-  return;
-}
+    if (message.length > 1000) {
+      errorText.textContent = "الرسالة طويلة جدًا. يرجى اختصارها.";
+      errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
+      this.unlockFormUI(submitBtn, btnText, btnSpinner);
+      return;
+    }
 
-const requestData = {
-  fullName,
-  phone,
-  track: trackValue,
-  message: message || "لا يوجد",
-  submissionDate: serverTimestamp(),
-  status: "new",
-};
+    const requestData = {
+      fullName,
+      phone,
+      track: trackValue,
+      message: message || "لا يوجد",
+      submissionDate: serverTimestamp(),
+      status: "new",
+    };
 
     try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 15000)
+      const timeoutPromise = new Promise((_, reject) => {
+        window.setTimeout(() => reject(new Error("NETWORK_TIMEOUT")), 15000);
+      });
+
+      const firebasePromise = addDoc(
+        collection(this.db, "enrollment_requests"),
+        requestData
       );
 
-      const firebasePromise = addDoc(collection(this.db, "enrollment_requests"), requestData);
       await Promise.race([firebasePromise, timeoutPromise]);
 
       localStorage.setItem("basair_last_submission", currentTime.toString());
 
       form.reset();
       successMsg.classList.remove("hidden");
-      setTimeout(() => successMsg.classList.add("hidden"), 8000);
+
+      window.setTimeout(() => {
+        successMsg.classList.add("hidden");
+      }, 8000);
     } catch (error) {
-      console.error("Enrollment Error: ", error);
+      console.error("Enrollment Error:", error);
       errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقاً.";
       errorMsg.classList.remove("hidden");
+      successMsg.classList.add("hidden");
     } finally {
       this.unlockFormUI(submitBtn, btnText, btnSpinner);
     }
@@ -506,11 +618,8 @@ class ContentService {
       if (typeof value !== "string") return;
 
       const el = document.querySelector(`[data-content-id="${CSS.escape(id)}"]`);
-
       if (!el) return;
 
-      // مهم جدًا:
-      // textContent لا ينفذ HTML، بل يعامل النص كنص فقط.
       el.textContent = value;
     });
   }
@@ -519,7 +628,9 @@ class ContentService {
     const grid = document.getElementById("video-grid");
     if (!grid) return;
 
-    document.querySelectorAll(".dynamic-video").forEach((video) => video.remove());
+    document.querySelectorAll(".dynamic-video").forEach((video) => {
+      video.remove();
+    });
 
     videos.forEach((video) => {
       const safeVideo = this.normalizeVideo(video);
@@ -600,8 +711,20 @@ class ContentService {
     playCircle.className =
       "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
 
-    playCircle.innerHTML =
-      '<svg class="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"/></svg>';
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "w-6 h-6 text-white translate-x-0.5");
+    svg.setAttribute("fill", "currentColor");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute(
+      "d",
+      "M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z"
+    );
+
+    svg.appendChild(path);
+    playCircle.appendChild(svg);
 
     const title = document.createElement("h3");
     title.className =
@@ -626,6 +749,13 @@ class ContentService {
 }
 
 // ==========================================
+// 6. Admin Service
+// ==========================================
+// تم تعطيل لوحة الإدارة القديمة عمدًا.
+// السبب: لا يجوز استعمال كلمة سر داخل كود الواجهة، ولا حفظ HTML خام في Firestore.
+// ستُعاد لوحة الإدارة لاحقًا بنظام Firebase Authentication وصلاحيات Admin آمنة.
+
+// ==========================================
 // 7. Application Bootstrap & Global Binding
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -633,18 +763,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const uiService = new UIService();
   const enrollmentService = new EnrollmentService(firebaseService);
   const contentService = new ContentService(firebaseService);
-  //const adminService = new AdminService(firebaseService);
 
   window.contentService = contentService;
   window.uiService = uiService;
+
   window.setLang = (lang) => langService.setLang(lang);
+
   window.toggleLangMenu = () => uiService.toggleLangMenu();
   window.closeDropdown = () => uiService.closeDropdown();
+
   window.toggleMobileMenu = () => uiService.toggleMobileMenu();
   window.closeMobileMenu = () => uiService.closeMobileMenu();
-  window.showPasswordModal = () => {
-  alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
-};
 
-window.hidePasswordModal = () => {};
+  window.showPasswordModal = () => {
+    alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
+  };
+
+  window.hidePasswordModal = () => {};
+
+  void enrollmentService;
+  void contentService;
 });
+```
