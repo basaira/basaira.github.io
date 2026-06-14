@@ -403,14 +403,39 @@ class EnrollmentService {
       return;
     }
 
-    const requestData = {
-      fullName: formData.get("fullName"),
-      phone: formData.get("phone"),
-      track: trackValue,
-      message: formData.get("message") || "لا يوجد",
-      submissionDate: serverTimestamp(),
-      status: "new",
-    };
+   const fullName = String(formData.get("fullName") || "").trim();
+const phone = String(formData.get("phone") || "").trim();
+const message = String(formData.get("message") || "").trim();
+
+if (fullName.length < 3 || fullName.length > 80) {
+  errorText.textContent = "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.";
+  errorMsg.classList.remove("hidden");
+  this.unlockFormUI(submitBtn, btnText, btnSpinner);
+  return;
+}
+
+if (phone.length < 6 || phone.length > 30) {
+  errorText.textContent = "يرجى إدخال رقم هاتف صحيح.";
+  errorMsg.classList.remove("hidden");
+  this.unlockFormUI(submitBtn, btnText, btnSpinner);
+  return;
+}
+
+if (message.length > 1000) {
+  errorText.textContent = "الرسالة طويلة جدًا. يرجى اختصارها.";
+  errorMsg.classList.remove("hidden");
+  this.unlockFormUI(submitBtn, btnText, btnSpinner);
+  return;
+}
+
+const requestData = {
+  fullName,
+  phone,
+  track: trackValue,
+  message: message || "لا يوجد",
+  submissionDate: serverTimestamp(),
+  status: "new",
+};
 
     try {
       const timeoutPromise = new Promise((_, reject) =>
@@ -797,7 +822,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const uiService = new UIService();
   const enrollmentService = new EnrollmentService(firebaseService);
   const contentService = new ContentService(firebaseService);
-  const adminService = new AdminService(firebaseService);
+  //const adminService = new AdminService(firebaseService);
 
   window.contentService = contentService;
   window.uiService = uiService;
@@ -806,6 +831,9 @@ document.addEventListener("DOMContentLoaded", () => {
   window.closeDropdown = () => uiService.closeDropdown();
   window.toggleMobileMenu = () => uiService.toggleMobileMenu();
   window.closeMobileMenu = () => uiService.closeMobileMenu();
-  window.showPasswordModal = () => adminService.showPasswordModal();
-  window.hidePasswordModal = () => adminService.hidePasswordModal();
+  window.showPasswordModal = () => {
+  alert("لوحة الإدارة معطلة مؤقتًا حتى تركيب نظام دخول آمن.");
+};
+
+window.hidePasswordModal = () => {};
 });
