@@ -118,10 +118,9 @@ class LanguageService {
 
     if (!root || !body) return;
 
-    body.className = `route-${safeLang} relative`;
+    body.className = "route-" + safeLang + " relative";
     root.lang = safeLang;
     root.dir = safeLang === "ar" ? "rtl" : "ltr";
-
     const pageTitle = document.getElementById("page-title");
     if (pageTitle) {
       const titles = {
