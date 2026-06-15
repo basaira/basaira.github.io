@@ -15,21 +15,18 @@ import {
 // Firebase setup
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBTsosPoNUekZNywFgrBkVmtTrOSK-XyB8",
-  authDomain: "jumping-unfolding-3v7sv.firebaseapp.com",
-  projectId: "jumping-unfolding-3v7sv",
-  storageBucket: "jumping-unfolding-3v7sv.firebasestorage.app",
-  messagingSenderId: "998742851624",
-  appId: "1:998742851624:web:98cab99ce0bc19505cf51d"
+  apiKey: "AIzaSyDbPTlOymPST6NwkDas-F_zwjFz7zA39TQ",
+  authDomain: "basair-academy-4a1d0.firebaseapp.com",
+  projectId: "basair-academy-4a1d0",
+  storageBucket: "basair-academy-4a1d0.firebasestorage.app",
+  messagingSenderId: "407058207953",
+  appId: "1:407058207953:web:133ea372ea0ba304b1a1f0"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
 const db = initializeFirestore(
   firebaseApp,
-  { experimentalForceLongPolling: true },
-  "ai-studio-6df2ea0b-0738-4940-b98e-7efdd9b010d0"
+  { experimentalForceLongPolling: true }
 );
-
 // ==========================================
 // Splash screen safety
 // ==========================================
