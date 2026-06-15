@@ -1055,17 +1055,27 @@ function initAdminPanel() {
     });
   }
 
-  if (googleLoginBtn) {
-    googleLoginBtn.addEventListener("click", async function () {
-      try {
-        setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
-        await signInWithRedirect(auth, googleProvider);
-      } catch (error) {
-        console.error("Google sign-in failed:", error);
-        setAdminMessage("فشل تسجيل الدخول بحساب Google. تأكد من تفعيل Google في Firebase ومن إضافة دومين الموقع.", "error");
-      }
-    });
-  }
+if (googleLoginBtn) {
+  googleLoginBtn.addEventListener("click", async function () {
+    try {
+      setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
+      await signInWithRedirect(auth, googleProvider);
+    } catch (error) {
+      console.error("Google sign-in failed:", error);
+
+      const errorCode = error && error.code ? error.code : "no-code";
+      const errorMessage = error && error.message ? error.message : "لا توجد رسالة تفصيلية";
+
+      setAdminMessage(
+        "فشل تسجيل الدخول: " + errorCode + " — " + errorMessage,
+        "error"
+      );
+    }
+  });
+}
+
+
+  
 
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async function () {
