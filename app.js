@@ -14,7 +14,8 @@ import {
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -1030,6 +1031,13 @@ function initAdminPanel() {
   const resetVideoBtn = byId("admin-reset-video-form");
   const refreshBtn = byId("admin-refresh-content");
   const textForm = byId("admin-text-form");
+  getRedirectResult(auth).catch(function (error) {
+  console.error("Google redirect sign-in failed:", error);
+  setAdminMessage(
+    "فشل تسجيل الدخول: " + (error.code || error.message || "خطأ غير معروف"),
+    "error"
+  );
+});
 
   if (closeBtn) closeBtn.addEventListener("click", closeAdminPanel);
   if (resetVideoBtn) resetVideoBtn.addEventListener("click", resetAdminVideoForm);
@@ -1051,7 +1059,7 @@ function initAdminPanel() {
     googleLoginBtn.addEventListener("click", async function () {
       try {
         setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
-        await signInWithPopup(auth, googleProvider);
+        await signInWithRedirect(auth, googleProvider);
       } catch (error) {
         console.error("Google sign-in failed:", error);
         setAdminMessage("فشل تسجيل الدخول بحساب Google. تأكد من تفعيل Google في Firebase ومن إضافة دومين الموقع.", "error");
