@@ -24,12 +24,13 @@ import {
 // Firebase setup — basair-academy-4a1d0
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDBpTlOymPST6NwkDas-F_zwjFz7zA39TQ",
+  apiKey: "AIzaSyDBpTIOynPST6NwkDas-F_zwjFz7zA39TQ",
   authDomain: "basair-academy-4a1d0.firebaseapp.com",
   projectId: "basair-academy-4a1d0",
   storageBucket: "basair-academy-4a1d0.firebasestorage.app",
   messagingSenderId: "407058207953",
-  appId: "1:407058207953:web:133ea372ea0ba304b1a1f0"
+  appId: "1:407058207953:web:133ea372ea0ba304b1a1f0",
+  measurementId: "G-3M16BKNG4P"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
