@@ -24,7 +24,7 @@ import {
 // Firebase setup — basair-academy-4a1d0
 // ==========================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDbPTlOymPST6NwkDas-F_zwjFz7zA39TQ",
+  apiKey: "AIzaSyDBpTlOymPST6NwkDas-F_zwjFz7zA39TQ",
   authDomain: "basair-academy-4a1d0.firebaseapp.com",
   projectId: "basair-academy-4a1d0",
   storageBucket: "basair-academy-4a1d0.firebasestorage.app",
