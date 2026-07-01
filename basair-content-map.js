@@ -62,7 +62,7 @@
     return "global";
   }
 
-  function isEditableCandidate(element) {
+    function isEditableCandidate(element) {
     if (!element || SKIP_TAGS.has(element.tagName)) {
       return false;
     }
@@ -71,9 +71,25 @@
       return false;
     }
 
+    if (element.closest("#splash-screen")) {
+      return false;
+    }
+
+    if (element.closest("a, button, summary, label")) {
+      return false;
+    }
+
     const text = cleanText(element.textContent);
 
     if (!text || text.length < 2 || text.length > 900) {
+      return false;
+    }
+
+    const hasChildLanguageElement = Array.from(element.children || []).some(function (child) {
+      return child.matches && child.matches(SELECTOR);
+    });
+
+    if (hasChildLanguageElement) {
       return false;
     }
 
@@ -90,9 +106,7 @@
     }
 
     return true;
-  
   }
-
   function collect(root) {
     const counters = Object.create(null);
     const output = [];
