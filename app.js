@@ -59,12 +59,12 @@ function hideSplash(delay) {
 }
 
 window.addEventListener("load", function () {
-  hideSplash(1200);
+  hideSplash(2800);
 }, { once: true });
 
 window.setTimeout(function () {
   hideSplash(0);
-}, 4500);
+}, 6500);
 
 // ==========================================
 // Language system
