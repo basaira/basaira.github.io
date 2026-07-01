@@ -77,15 +77,20 @@
       return false;
     }
 
-    const childLang = Array.from(element.children || []).some(function (child) {
-      return child.matches && child.matches(SELECTOR);
+    const hasStructuralChildren = Array.from(element.children || []).some(function (child) {
+      return !SKIP_TAGS.has(child.tagName);
     });
 
-    if (childLang) {
+    if (hasStructuralChildren) {
+      return false;
+    }
+
+    if (element.querySelector("br")) {
       return false;
     }
 
     return true;
+  
   }
 
   function collect(root) {
