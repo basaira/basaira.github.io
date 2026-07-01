@@ -143,7 +143,7 @@
   const style = document.createElement("style");
   style.id = "basair-premium-splash-style";
 
-  style.textContent = `
+  style.textContent = 
     #splash-screen.basair-premium-splash {
       position: fixed;
       inset: 0;
@@ -511,7 +511,7 @@ function enhanceSplashScreen() {
         <div class="basair-splash-loading">جارِ التهيئة...</div>
       </div>
     </div>
-  `;
+  ;
 }
   window.BasairTextMap = {
     assign: assign,
