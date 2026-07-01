@@ -1083,37 +1083,62 @@
     }
 
     async function scanContentIds() {
-      try {
-        const html = await fetch("./index.html", { cache: "no-store" }).then((r) => r.text());
-
-        const ids = Array.from(
-          html.matchAll(/data-content-id=["']([^"']+)["']/g)
-        ).map((m) => m[1]);
-
-        const texts = { ...(contentCache.texts || {}) };
-        let added = 0;
-
-        ids.forEach((id) => {
-          if (!Object.prototype.hasOwnProperty.call(texts, id)) {
-            texts[id] = "";
-            added += 1;
-          }
-        });
-
-        if (added > 0) {
-          await setDoc(publicRef, { texts: texts }, { merge: true });
-          await loadContent();
-        }
-
-        showStatus(
-          added ? `تمت إضافة ${added} معرّفات نصية جديدة.` : "لم يتم العثور على معرّفات جديدة.",
-          "success"
-        );
-      } catch (error) {
-        console.error(error);
-        showStatus("فشلت فهرسة النصوص من الصفحة.", "error");
-      }
+  try {
+    if (!window.BasairTextMap || typeof window.BasairTextMap.extractFromHtml !== "function") {
+      showStatus("ملف فهرسة النصوص غير محمّل. تأكد من إضافة basair-content-map.js في admin.html.", "error");
+      return;
     }
+
+    showStatus("جار فهرسة نصوص الموقع...", "warning");
+
+    const html = await fetch("./index.html", { cache: "no-store" }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("INDEX_FETCH_FAILED");
+      }
+
+      return response.text();
+    });
+
+    const discovered = window.BasairTextMap.extractFromHtml(html);
+    const texts = { ...(contentCache.texts || {}) };
+
+    let added = 0;
+    let filled = 0;
+
+    discovered.forEach(function (item) {
+      if (!item || !item.id) {
+        return;
+      }
+
+      const currentValue = texts[item.id];
+      const originalText = window.BasairTextMap.cleanText(item.text || "");
+
+      if (!Object.prototype.hasOwnProperty.call(texts, item.id)) {
+        texts[item.id] = originalText;
+        added += 1;
+        return;
+      }
+
+      if (!String(currentValue || "").trim() && originalText) {
+        texts[item.id] = originalText;
+        filled += 1;
+      }
+    });
+
+    await setDoc(publicRef, { texts: texts }, { merge: true });
+    await loadContent();
+
+    showStatus(
+      "تمت الفهرسة: " + added + " نص جديد، و" + filled + " نص كان فارغًا وتم ملؤه.",
+      "success"
+    );
+  } catch (error) {
+    console.error(error);
+    showStatus("فشلت فهرسة النصوص من الصفحة.", "error");
+  }
+}
+
+    
 
     function safeUrl(value, label) {
       const url = new URL(value);
