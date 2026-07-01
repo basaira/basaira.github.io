@@ -783,10 +783,10 @@
       })[status] || status || "جديد";
     }
 
-    function guessLang(id) {
-      const match = String(id).match(/-(ar|en|fr|ru)$/i);
-      return match ? match[1].toLowerCase() : "";
-    }
+ function guessLang(id) {  
+  const match = String(id).match(/(?:^|-)(ar|en|fr|ru)(?:-|$)/i);
+  return match ? match[1].toLowerCase() : "";
+  }  
 
     function normalizeContent(data) {
       return {
