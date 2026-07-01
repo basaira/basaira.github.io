@@ -1,0 +1,1294 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة إدارة بصائر</title>
+
+  <style>
+    :root {
+      --bg: #050b18;
+      --panel: #0a1f44;
+      --gold: #d4af37;
+      --muted: rgba(255,255,255,.62);
+      --line: rgba(255,255,255,.12);
+      --danger: #ef4444;
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Tahoma, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(212,175,55,.18), transparent 34rem),
+        radial-gradient(circle at bottom left, rgba(16,43,89,.9), transparent 38rem),
+        var(--bg);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(1440px, calc(100% - 32px));
+      margin: 24px auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+    }
+
+    .sidebar,
+    .main-card,
+    .panel {
+      border: 1px solid var(--line);
+      background: rgba(10,31,68,.78);
+      box-shadow: 0 24px 80px rgba(0,0,0,.25);
+      backdrop-filter: blur(18px);
+      border-radius: 28px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      height: calc(100vh - 48px);
+      padding: 22px;
+      overflow: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 22px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 23px;
+      line-height: 1.3;
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .seal {
+      width: 46px;
+      height: 46px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--gold), #fff3b0);
+      color: #0a1f44;
+      font-weight: 900;
+    }
+
+    .nav-btn {
+      width: 100%;
+      border: 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 8px 0;
+      padding: 13px 14px;
+      border-radius: 16px;
+      color: rgba(255,255,255,.78);
+      background: transparent;
+      transition: .2s ease;
+      text-align: right;
+    }
+
+    .nav-btn:hover,
+    .nav-btn.active {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+    }
+
+    .nav-btn.active {
+      outline: 1px solid rgba(212,175,55,.35);
+    }
+
+    .badge {
+      min-width: 28px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(212,175,55,.18);
+      color: #fde68a;
+      font-size: 12px;
+    }
+
+    .main-card {
+      min-height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 22px 26px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5,11,24,.28);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .topbar p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .panel h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .hint {
+      color: var(--muted);
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .stat {
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--line);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor: pointer;
+      font-weight: 800;
+      color: #0a1f44;
+      background: var(--gold);
+      transition: .18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .btn.secondary {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .btn.danger {
+      background: rgba(239,68,68,.88);
+      color: #fff;
+    }
+
+    .btn.ok {
+      background: rgba(34,197,94,.9);
+      color: #052e16;
+    }
+
+    .btn.small {
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      color: rgba(255,255,255,.82);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      color: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 13px;
+      outline: none;
+      background: rgba(0,0,0,.22);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 130px;
+      line-height: 1.8;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(212,175,55,.7);
+      box-shadow: 0 0 0 3px rgba(212,175,55,.12);
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .status {
+      display: none;
+      margin-bottom: 16px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      font-weight: 800;
+      line-height: 1.8;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.success {
+      border-color: rgba(34,197,94,.3);
+      color: #bbf7d0;
+      background: rgba(34,197,94,.1);
+    }
+
+    .status.error {
+      border-color: rgba(239,68,68,.35);
+      color: #fecaca;
+      background: rgba(239,68,68,.1);
+    }
+
+    .status.warning {
+      border-color: rgba(245,158,11,.35);
+      color: #fde68a;
+      background: rgba(245,158,11,.1);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.055);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .item-title {
+      font-weight: 900;
+      font-size: 16px;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+      line-height: 1.7;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(212,175,55,.14);
+      color: #fde68a;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 170px 170px;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 22px;
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .ltr {
+      direction: ltr;
+      text-align: left;
+      display: inline-block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .login-card {
+      width: min(560px, 100%);
+      margin: 60px auto;
+      text-align: center;
+    }
+
+    .login-card h2 {
+      margin-top: 0;
+    }
+
+    .uid-box {
+      direction: ltr;
+      text-align: left;
+      background: rgba(0,0,0,.25);
+      padding: 12px;
+      border-radius: 14px;
+      overflow-wrap: anywhere;
+      border: 1px solid var(--line);
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div>
+          <h1>لوحة بصائر</h1>
+          <p>إدارة المحتوى والطلبات</p>
+        </div>
+        <div class="seal">ب</div>
+      </div>
+
+      <button class="nav-btn active" data-tab="overview">نظرة عامة <span class="badge">•</span></button>
+      <button class="nav-btn" data-tab="requests">طلبات الالتحاق <span class="badge" id="badge-requests">0</span></button>
+      <button class="nav-btn" data-tab="texts">نصوص الموقع <span class="badge" id="badge-texts">0</span></button>
+      <button class="nav-btn" data-tab="videos">الفيديوهات <span class="badge" id="badge-videos">0</span></button>
+      <button class="nav-btn" data-tab="help">ملاحظات <span class="badge">؟</span></button>
+    </aside>
+
+    <main class="main-card">
+      <header class="topbar">
+        <div>
+          <h2>إدارة أكاديمية بصائر</h2>
+          <p id="auth-line">جار فحص تسجيل الدخول...</p>
+        </div>
+
+        <div class="top-actions">
+          <a class="btn secondary" href="./" target="_blank" rel="noopener">فتح الموقع</a>
+          <button class="btn secondary" id="refresh-all-btn" type="button">تحديث البيانات</button>
+          <button class="btn danger hidden" id="logout-btn" type="button">خروج</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div id="status" class="status"></div>
+
+        <section id="login-screen" class="login-card panel hidden">
+          <h2>تسجيل دخول المدير</h2>
+          <p class="hint">سجّل الدخول بحساب Google، ثم تُفحص صلاحية الإدارة من <span class="ltr">admin_roles</span>.</p>
+
+          <button class="btn" id="google-login-btn" type="button">تسجيل الدخول بحساب Google</button>
+
+          <div id="uid-help" class="hidden" style="margin-top:18px; text-align:right;">
+            <p class="hint">
+              هذا الحساب دخل بنجاح لكنه ليس مديرًا.
+              انسخ هذا UID وضعه في Firestore داخل
+              <span class="ltr">admin_roles/UID</span>
+              مع
+              <span class="ltr">active: true</span>.
+            </p>
+
+            <div id="uid-box" class="uid-box"></div>
+            <button class="btn secondary" id="copy-uid-btn" type="button" style="margin-top:10px;">نسخ UID</button>
+          </div>
+        </section>
+
+        <div id="admin-dashboard" class="hidden">
+          <section id="tab-overview" class="section active">
+            <div class="grid grid-3">
+              <div class="stat">
+                <strong id="stat-requests">0</strong>
+                <span>طلبات الالتحاق</span>
+              </div>
+
+              <div class="stat">
+                <strong id="stat-texts">0</strong>
+                <span>نصوص ديناميكية</span>
+              </div>
+
+              <div class="stat">
+                <strong id="stat-videos">0</strong>
+                <span>فيديوهات محفوظة</span>
+              </div>
+            </div>
+
+            <div class="panel" style="margin-top:16px;">
+              <h3>ما الذي تستطيع فعله هنا؟</h3>
+              <p class="hint">
+                هذه لوحة مستقلة آمنة لإدارة طلبات الطلاب، والفيديوهات، والنصوص الديناميكية المخزنة في Firestore.
+              </p>
+
+              <div class="row-actions">
+                <button class="btn" type="button" data-jump="requests">إدارة الطلبات</button>
+                <button class="btn secondary" type="button" data-jump="texts">تعديل النصوص</button>
+                <button class="btn secondary" type="button" data-jump="videos">إدارة الفيديوهات</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="tab-requests" class="section">
+            <div class="panel">
+              <h3>طلبات الالتحاق</h3>
+              <p class="hint">تظهر هنا الطلبات القادمة من نموذج الالتحاق. غيّر الحالة بعد التواصل مع الطالب.</p>
+
+              <div class="toolbar">
+                <input id="request-search" type="search" placeholder="بحث بالاسم أو الهاتف أو المسار">
+
+                <select id="request-status-filter">
+                  <option value="all">كل الحالات</option>
+                  <option value="new">جديد</option>
+                  <option value="contacted">تم التواصل</option>
+                  <option value="pending">مؤجل</option>
+                  <option value="accepted">مقبول</option>
+                  <option value="rejected">مرفوض</option>
+                </select>
+
+                <button class="btn secondary" id="refresh-requests-btn" type="button">تحديث الطلبات</button>
+              </div>
+
+              <div id="requests-list" class="list"></div>
+            </div>
+          </section>
+
+          <section id="tab-texts" class="section">
+            <div class="grid grid-2">
+              <div class="panel">
+                <h3>محرر نصوص الموقع</h3>
+                <p class="hint">
+                  النصوص تُحفظ في Firestore داخل
+                  <span class="ltr">site_content/public/texts</span>.
+                </p>
+
+                <form id="text-form" class="grid">
+                  <div class="field">
+                    <label for="text-id">معرّف النص</label>
+                    <input id="text-id" type="text" maxlength="120" required placeholder="مثال: hero-title-ar">
+                  </div>
+
+                  <div class="field">
+                    <label for="text-value">النص</label>
+                    <textarea id="text-value" maxlength="4000" required placeholder="اكتب النص الجديد هنا"></textarea>
+                  </div>
+
+                  <div class="row-actions">
+                    <button class="btn" type="submit">حفظ النص</button>
+                    <button class="btn secondary" id="clear-text-btn" type="button">تفريغ</button>
+                    <button class="btn danger" id="delete-text-btn" type="button">حذف النص</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="panel">
+                <h3>قائمة النصوص</h3>
+                <p class="hint">ابحث، رشّح حسب اللغة، ثم اضغط على أي نص لتحريره.</p>
+
+                <div class="toolbar" style="grid-template-columns:1fr 120px 120px;">
+                  <input id="text-search" type="search" placeholder="بحث في المعرف أو النص">
+
+                  <select id="text-lang-filter">
+                    <option value="all">كل اللغات</option>
+                    <option value="ar">AR</option>
+                    <option value="en">EN</option>
+                    <option value="fr">FR</option>
+                    <option value="ru">RU</option>
+                  </select>
+
+                  <button class="btn secondary" id="scan-content-ids-btn" type="button">فهرسة</button>
+                </div>
+
+                <div id="texts-list" class="list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="tab-videos" class="section">
+            <div class="grid grid-2">
+              <div class="panel">
+                <h3>إضافة أو تعديل فيديو</h3>
+                <p class="hint">كل الروابط يجب أن تبدأ بـ https:// حتى تظهر في الموقع.</p>
+
+                <form id="video-form" class="grid">
+                  <input id="video-index" type="hidden">
+
+                  <div class="field">
+                    <label>عنوان الفيديو</label>
+                    <input id="video-title" type="text" maxlength="120" required>
+                  </div>
+
+                  <div class="field">
+                    <label>التصنيف</label>
+                    <select id="video-category">
+                      <option value="all">عام</option>
+                      <option value="quran">قرآن</option>
+                      <option value="arabic">عربية</option>
+                      <option value="islamic">علوم إسلامية</option>
+                      <option value="tajweed">تجويد</option>
+                      <option value="grammar">نحو</option>
+                      <option value="specialization">تخصص</option>
+                    </select>
+                  </div>
+
+                  <div class="field">
+                    <label>رابط الفيديو</label>
+                    <input id="video-url" type="url" required placeholder="https://...">
+                  </div>
+
+                  <div class="field">
+                    <label>رابط صورة الغلاف</label>
+                    <input id="video-image" type="url" required placeholder="https://...">
+                  </div>
+
+                  <div class="row-actions">
+                    <button class="btn" type="submit">حفظ الفيديو</button>
+                    <button class="btn secondary" id="clear-video-btn" type="button">تفريغ</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="panel">
+                <h3>الفيديوهات الحالية</h3>
+                <p class="hint">اضغط تعديل لملء النموذج، أو حذف لإزالة الفيديو من Firestore.</p>
+                <div id="videos-list" class="list"></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="tab-help" class="section">
+            <div class="panel">
+              <h3>ملاحظات مهمة</h3>
+              <p class="hint">
+                لكي يصبح أي نص في الصفحة قابلًا للتحرير من اللوحة، يجب أن يكون للعنصر في
+                <span class="ltr">index.html</span>
+                معرّف مثل:
+                <span class="ltr">data-content-id="hero-title-ar"</span>.
+              </p>
+
+              <p class="hint">
+                طلبات الالتحاق محفوظة في
+                <span class="ltr">enrollment_requests</span>.
+                الفيديوهات والنصوص محفوظة في
+                <span class="ltr">site_content/public</span>.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+    import {
+      initializeFirestore,
+      collection,
+      getDocs,
+      getDoc,
+      doc,
+      setDoc,
+      updateDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDBpTIOynPST6NwkDas-F_zwjFz7zA39TQ",
+      authDomain: "basair-academy-4a1d0.firebaseapp.com",
+      projectId: "basair-academy-4a1d0",
+      storageBucket: "basair-academy-4a1d0.firebasestorage.app",
+      messagingSenderId: "407058207953",
+      appId: "1:407058207953:web:133ea372ea0ba304b1a1f0",
+      measurementId: "G-3M16BKNG4P"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+    const auth = getAuth(app);
+    const googleProvider = new GoogleAuthProvider();
+    googleProvider.setCustomParameters({ prompt: "select_account" });
+
+    const publicRef = doc(db, "site_content", "public");
+
+    let currentUser = null;
+    let isAdmin = false;
+    let contentCache = { texts: {}, videos: [] };
+    let requestsCache = [];
+
+    const $ = (id) => document.getElementById(id);
+
+    function showStatus(message, type = "success") {
+      const box = $("status");
+      box.textContent = message || "";
+      box.className = "status" + (message ? " show " + type : "");
+    }
+
+    function fmtDate(value) {
+      if (!value) return "—";
+
+      try {
+        const d = value.toDate ? value.toDate() : new Date(value);
+        return new Intl.DateTimeFormat("ar-EG", {
+          dateStyle: "medium",
+          timeStyle: "short"
+        }).format(d);
+      } catch (_) {
+        return "—";
+      }
+    }
+
+    function statusLabel(status) {
+      return ({
+        new: "جديد",
+        contacted: "تم التواصل",
+        pending: "مؤجل",
+        accepted: "مقبول",
+        rejected: "مرفوض"
+      })[status] || status || "جديد";
+    }
+
+    function guessLang(id) {
+      const match = String(id).match(/-(ar|en|fr|ru)$/i);
+      return match ? match[1].toLowerCase() : "";
+    }
+
+    function normalizeContent(data) {
+      return {
+        texts: data && data.texts && typeof data.texts === "object" ? data.texts : {},
+        videos: Array.isArray(data && data.videos) ? data.videos : []
+      };
+    }
+
+    function setTab(tab) {
+      document.querySelectorAll(".nav-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.tab === tab);
+      });
+
+      document.querySelectorAll(".section").forEach((sec) => {
+        sec.classList.remove("active");
+      });
+
+      const target = $("tab-" + tab);
+      if (target) target.classList.add("active");
+    }
+
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.tab));
+    });
+
+    document.querySelectorAll("[data-jump]").forEach((btn) => {
+      btn.addEventListener("click", () => setTab(btn.dataset.jump));
+    });
+
+    async function checkAdminRole(user) {
+      if (!user) return false;
+
+      const roleSnap = await getDoc(doc(db, "admin_roles", user.uid));
+      return roleSnap.exists() && roleSnap.data().active === true;
+    }
+
+    function renderAuth() {
+      const login = $("login-screen");
+      const dashboard = $("admin-dashboard");
+      const logout = $("logout-btn");
+      const uidHelp = $("uid-help");
+      const uidBox = $("uid-box");
+      const line = $("auth-line");
+
+      if (!currentUser) {
+        login.classList.remove("hidden");
+        dashboard.classList.add("hidden");
+        logout.classList.add("hidden");
+        uidHelp.classList.add("hidden");
+        line.textContent = "سجّل الدخول للمتابعة";
+        return;
+      }
+
+      line.textContent = currentUser.email || currentUser.uid;
+      logout.classList.remove("hidden");
+
+      if (!isAdmin) {
+        login.classList.remove("hidden");
+        dashboard.classList.add("hidden");
+        uidHelp.classList.remove("hidden");
+        uidBox.textContent = currentUser.uid;
+        showStatus("هذا الحساب دخل بنجاح، لكنه ليس مديرًا بعد.", "warning");
+        return;
+      }
+
+      login.classList.add("hidden");
+      dashboard.classList.remove("hidden");
+      uidHelp.classList.add("hidden");
+    }
+
+    async function loadAll() {
+      if (!isAdmin) return;
+
+      showStatus("جار تحديث البيانات...", "warning");
+      await Promise.all([loadContent(), loadRequests()]);
+      showStatus("تم تحديث البيانات.", "success");
+    }
+
+    async function loadContent() {
+      const snap = await getDoc(publicRef);
+      contentCache = normalizeContent(snap.exists() ? snap.data() : {});
+      renderStats();
+      renderTexts();
+      renderVideos();
+    }
+
+    async function loadRequests() {
+      const snap = await getDocs(collection(db, "enrollment_requests"));
+
+      requestsCache = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      requestsCache.sort((a, b) => {
+        const ad = a.submissionDate && a.submissionDate.toMillis ? a.submissionDate.toMillis() : 0;
+        const bd = b.submissionDate && b.submissionDate.toMillis ? b.submissionDate.toMillis() : 0;
+        return bd - ad;
+      });
+
+      renderStats();
+      renderRequests();
+    }
+
+    function renderStats() {
+      $("stat-requests").textContent = String(requestsCache.length);
+      $("stat-texts").textContent = String(Object.keys(contentCache.texts || {}).length);
+      $("stat-videos").textContent = String((contentCache.videos || []).length);
+
+      $("badge-requests").textContent = String(
+        requestsCache.filter((r) => (r.status || "new") === "new").length
+      );
+
+      $("badge-texts").textContent = String(Object.keys(contentCache.texts || {}).length);
+      $("badge-videos").textContent = String((contentCache.videos || []).length);
+    }
+
+    function renderRequests() {
+      const box = $("requests-list");
+      const q = ($("request-search").value || "").trim().toLowerCase();
+      const status = $("request-status-filter").value;
+
+      box.textContent = "";
+
+      const rows = requestsCache.filter((r) => {
+        const rs = r.status || "new";
+        const hay = [r.fullName, r.phone, r.track, r.message, rs].join(" ").toLowerCase();
+
+        return (status === "all" || rs === status) && (!q || hay.includes(q));
+      });
+
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty">لا توجد طلبات مطابقة.</div>';
+        return;
+      }
+
+      rows.forEach((r) => {
+        const item = document.createElement("div");
+        item.className = "item";
+
+        item.innerHTML = `
+          <div class="item-head">
+            <div>
+              <div class="item-title"></div>
+              <div class="item-meta"></div>
+            </div>
+            <span class="pill"></span>
+          </div>
+          <p class="muted" style="line-height:1.8;margin:0 0 12px;"></p>
+          <div class="row-actions">
+            <select class="request-status">
+              <option value="new">جديد</option>
+              <option value="contacted">تم التواصل</option>
+              <option value="pending">مؤجل</option>
+              <option value="accepted">مقبول</option>
+              <option value="rejected">مرفوض</option>
+            </select>
+            <button class="btn small ok" type="button">حفظ الحالة</button>
+          </div>
+        `;
+
+        item.querySelector(".item-title").textContent = r.fullName || "بدون اسم";
+        item.querySelector(".item-meta").textContent = `${r.phone || "—"} | ${r.track || "—"} | ${fmtDate(r.submissionDate)}`;
+        item.querySelector(".pill").textContent = statusLabel(r.status || "new");
+        item.querySelector("p").textContent = r.message || "لا توجد رسالة.";
+
+        const select = item.querySelector(".request-status");
+        select.value = r.status || "new";
+
+        item.querySelector("button").addEventListener("click", () => {
+          updateRequestStatus(r.id, select.value);
+        });
+
+        box.appendChild(item);
+      });
+    }
+
+    async function updateRequestStatus(id, status) {
+      await updateDoc(doc(db, "enrollment_requests", id), {
+        status: status,
+        handledAt: serverTimestamp(),
+        handledBy: currentUser ? currentUser.email || currentUser.uid : "admin"
+      });
+
+      await loadRequests();
+      showStatus("تم تحديث حالة الطلب.", "success");
+    }
+
+    function renderTexts() {
+      const box = $("texts-list");
+      const q = ($("text-search").value || "").trim().toLowerCase();
+      const lang = $("text-lang-filter").value;
+
+      box.textContent = "";
+
+      const entries = Object.entries(contentCache.texts || {}).sort((a, b) => {
+        return a[0].localeCompare(b[0]);
+      });
+
+      const rows = entries.filter(([id, value]) => {
+        const detected = guessLang(id);
+        return (lang === "all" || detected === lang) &&
+          (!q || (id + " " + value).toLowerCase().includes(q));
+      });
+
+      if (!rows.length) {
+        box.innerHTML = '<div class="empty">لا توجد نصوص مطابقة.</div>';
+        return;
+      }
+
+      rows.forEach(([id, value]) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "item";
+        item.style.textAlign = "right";
+
+        item.innerHTML = `
+          <div class="item-head">
+            <div>
+              <div class="item-title"></div>
+              <div class="item-meta"></div>
+            </div>
+            <span class="pill"></span>
+          </div>
+          <p class="muted" style="margin:0;line-height:1.8;"></p>
+        `;
+
+        item.querySelector(".item-title").textContent = id;
+        item.querySelector(".item-meta").textContent = String(value).length + " حرفًا";
+        item.querySelector(".pill").textContent = guessLang(id).toUpperCase() || "عام";
+        item.querySelector("p").textContent = String(value).slice(0, 180);
+
+        item.addEventListener("click", () => fillTextForm(id));
+
+        box.appendChild(item);
+      });
+    }
+
+    function fillTextForm(id) {
+      $("text-id").value = id;
+      $("text-value").value = contentCache.texts[id] || "";
+      $("text-value").focus();
+    }
+
+    async function saveText(event) {
+      event.preventDefault();
+
+      const id = ($("text-id").value || "").trim();
+      const value = ($("text-value").value || "").trim();
+
+      if (!id) {
+        showStatus("اكتب معرّف النص أولًا.", "error");
+        return;
+      }
+
+      if (id.length > 120) {
+        showStatus("معرّف النص طويل جدًا.", "error");
+        return;
+      }
+
+      if (value.length > 4000) {
+        showStatus("النص طويل جدًا.", "error");
+        return;
+      }
+
+      const texts = { ...(contentCache.texts || {}) };
+      texts[id] = value;
+
+      await setDoc(publicRef, { texts: texts }, { merge: true });
+      await loadContent();
+      fillTextForm(id);
+
+      showStatus("تم حفظ النص.", "success");
+    }
+
+    async function deleteText() {
+      const id = ($("text-id").value || "").trim();
+
+      if (!id) return;
+
+      if (!confirm("حذف هذا النص من Firestore؟")) return;
+
+      const texts = { ...(contentCache.texts || {}) };
+      delete texts[id];
+
+      await setDoc(publicRef, { texts: texts }, { merge: true });
+
+      $("text-id").value = "";
+      $("text-value").value = "";
+
+      await loadContent();
+
+      showStatus("تم حذف النص.", "success");
+    }
+
+    async function scanContentIds() {
+      try {
+        const html = await fetch("./index.html", { cache: "no-store" }).then((r) => r.text());
+
+        const ids = Array.from(
+          html.matchAll(/data-content-id=["']([^"']+)["']/g)
+        ).map((m) => m[1]);
+
+        const texts = { ...(contentCache.texts || {}) };
+        let added = 0;
+
+        ids.forEach((id) => {
+          if (!Object.prototype.hasOwnProperty.call(texts, id)) {
+            texts[id] = "";
+            added += 1;
+          }
+        });
+
+        if (added > 0) {
+          await setDoc(publicRef, { texts: texts }, { merge: true });
+          await loadContent();
+        }
+
+        showStatus(
+          added ? `تمت إضافة ${added} معرّفات نصية جديدة.` : "لم يتم العثور على معرّفات جديدة.",
+          "success"
+        );
+      } catch (error) {
+        console.error(error);
+        showStatus("فشلت فهرسة النصوص من الصفحة.", "error");
+      }
+    }
+
+    function safeUrl(value, label) {
+      const url = new URL(value);
+
+      if (url.protocol !== "https:") {
+        throw new Error(label + " يجب أن يبدأ بـ https://");
+      }
+
+      return url.href;
+    }
+
+    function renderVideos() {
+      const box = $("videos-list");
+      box.textContent = "";
+
+      const videos = contentCache.videos || [];
+
+      if (!videos.length) {
+        box.innerHTML = '<div class="empty">لا توجد فيديوهات.</div>';
+        return;
+      }
+
+      videos.forEach((video, index) => {
+        const item = document.createElement("div");
+        item.className = "item";
+
+        item.innerHTML = `
+          <div class="item-head">
+            <div>
+              <div class="item-title"></div>
+              <div class="item-meta"></div>
+            </div>
+            <span class="pill"></span>
+          </div>
+          <div class="row-actions">
+            <button class="btn small" type="button">تعديل</button>
+            <button class="btn small danger" type="button">حذف</button>
+          </div>
+        `;
+
+        item.querySelector(".item-title").textContent = video.title || "بدون عنوان";
+        item.querySelector(".item-meta").textContent = video.videoUrl || "—";
+        item.querySelector(".pill").textContent = video.category || "all";
+
+        const buttons = item.querySelectorAll("button");
+
+        buttons[0].addEventListener("click", () => fillVideoForm(index));
+        buttons[1].addEventListener("click", () => deleteVideo(index));
+
+        box.appendChild(item);
+      });
+    }
+
+    function fillVideoForm(index) {
+      const video = contentCache.videos[index];
+
+      if (!video) return;
+
+      $("video-index").value = String(index);
+      $("video-title").value = video.title || "";
+      $("video-category").value = video.category || "all";
+      $("video-url").value = video.videoUrl || "";
+      $("video-image").value = video.imageUrl || "";
+    }
+
+    async function saveVideo(event) {
+      event.preventDefault();
+
+      const title = ($("video-title").value || "").trim();
+      const category = $("video-category").value || "all";
+      const videoUrl = safeUrl(($("video-url").value || "").trim(), "رابط الفيديو");
+      const imageUrl = safeUrl(($("video-image").value || "").trim(), "رابط الصورة");
+
+      if (title.length < 2 || title.length > 120) {
+        showStatus("عنوان الفيديو غير صحيح.", "error");
+        return;
+      }
+
+      const videos = [...(contentCache.videos || [])];
+      const index = $("video-index").value === "" ? -1 : Number.parseInt($("video-index").value, 10);
+
+      const data = {
+        title: title,
+        category: category,
+        videoUrl: videoUrl,
+        imageUrl: imageUrl,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (index >= 0 && index < videos.length) {
+        videos[index] = { ...videos[index], ...data };
+      } else {
+        videos.push({ ...data, createdAt: new Date().toISOString() });
+      }
+
+      await setDoc(publicRef, { videos: videos }, { merge: true });
+
+      clearVideoForm();
+      await loadContent();
+
+      showStatus("تم حفظ الفيديو.", "success");
+    }
+
+    async function deleteVideo(index) {
+      if (!confirm("حذف هذا الفيديو؟")) return;
+
+      const videos = [...(contentCache.videos || [])];
+      videos.splice(index, 1);
+
+      await setDoc(publicRef, { videos: videos }, { merge: true });
+      await loadContent();
+
+      showStatus("تم حذف الفيديو.", "success");
+    }
+
+    function clearVideoForm() {
+      $("video-form").reset();
+      $("video-index").value = "";
+    }
+
+    $("google-login-btn").addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (error) {
+        console.error(error);
+        showStatus((error.code || "خطأ") + " — " + (error.message || "فشل تسجيل الدخول"), "error");
+      }
+    });
+
+    $("logout-btn").addEventListener("click", () => signOut(auth));
+    $("refresh-all-btn").addEventListener("click", loadAll);
+    $("refresh-requests-btn").addEventListener("click", loadRequests);
+
+    $("request-search").addEventListener("input", renderRequests);
+    $("request-status-filter").addEventListener("change", renderRequests);
+
+    $("text-search").addEventListener("input", renderTexts);
+    $("text-lang-filter").addEventListener("change", renderTexts);
+    $("text-form").addEventListener("submit", saveText);
+    $("clear-text-btn").addEventListener("click", () => $("text-form").reset());
+    $("delete-text-btn").addEventListener("click", deleteText);
+    $("scan-content-ids-btn").addEventListener("click", scanContentIds);
+
+    $("video-form").addEventListener("submit", saveVideo);
+    $("clear-video-btn").addEventListener("click", clearVideoForm);
+
+    $("copy-uid-btn").addEventListener("click", async () => {
+      if (!currentUser) return;
+
+      await navigator.clipboard.writeText(currentUser.uid);
+      showStatus("تم نسخ UID.", "success");
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      isAdmin = false;
+
+      if (!user) {
+        renderAuth();
+        return;
+      }
+
+      try {
+        isAdmin = await checkAdminRole(user);
+        renderAuth();
+
+        if (isAdmin) {
+          await loadAll();
+        }
+      } catch (error) {
+        console.error(error);
+        renderAuth();
+        showStatus("فشل التحقق من صلاحية المدير.", "error");
+      }
+    });
+  </script>
+</body>
+</html>
