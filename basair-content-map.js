@@ -1,7 +1,8 @@
 // Basair editable text map
 // Responsibility:
 // - Discover editable text elements.
-// - Prefer explicit stable data-content-id values.
+// - Add stable data-content-id keys for important visible website text.
+// - Prefer explicit stable data-content-id values already written in HTML.
 // - Auto-generate fallback IDs only for simple plain multilingual text.
 // - Do not create UI.
 // - Do not inject CSS.
@@ -36,6 +37,219 @@
     "#splash-screen"
   ].join(",");
 
+  const STABLE_TEXT_RULES = [
+    {
+      scope: "#navbar",
+      key: "navbar-brand",
+      text: {
+        ar: "أكاديمية بصائر",
+        en: "Basair Academy",
+        fr: "Académie Bassaïr",
+        ru: "Академия Басаир"
+      }
+    },
+    {
+      scope: "#navbar nav",
+      key: "nav-about",
+      text: {
+        ar: "عن الأكاديمية",
+        en: "About Us",
+        fr: "À Propos",
+        ru: "О Нас"
+      }
+    },
+    {
+      scope: "#navbar nav",
+      key: "nav-tracks",
+      text: {
+        ar: "المسارات الأكاديمية",
+        en: "Academic Tracks",
+        fr: "Parcours",
+        ru: "Учебные Пути"
+      }
+    },
+    {
+      scope: "#navbar nav",
+      key: "nav-testimonials",
+      text: {
+        ar: "الآراء",
+        en: "Testimonials",
+        fr: "Avis",
+        ru: "Отзывы"
+      }
+    },
+    {
+      scope: "#navbar nav",
+      key: "nav-faq",
+      text: {
+        ar: "الأسئلة الشائعة",
+        en: "FAQ",
+        fr: "FAQ",
+        ru: "ЧаВо"
+      }
+    },
+    {
+      scope: "#navbar",
+      key: "nav-enroll",
+      text: {
+        ar: "طلب الالتحاق",
+        en: "Enroll Now",
+        fr: "S'inscrire",
+        ru: "Записаться"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-nav-about",
+      text: {
+        ar: "عن الأكاديمية",
+        en: "About Us",
+        fr: "À Propos",
+        ru: "О Нас"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-nav-tracks",
+      text: {
+        ar: "المسارات الأكاديمية",
+        en: "Academic Tracks",
+        fr: "Parcours Académiques",
+        ru: "Учебные Пути"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-nav-testimonials",
+      text: {
+        ar: "الآراء",
+        en: "Testimonials",
+        fr: "Avis",
+        ru: "Отзывы"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-nav-faq",
+      text: {
+        ar: "الأسئلة الشائعة",
+        en: "FAQ",
+        fr: "FAQ",
+        ru: "ЧаВо"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-language-settings",
+      text: {
+        ar: "إعدادات اللغة",
+        en: "Language Settings",
+        fr: "Paramètres de Langue",
+        ru: "Настройки языка"
+      }
+    },
+    {
+      scope: "#mobile-menu",
+      key: "mobile-enroll",
+      text: {
+        ar: "طلب الالتحاق",
+        en: "Enroll Now",
+        fr: "S'inscrire",
+        ru: "Записаться"
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-badge",
+      text: {
+        ar: "نور يهدي، وعلم يبني",
+        en: "A Guiding Light, Building Knowledge",
+        fr: "Une Lumière qui Guide, un Savoir qui Bâtit",
+        ru: "Свет, который направляет, и знание, которое строит"
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-title-line-1",
+      text: {
+        ar: "صرح علمي يجمع بين",
+        en: "A Scientific Edifice Combining",
+        fr: "Un Édifice Scientifique Alliant",
+        ru: "Научное учреждение, объединяющее"
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-title-line-2",
+      text: {
+        ar: "أصالة التراث",
+        en: "Heritage Authenticity",
+        fr: "Authenticité du Patrimoine",
+        ru: "Подлинность наследия"
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-title-line-3",
+      text: {
+        ar: "وحداثة التعليم",
+        en: "and Modern Education",
+        fr: "et Éducation Moderne",
+        ru: "и современное образование"
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-description",
+      text: {
+        ar: "نقدم تعليمًا إسلاميًا ولغويًا متكاملًا، يقوم عليه نخبة من المعلمين المختصين، وهم مجازون بإجازات معتبرة في القراءات، لنرسخ في النفوس لغة القرآن وعلومه بمنهجية رصينة ومباشرة.",
+        en: "We provide comprehensive Islamic and linguistic education, supervised by elite specialized and certified teachers holding recognized Ijazahs in Quranic readings, instilling the language of the Quran and its sciences through a rigorous and direct methodology.",
+        fr: "Nous offrons un enseignement islamique et linguistique complet, supervisé par une élite d'enseignants spécialisés et certifiés détenant des Ijazahs reconnues dans les lectures coraniques, inculquant la langue du Coran et ses sciences par une méthodologie rigoureuse et directe.",
+        ru: "Мы предоставляем комплексное исламское и лингвистическое образование под руководством элитных специализированных преподавателей, имеющих признанные Иджазы в чтениях Корана, прививая язык Корана и его науки с помощью строгой и прямой методологии."
+      }
+    },
+    {
+      scope: "#home",
+      key: "hero-primary-button",
+      text: {
+        ar: "تصفح الدليل الأكاديمي",
+        en: "Explore Academic Guide",
+        fr: "Explorer le Guide Académique",
+        ru: "Изучить Академическое руководство"
+      }
+    },
+    {
+      scope: "#about h2",
+      key: "about-title",
+      text: {
+        ar: "هيئة التدريس والمنهجية",
+        en: "Faculty & Methodology",
+        fr: "Corps Professoral & Méthodologie",
+        ru: "Факультет и методология"
+      }
+    },
+    {
+      scope: "#tracks .text-center",
+      key: "tracks-eyebrow",
+      text: {
+        ar: "الدليل الأكاديمي الشامل",
+        en: "Comprehensive Academic Guide",
+        fr: "Guide Académique Complet",
+        ru: "Комплексное академическое руководство"
+      }
+    },
+    {
+      scope: "#tracks .text-center",
+      key: "tracks-title",
+      text: {
+        ar: "المسارات الأكاديمية",
+        en: "Academic Tracks",
+        fr: "Parcours Académiques",
+        ru: "Учебные Пути"
+      }
+    }
+  ];
+
   function cleanText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
@@ -56,7 +270,13 @@
       }
     }
 
-    const id = element.getAttribute("data-content-id") || "";
+    const langElement = element.closest ? element.closest(LANGUAGE_SELECTOR) : null;
+
+    if (langElement) {
+      return getLang(langElement);
+    }
+
+    const id = element.getAttribute && element.getAttribute("data-content-id") || "";
     const match = String(id).match(/(?:^|-)(ar|en|fr|ru)(?:-|$)/i);
 
     return match ? match[1].toLowerCase() : "general";
@@ -94,12 +314,14 @@
     return Boolean(element && element.getAttribute("data-content-id"));
   }
 
-  function isSafeTextElement(element) {
-    if (!element || SKIP_TAGS.has(element.tagName)) {
-      return false;
-    }
+  function isForbiddenElement(element) {
+    return !element ||
+      SKIP_TAGS.has(element.tagName) ||
+      Boolean(element.closest(NEVER_EDIT_CONTAINERS));
+  }
 
-    if (element.closest(NEVER_EDIT_CONTAINERS)) {
+  function isSafeTextElement(element) {
+    if (isForbiddenElement(element)) {
       return false;
     }
 
@@ -136,10 +358,93 @@
     return isSafeTextElement(element);
   }
 
+  function getStableId(parent, text) {
+    const lang = getLang(parent);
+
+    if (!LANGS.includes(lang)) {
+      return "";
+    }
+
+    for (const rule of STABLE_TEXT_RULES) {
+      if (!rule.text || rule.text[lang] !== text) {
+        continue;
+      }
+
+      if (parent.closest && parent.closest(rule.scope)) {
+        return rule.key + "-" + lang;
+      }
+    }
+
+    return "";
+  }
+
+  function wrapTextNode(textNode, id) {
+    if (!textNode || !textNode.parentNode || !id) {
+      return;
+    }
+
+    const doc = textNode.ownerDocument || document;
+    const span = doc.createElement("span");
+    span.setAttribute("data-content-id", id);
+    span.setAttribute("data-stable-content-id", "true");
+    span.textContent = textNode.nodeValue;
+    textNode.parentNode.replaceChild(span, textNode);
+  }
+
+  function stabilizeTextNodes(root) {
+    const doc = root.nodeType === 9 ? root : root.ownerDocument || document;
+    const start = root.body || root;
+
+    if (!start || !doc.createTreeWalker) {
+      return;
+    }
+
+    const walker = doc.createTreeWalker(start, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (node) {
+        const text = cleanText(node.nodeValue);
+        const parent = node.parentElement;
+
+        if (!text || !parent) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (parent.closest("[data-content-id]")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (isForbiddenElement(parent)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        if (!parent.closest(LANGUAGE_SELECTOR)) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return getStableId(parent, text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+
+    const nodes = [];
+    let node = walker.nextNode();
+
+    while (node) {
+      nodes.push(node);
+      node = walker.nextNode();
+    }
+
+    nodes.forEach(function (textNode) {
+      const parent = textNode.parentElement;
+      const id = getStableId(parent, cleanText(textNode.nodeValue));
+      wrapTextNode(textNode, id);
+    });
+  }
+
   function collect(root) {
+    stabilizeTextNodes(root || document);
+
     const counters = Object.create(null);
     const output = [];
-    const elements = Array.from(root.querySelectorAll(EDITABLE_SELECTOR));
+    const elements = Array.from((root || document).querySelectorAll(EDITABLE_SELECTOR));
     const seen = new Set();
 
     elements.forEach(function (element) {
