@@ -510,61 +510,49 @@
   document.head.appendChild(style);
 }
 
-function enhanceSplashScreen() {
-  const splash = document.getElementById("splash-screen");
+  function enhanceSplashScreen() {
+    const splash = document.getElementById("splash-screen");
 
-  if (!splash || splash.dataset.basairPremiumSplash === "true") {
-    return;
-  }
+    if (!splash || splash.dataset.basairPremiumSplash === "true") {
+      return;
+    }
 
-  injectPremiumSplashStyles();
+    injectPremiumSplashStyles();
 
-  splash.dataset.basairPremiumSplash = "true";
-  splash.classList.add("basair-premium-splash");
-  splash.setAttribute("aria-live", "polite");
-  splash.setAttribute("aria-label", "Loading Basair Academy");
+    splash.dataset.basairPremiumSplash = "true";
+    splash.classList.add("basair-premium-splash");
+    splash.setAttribute("aria-live", "polite");
+    splash.setAttribute("aria-label", "Loading Basair Academy");
 
-  splash.innerHTML = `
-    <div class="basair-splash-noise" aria-hidden="true"></div>
+    splash.innerHTML = `
+      <div class="basair-splash-noise" aria-hidden="true"></div>
 
-    <div class="basair-splash-shell">
-      <div class="basair-splash-stage">
-        <div class="basair-splash-ring" aria-hidden="true"></div>
+      <div class="basair-splash-shell">
+        <div class="basair-splash-stage">
+          <div class="basair-splash-ring" aria-hidden="true"></div>
 
-        <div class="basair-splash-card">
-          <div class="basair-splash-logo-wrap">
-            <img
-              src="./logo.png"
-              alt="Basair Academy"
-              class="basair-splash-logo"
-              onerror="this.style.display='none'"
-            >
-          </div>
+          <div class="basair-splash-card">
+            <div class="basair-splash-logo-wrap">
+              <img
+                src="./logo.png"
+                alt="Basair Academy"
+                class="basair-splash-logo"
+              >
+            </div>
 
-          <div class="basair-splash-wordmark">BASAIR ACADEMY</div>
-          <div class="basair-splash-divider" aria-hidden="true"></div>
+            <div class="basair-splash-wordmark">BASAIR ACADEMY</div>
+            <div class="basair-splash-divider" aria-hidden="true"></div>
 
-          <div class="basair-splash-dots" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
+            <div class="basair-splash-dots" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  `;
-}
-
-  const logo = splash.querySelector(".basair-splash-logo");
-  const fallback = splash.querySelector(".basair-splash-logo-fallback");
-
-  if (logo && fallback) {
-    logo.addEventListener("error", function () {
-      logo.style.display = "none";
-      fallback.style.display = "flex";
-    });
+    `;
   }
-}
   window.BasairTextMap = {
     assign: assign,
     extractFromHtml: extractFromHtml,
