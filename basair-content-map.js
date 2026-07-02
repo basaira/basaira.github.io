@@ -156,6 +156,7 @@
     return collect(doc);
   }
 
+  
   function injectPremiumSplashStyles() {
   if (document.getElementById("basair-premium-splash-style")) {
     return;
@@ -174,352 +175,325 @@
       overflow: hidden;
       isolation: isolate;
       background:
-        radial-gradient(circle at 50% 16%, rgba(255,255,255,.18), transparent 18rem),
-        radial-gradient(circle at 80% 20%, rgba(212,175,55,.20), transparent 24rem),
-        radial-gradient(circle at 15% 88%, rgba(255,255,255,.07), transparent 26rem),
-        linear-gradient(145deg, #020617 0%, #07162F 42%, #0A1F44 100%);
+        radial-gradient(circle at 50% 34%, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.04) 18%, rgba(255,255,255,0) 42%),
+        linear-gradient(180deg, #08152f 0%, #0b1d3d 45%, #071126 100%);
       transition:
-        opacity .95s cubic-bezier(.16, 1, .3, 1),
-        visibility .95s cubic-bezier(.16, 1, .3, 1),
-        transform .95s cubic-bezier(.16, 1, .3, 1),
-        filter .95s cubic-bezier(.16, 1, .3, 1);
+        opacity 1s cubic-bezier(.16, 1, .3, 1),
+        visibility 1s cubic-bezier(.16, 1, .3, 1),
+        transform 1s cubic-bezier(.16, 1, .3, 1),
+        filter 1s cubic-bezier(.16, 1, .3, 1);
+    }
+
+    #splash-screen.basair-premium-splash::before,
+    #splash-screen.basair-premium-splash::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: -2;
+      filter: blur(20px);
+      opacity: .9;
+    }
+
+    #splash-screen.basair-premium-splash::before {
+      width: 34rem;
+      height: 34rem;
+      top: -10rem;
+      right: -8rem;
+      background: radial-gradient(circle, rgba(212,175,55,.18), rgba(212,175,55,0) 70%);
+      animation: basair-splash-orb-1 8s ease-in-out infinite alternate;
+    }
+
+    #splash-screen.basair-premium-splash::after {
+      width: 28rem;
+      height: 28rem;
+      left: -8rem;
+      bottom: -10rem;
+      background: radial-gradient(circle, rgba(255,255,255,.08), rgba(255,255,255,0) 72%);
+      animation: basair-splash-orb-2 9s ease-in-out infinite alternate;
+    }
+
+    .basair-splash-noise {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: .06;
+      background-image:
+        radial-gradient(rgba(255,255,255,.95) 0.8px, transparent 0.8px);
+      background-size: 18px 18px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,.18));
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.75), rgba(0,0,0,.18));
+    }
+
+    .basair-splash-shell {
+      width: min(92vw, 560px);
+      min-height: min(90vh, 680px);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      position: relative;
+      padding: 2rem 1.25rem;
+    }
+
+    .basair-splash-stage {
+      position: relative;
+      width: min(90vw, 420px);
+      aspect-ratio: 1 / 1;
+      display: grid;
+      place-items: center;
+    }
+
+    .basair-splash-ring,
+    .basair-splash-ring::before,
+    .basair-splash-ring::after {
+      position: absolute;
+      inset: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    .basair-splash-ring {
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow:
+        0 0 0 1px rgba(212,175,55,.06) inset,
+        0 0 80px rgba(212,175,55,.07);
+      animation: basair-ring-rotate 14s linear infinite;
+    }
+
+    .basair-splash-ring::before {
+      content: "";
+      width: 82%;
+      height: 82%;
+      border: 1px solid rgba(212,175,55,.22);
+      opacity: .85;
+      animation: basair-ring-float 5s ease-in-out infinite;
+    }
+
+    .basair-splash-ring::after {
+      content: "";
+      width: 62%;
+      height: 62%;
+      border: 1px solid rgba(255,255,255,.12);
+      animation: basair-ring-float 4.2s ease-in-out infinite reverse;
+    }
+
+    .basair-splash-card {
+      position: relative;
+      z-index: 2;
+      width: min(100%, 320px);
+      padding: 2rem 1.2rem 1.5rem;
+      border-radius: 32px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.09), rgba(255,255,255,.04));
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow:
+        0 30px 80px rgba(0,0,0,.34),
+        inset 0 1px 0 rgba(255,255,255,.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      animation: basair-card-reveal 1.15s cubic-bezier(.16, 1, .3, 1) both;
+    }
+
+    .basair-splash-logo-wrap {
+      width: clamp(112px, 24vw, 152px);
+      height: clamp(112px, 24vw, 152px);
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(255,255,255,.13), rgba(255,255,255,.05) 58%, rgba(255,255,255,.02) 100%);
+      border: 1px solid rgba(212,175,55,.24);
+      box-shadow:
+        0 0 0 10px rgba(255,255,255,.025),
+        0 20px 60px rgba(0,0,0,.28),
+        0 0 35px rgba(212,175,55,.12);
+      position: relative;
+      animation: basair-logo-float 4.2s ease-in-out infinite;
+    }
+
+    .basair-splash-logo-wrap::before {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: inherit;
+      border: 1px solid rgba(255,255,255,.08);
+      opacity: .85;
+      animation: basair-halo-pulse 3.4s ease-in-out infinite;
+    }
+
+    .basair-splash-logo-wrap::after {
+      content: "";
+      position: absolute;
+      inset: -22px;
+      border-radius: inherit;
+      border: 1px solid rgba(212,175,55,.10);
+      opacity: .55;
+      animation: basair-halo-pulse 3.4s ease-in-out infinite 1s;
+    }
+
+    .basair-splash-logo {
+      width: 62%;
+      height: 62%;
+      object-fit: contain;
+      display: block;
+      filter:
+        drop-shadow(0 10px 24px rgba(0,0,0,.25))
+        drop-shadow(0 0 18px rgba(212,175,55,.10));
+    }
+
+    .basair-splash-wordmark {
+      margin-top: 1.1rem;
+      color: #F6F1E6;
+      font-size: clamp(1rem, 2.5vw, 1.12rem);
+      font-weight: 800;
+      letter-spacing: .34em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .basair-splash-divider {
+      width: 86px;
+      height: 1px;
+      margin: .95rem auto 0;
+      background: linear-gradient(90deg, rgba(212,175,55,0), rgba(212,175,55,.9), rgba(212,175,55,0));
+      opacity: .95;
+    }
+
+    .basair-splash-dots {
+      display: inline-flex;
+      gap: 8px;
+      margin-top: 1rem;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .basair-splash-dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.34);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+      animation: basair-dot-wave 1.5s infinite ease-in-out;
+    }
+
+    .basair-splash-dots span:nth-child(2) {
+      animation-delay: .16s;
+    }
+
+    .basair-splash-dots span:nth-child(3) {
+      animation-delay: .32s;
     }
 
     #splash-screen.basair-premium-splash.splash-hidden {
       opacity: 0;
       visibility: hidden;
-      transform: scale(1.035);
+      transform: scale(1.03);
       filter: blur(10px);
     }
 
-    #splash-screen.basair-premium-splash::before {
-      content: "";
-      position: absolute;
-      inset: -25%;
-      background:
-        linear-gradient(115deg, transparent 0 38%, rgba(255,255,255,.10) 47%, transparent 56% 100%),
-        repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 90px);
-      transform: translateX(26%);
-      animation: basair-grand-light 2.8s cubic-bezier(.16, 1, .3, 1) .25s both;
-      pointer-events: none;
-      z-index: -1;
-    }
-
-    #splash-screen.basair-premium-splash::after {
-      content: "";
-      position: absolute;
-      width: 44rem;
-      height: 44rem;
-      top: -19rem;
-      right: -16rem;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgba(212,175,55,.26), rgba(212,175,55,0) 70%);
-      filter: blur(10px);
-      animation: basair-orb-drift 7s ease-in-out infinite alternate;
-      pointer-events: none;
-      z-index: -2;
-    }
-
-    .basair-splash-shell {
-      position: relative;
-      width: min(92vw, 570px);
-      min-height: min(84vh, 690px);
-      display: grid;
-      place-items: center;
-      padding: 1.25rem;
-      text-align: center;
-    }
-
-    .basair-splash-shell::before,
-    .basair-splash-shell::after {
-      content: "";
-      position: absolute;
-      inset: 50% auto auto 50%;
-      aspect-ratio: 1;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-
-    .basair-splash-shell::before {
-      width: min(84vw, 450px);
-      border: 1px solid rgba(212,175,55,.22);
-      box-shadow:
-        0 0 0 24px rgba(212,175,55,.035),
-        0 0 0 74px rgba(255,255,255,.024),
-        inset 0 0 72px rgba(212,175,55,.055);
-      animation: basair-ring-breathe 3s ease-in-out infinite;
-    }
-
-    .basair-splash-shell::after {
-      width: min(72vw, 365px);
-      border: 1px dashed rgba(255,255,255,.16);
-      animation: basair-ring-rotate 18s linear infinite;
-    }
-
-    .basair-splash-card {
-      position: relative;
-      width: min(100%, 440px);
-      display: grid;
-      justify-items: center;
-      overflow: hidden;
-      border-radius: 36px;
-      padding: 2.1rem 1.35rem 1.45rem;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(212,175,55,.18), transparent 15rem),
-        linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.045));
-      border: 1px solid rgba(255,255,255,.16);
-      box-shadow:
-        0 34px 92px rgba(0,0,0,.36),
-        inset 0 1px 0 rgba(255,255,255,.12);
-      -webkit-backdrop-filter: blur(22px);
-      backdrop-filter: blur(22px);
-      animation: basair-card-enter .95s cubic-bezier(.16,1,.3,1) both;
-    }
-
-    .basair-splash-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(110deg, transparent 0 35%, rgba(255,255,255,.15) 45%, transparent 56% 100%);
-      transform: translateX(115%);
-      animation: basair-card-shine 1.45s cubic-bezier(.16,1,.3,1) .95s both;
-      pointer-events: none;
-    }
-
-    .basair-logo-stage {
-      position: relative;
-      width: clamp(112px, 27vw, 160px);
-      aspect-ratio: 1;
-      display: grid;
-      place-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .basair-logo-stage::before,
-    .basair-logo-stage::after {
-      content: "";
-      position: absolute;
-      border-radius: 50%;
-      pointer-events: none;
-    }
-
-    .basair-logo-stage::before {
-      inset: -11px;
-      border: 1px solid rgba(212,175,55,.45);
-      animation: basair-halo-pulse 2.4s ease-in-out infinite;
-    }
-
-    .basair-logo-stage::after {
-      inset: -24px;
-      border: 1px dashed rgba(255,255,255,.20);
-      animation: basair-ring-rotate 12s linear infinite reverse;
-    }
-
-    .basair-logo-medallion {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border-radius: 50%;
-      background:
-        radial-gradient(circle at 34% 28%, #fffef8 0%, #f7edcb 57%, #d4af37 100%);
-      border: 1px solid rgba(255,255,255,.48);
-      box-shadow:
-        0 20px 48px rgba(0,0,0,.32),
-        0 0 0 9px rgba(255,255,255,.045),
-        inset 0 2px 8px rgba(255,255,255,.58);
-      animation:
-        basair-logo-pop .88s cubic-bezier(.16,1,.3,1) .2s both,
-        basair-logo-float 3.4s ease-in-out 1.05s infinite;
-    }
-
-    .basair-logo-medallion::before {
-      content: "";
-      position: absolute;
-      width: 125%;
-      height: 125%;
-      background: linear-gradient(115deg, transparent 0 38%, rgba(255,255,255,.50) 48%, transparent 58% 100%);
-      transform: translateX(112%);
-      animation: basair-logo-glint 1.15s ease .78s both;
-      pointer-events: none;
-      z-index: 3;
-    }
-
-    .basair-splash-logo {
-      position: relative;
-      z-index: 2;
-      width: 80%;
-      height: 80%;
-      display: block;
-      object-fit: contain;
-      filter: drop-shadow(0 10px 16px rgba(10,31,68,.18));
-    }
-
-    .basair-splash-logo-fallback {
-      position: relative;
-      z-index: 2;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      color: #0A1F44;
-      font-size: clamp(1.15rem, 3vw, 1.55rem);
-      font-weight: 900;
-    }
-
-    .basair-splash-kicker {
-      margin: 0 0 .62rem;
-      color: rgba(255,255,255,.56);
-      font-size: .72rem;
-      font-weight: 900;
-      letter-spacing: .28em;
-      text-transform: uppercase;
-      animation: basair-text-rise .7s cubic-bezier(.16,1,.3,1) .45s both;
-    }
-
-    .basair-splash-title {
-      margin: 0;
-      color: #F8F4E6;
-      font-size: clamp(2.12rem, 7.5vw, 4.35rem);
-      line-height: .92;
-      font-weight: 900;
-      letter-spacing: -.045em;
-      text-shadow: 0 14px 36px rgba(0,0,0,.28);
-      animation: basair-text-rise .74s cubic-bezier(.16,1,.3,1) .56s both;
-    }
-
-    .basair-splash-title span {
-      display: block;
-    }
-
-    .basair-splash-title .gold {
-      color: #D4AF37;
-      text-shadow: 0 12px 30px rgba(212,175,55,.22);
-    }
-
-    .basair-splash-subtitle {
-      max-width: 29rem;
-      margin: .78rem auto 0;
-      color: rgba(255,255,255,.70);
-      font-size: clamp(.92rem, 2.8vw, 1.06rem);
-      line-height: 1.82;
-      font-weight: 700;
-      animation: basair-text-rise .74s cubic-bezier(.16,1,.3,1) .66s both;
-    }
-
-    .basair-splash-progress {
-      width: min(220px, 62vw);
-      height: 4px;
-      margin-top: 1.18rem;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(255,255,255,.11);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
-      animation: basair-text-rise .7s cubic-bezier(.16,1,.3,1) .76s both;
-    }
-
-    .basair-splash-progress::before {
-      content: "";
-      display: block;
-      width: 42%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, transparent, #D4AF37, #FFF7D1, transparent);
-      box-shadow: 0 0 20px rgba(212,175,55,.50);
-      animation: basair-progress-slide 1.35s cubic-bezier(.65,0,.35,1) infinite;
-    }
-
-    .basair-splash-loading {
-      margin-top: .72rem;
-      color: rgba(255,255,255,.44);
-      font-size: .82rem;
-      font-weight: 800;
-      animation: basair-text-rise .7s cubic-bezier(.16,1,.3,1) .84s both;
-    }
-
-    @keyframes basair-card-enter {
-      from { opacity: 0; transform: translateY(26px) scale(.955); filter: blur(12px); }
-      to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-    }
-
-    @keyframes basair-logo-pop {
-      from { opacity: 0; transform: scale(.72) rotate(-10deg); filter: blur(10px); }
-      to { opacity: 1; transform: scale(1) rotate(0); filter: blur(0); }
+    @keyframes basair-card-reveal {
+      from {
+        opacity: 0;
+        transform: translateY(24px) scale(.96);
+        filter: blur(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
     }
 
     @keyframes basair-logo-float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-7px); }
-    }
-
-    @keyframes basair-logo-glint {
-      to { transform: translateX(-115%); }
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-8px);
+      }
     }
 
     @keyframes basair-halo-pulse {
-      0%, 100% { opacity: .30; transform: scale(.98); }
-      50% { opacity: .85; transform: scale(1.045); }
-    }
-
-    @keyframes basair-ring-breathe {
-      0%, 100% { opacity: .72; transform: translate(-50%, -50%) scale(.985); }
-      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.025); }
+      0%, 100% {
+        transform: scale(.985);
+        opacity: .42;
+      }
+      50% {
+        transform: scale(1.03);
+        opacity: .95;
+      }
     }
 
     @keyframes basair-ring-rotate {
-      to { transform: translate(-50%, -50%) rotate(360deg); }
+      from {
+        transform: translate(-50%, -50%) rotate(0deg);
+      }
+      to {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
     }
 
-    @keyframes basair-text-rise {
-      from { opacity: 0; transform: translateY(12px); filter: blur(6px); }
-      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    @keyframes basair-ring-float {
+      0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1.025);
+      }
     }
 
-    @keyframes basair-card-shine {
-      to { transform: translateX(-115%); }
+    @keyframes basair-dot-wave {
+      0%, 80%, 100% {
+        transform: translateY(0) scale(.9);
+        background: rgba(255,255,255,.28);
+      }
+      40% {
+        transform: translateY(-4px) scale(1.15);
+        background: #D4AF37;
+      }
     }
 
-    @keyframes basair-progress-slide {
-      from { transform: translateX(150%); }
-      to { transform: translateX(-260%); }
+    @keyframes basair-splash-orb-1 {
+      from {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      to {
+        transform: translate3d(16px, 20px, 0) scale(1.08);
+      }
     }
 
-    @keyframes basair-grand-light {
-      from { transform: translateX(26%); opacity: 0; }
-      20% { opacity: 1; }
-      to { transform: translateX(-26%); opacity: .72; }
-    }
-
-    @keyframes basair-orb-drift {
-      from { transform: translate3d(0,0,0) scale(1); }
-      to { transform: translate3d(22px,16px,0) scale(1.07); }
+    @keyframes basair-splash-orb-2 {
+      from {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      to {
+        transform: translate3d(-18px, -12px, 0) scale(1.1);
+      }
     }
 
     @media (max-width: 640px) {
       .basair-splash-shell {
-        width: min(94vw, 430px);
-        min-height: min(82vh, 650px);
+        min-height: 100vh;
+        padding: 1.25rem;
+      }
+
+      .basair-splash-stage {
+        width: min(90vw, 320px);
       }
 
       .basair-splash-card {
-        border-radius: 28px;
-        padding: 1.72rem 1rem 1.25rem;
+        width: min(100%, 270px);
+        padding: 1.6rem 1rem 1.25rem;
+        border-radius: 26px;
       }
 
-      .basair-logo-stage {
-        width: clamp(100px, 31vw, 132px);
-      }
-
-      .basair-splash-kicker {
-        font-size: .66rem;
-        letter-spacing: .22em;
-      }
-
-      .basair-splash-subtitle {
-        font-size: .9rem;
-        line-height: 1.72;
+      .basair-splash-wordmark {
+        letter-spacing: .26em;
+        font-size: .92rem;
       }
     }
 
@@ -548,38 +522,38 @@ function enhanceSplashScreen() {
   splash.dataset.basairPremiumSplash = "true";
   splash.classList.add("basair-premium-splash");
   splash.setAttribute("aria-live", "polite");
-  splash.setAttribute("aria-label", "جار تحميل أكاديمية بصائر");
+  splash.setAttribute("aria-label", "Loading Basair Academy");
 
   splash.innerHTML = `
+    <div class="basair-splash-noise" aria-hidden="true"></div>
+
     <div class="basair-splash-shell">
-      <div class="basair-splash-card">
-        <div class="basair-logo-stage">
-          <div class="basair-logo-medallion">
+      <div class="basair-splash-stage">
+        <div class="basair-splash-ring" aria-hidden="true"></div>
+
+        <div class="basair-splash-card">
+          <div class="basair-splash-logo-wrap">
             <img
               src="./logo.png"
-              alt="شعار أكاديمية بصائر"
+              alt="Basair Academy"
               class="basair-splash-logo"
+              onerror="this.style.display='none'"
             >
-            <div class="basair-splash-logo-fallback">بصائر</div>
+          </div>
+
+          <div class="basair-splash-wordmark">BASAIR ACADEMY</div>
+          <div class="basair-splash-divider" aria-hidden="true"></div>
+
+          <div class="basair-splash-dots" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         </div>
-
-        <p class="basair-splash-kicker">BASAIR ACADEMY</p>
-
-        <h2 class="basair-splash-title">
-          <span class="gold">نور يهدي</span>
-          <span>وعلم يبني</span>
-        </h2>
-
-        <p class="basair-splash-subtitle">
-          منصة رصينة لتعليم القرآن الكريم واللغة العربية وعلوم الآلة.
-        </p>
-
-        <div class="basair-splash-progress" aria-hidden="true"></div>
-        <div class="basair-splash-loading">جارِ التهيئة...</div>
       </div>
     </div>
   `;
+}
 
   const logo = splash.querySelector(".basair-splash-logo");
   const fallback = splash.querySelector(".basair-splash-logo-fallback");
