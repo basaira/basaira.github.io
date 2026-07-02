@@ -654,6 +654,10 @@ function normalizeAdminContent(data) {
 
 async function loadDynamicContent() {
   try {
+    if (window.BasairTextMap && typeof window.BasairTextMap.assign === "function") {
+      window.BasairTextMap.assign(document);
+    }
+
     const docSnap = await getDoc(adminContentRef);
     if (!docSnap.exists()) return;
 
@@ -664,8 +668,11 @@ async function loadDynamicContent() {
         if (typeof id !== "string" || typeof value !== "string") return;
 
         const selector = "[data-content-id=\"" + escapeCssIdentifier(id) + "\"]";
-        const element = document.querySelector(selector);
-        if (element) element.textContent = value;
+        const elements = document.querySelectorAll(selector);
+
+        elements.forEach(function (element) {
+          element.textContent = value;
+        });
       });
     }
 
