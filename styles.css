@@ -190,7 +190,6 @@ details[open] summary ~ * {
 img[style*="display: none"] + .logo-fallback {
     display: block;
 }
-
 /* ==========================================
    Basair Splash Screen
    Simple premium loading screen
@@ -311,6 +310,7 @@ img[style*="display: none"] + .logo-fallback {
         animation: none !important;
     }
 }
+
 /* تنسيقات القائمة الجانبية المحسنة */
 .mobile-backdrop {
     position: fixed;
