@@ -1,3 +1,12 @@
+// Basair editable text map
+// Responsibility:
+// - Discover editable text elements.
+// - Prefer explicit stable data-content-id values.
+// - Auto-generate fallback IDs only for simple plain multilingual text.
+// - Do not create UI.
+// - Do not inject CSS.
+// - Do not control splash/loading screens.
+
 (function () {
   "use strict";
 
@@ -6,6 +15,8 @@
   const LANGUAGE_SELECTOR = LANGS.map(function (lang) {
     return ".lang-" + lang;
   }).join(",");
+
+  const EDITABLE_SELECTOR = "[data-content-id]," + LANGUAGE_SELECTOR;
 
   const SKIP_TAGS = new Set([
     "SCRIPT",
@@ -20,13 +31,9 @@
     "OPTION"
   ]);
 
-  const NON_EDITABLE_CONTAINERS = [
+  const NEVER_EDIT_CONTAINERS = [
     "#admin-modal",
-    "#splash-screen",
-    "a",
-    "button",
-    "summary",
-    "label"
+    "#splash-screen"
   ].join(",");
 
   function cleanText(value) {
@@ -49,7 +56,10 @@
       }
     }
 
-    return "general";
+    const id = element.getAttribute("data-content-id") || "";
+    const match = String(id).match(/(?:^|-)(ar|en|fr|ru)(?:-|$)/i);
+
+    return match ? match[1].toLowerCase() : "general";
   }
 
   function nearestSectionId(element) {
@@ -80,12 +90,16 @@
     });
   }
 
-  function isEditableCandidate(element) {
+  function isExplicitEditable(element) {
+    return Boolean(element && element.getAttribute("data-content-id"));
+  }
+
+  function isSafeTextElement(element) {
     if (!element || SKIP_TAGS.has(element.tagName)) {
       return false;
     }
 
-    if (element.closest(NON_EDITABLE_CONTAINERS)) {
+    if (element.closest(NEVER_EDIT_CONTAINERS)) {
       return false;
     }
 
@@ -106,16 +120,40 @@
     return text.length >= 2 && text.length <= 900;
   }
 
+  function shouldCollect(element) {
+    if (isExplicitEditable(element)) {
+      return isSafeTextElement(element);
+    }
+
+    if (!element.matches || !element.matches(LANGUAGE_SELECTOR)) {
+      return false;
+    }
+
+    if (element.closest("a, button, summary, label")) {
+      return false;
+    }
+
+    return isSafeTextElement(element);
+  }
+
   function collect(root) {
     const counters = Object.create(null);
     const output = [];
-    const elements = Array.from(root.querySelectorAll(LANGUAGE_SELECTOR));
+    const elements = Array.from(root.querySelectorAll(EDITABLE_SELECTOR));
+    const seen = new Set();
 
     elements.forEach(function (element) {
-      if (!isEditableCandidate(element)) {
+      if (seen.has(element)) {
         return;
       }
 
+      seen.add(element);
+
+      if (!shouldCollect(element)) {
+        return;
+      }
+
+      const explicitId = element.getAttribute("data-content-id");
       const lang = getLang(element);
       const section = nearestSectionId(element);
       const tag = slug(element.tagName.toLowerCase());
@@ -123,13 +161,16 @@
 
       counters[key] = (counters[key] || 0) + 1;
 
-      const id = element.getAttribute("data-content-id") ||
+      const id = explicitId ||
         key + "-" + String(counters[key]).padStart(2, "0");
 
       const text = cleanText(element.textContent);
 
       element.setAttribute("data-content-id", id);
-      element.setAttribute("data-auto-content-id", "true");
+
+      if (!explicitId) {
+        element.setAttribute("data-auto-content-id", "true");
+      }
 
       output.push({
         id: id,
@@ -137,7 +178,8 @@
         lang: lang,
         section: section,
         tag: tag,
-        index: counters[key]
+        index: counters[key],
+        explicit: Boolean(explicitId)
       });
     });
 
