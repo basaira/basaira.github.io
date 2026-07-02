@@ -35,13 +35,20 @@
 </head>
 <body id="body-root" class="route-ar relative"> 
     
-    <div id="splash-screen">
-        <img src="logo.png" alt="أكاديمية بصائر" class="w-80 h-80 md:w-[30rem] md:h-[30rem] object-contain -mb-6 animate-logo-pulse" onerror="this.style.display='none'">
-        <h2 class="text-4xl md:text-5xl lg:text-6xl font-black text-[#0A1F44] tracking-wide text-center leading-tight">
-            <span class="text-[#D4AF37] block">نور يهدي،</span> 
-            <span>وعلم يبني</span>
-        </h2>
+    <div id="splash-screen" class="basair-splash" aria-label="Loading Basair Academy">
+  <div class="basair-splash__texture" aria-hidden="true"></div>
+
+  <div class="basair-splash__stage" aria-hidden="true">
+    <div class="basair-splash__ring"></div>
+
+    <div class="basair-splash__mark">
+      <img src="./logo.png" alt="Basair Academy" class="basair-splash__logo">
     </div>
+
+    <div class="basair-splash__wordmark">BASAIR ACADEMY</div>
+    <div class="basair-splash__line"></div>
+  </div>
+</div>
 
     <header class="fixed w-full top-0 z-50 glass-nav h-28 border-transparent" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
