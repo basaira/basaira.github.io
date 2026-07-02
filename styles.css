@@ -193,9 +193,9 @@ img[style*="display: none"] + .logo-fallback {
 
 /* ==========================================
    Basair Splash Screen
-   Architecture:
-   - HTML lives in index.html
-   - Visual design lives here
+   Clean premium architecture:
+   - HTML structure in index.html
+   - Visual design in CSS
    - JS only hides the splash
    ========================================== */
 
@@ -208,10 +208,9 @@ img[style*="display: none"] + .logo-fallback {
     overflow: hidden;
     isolation: isolate;
     background:
-        radial-gradient(circle at 50% 34%, rgba(255, 255, 255, 0.10), transparent 18rem),
-        radial-gradient(circle at 78% 18%, rgba(212, 175, 55, 0.18), transparent 28rem),
-        radial-gradient(circle at 16% 86%, rgba(255, 255, 255, 0.07), transparent 24rem),
-        linear-gradient(180deg, #061126 0%, #0A1F44 52%, #050B19 100%);
+        radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.11), transparent 18rem),
+        radial-gradient(circle at 50% 44%, rgba(212, 175, 55, 0.13), transparent 24rem),
+        linear-gradient(180deg, #07152F 0%, #0A1F44 48%, #050B18 100%);
     transition:
         opacity 1s cubic-bezier(.16, 1, .3, 1),
         visibility 1s cubic-bezier(.16, 1, .3, 1),
@@ -222,35 +221,36 @@ img[style*="display: none"] + .logo-fallback {
 #splash-screen.basair-splash.splash-hidden {
     opacity: 0;
     visibility: hidden;
-    transform: scale(1.035);
-    filter: blur(10px);
+    transform: scale(1.025);
+    filter: blur(8px);
 }
 
 #splash-screen.basair-splash::before {
     content: "";
     position: absolute;
-    inset: -12%;
-    background:
-        linear-gradient(115deg, transparent 0 42%, rgba(255, 255, 255, 0.08) 50%, transparent 58%),
-        radial-gradient(rgba(255, 255, 255, 0.52) 0.7px, transparent 0.7px);
-    background-size: auto, 22px 22px;
-    opacity: 0.08;
-    animation: basair-splash-sweep 5.2s cubic-bezier(.16, 1, .3, 1) both;
+    inset: 0;
     pointer-events: none;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 42px 42px;
+    opacity: 0.22;
+    -webkit-mask-image: radial-gradient(circle at center, black 0%, transparent 68%);
+    mask-image: radial-gradient(circle at center, black 0%, transparent 68%);
 }
 
 #splash-screen.basair-splash::after {
     content: "";
     position: absolute;
-    width: 36rem;
-    height: 36rem;
-    top: -13rem;
-    right: -10rem;
+    width: min(78vw, 620px);
+    height: min(78vw, 620px);
     border-radius: 999px;
-    background: radial-gradient(circle, rgba(212, 175, 55, 0.22), rgba(212, 175, 55, 0) 68%);
-    filter: blur(18px);
-    animation: basair-splash-orb 9s ease-in-out infinite alternate;
+    background:
+        radial-gradient(circle, rgba(212, 175, 55, 0.16) 0%, rgba(212, 175, 55, 0.06) 34%, transparent 70%);
+    filter: blur(10px);
+    opacity: 0.9;
     pointer-events: none;
+    animation: basair-splash-glow 5.5s ease-in-out infinite;
 }
 
 .basair-splash__texture {
@@ -258,113 +258,128 @@ img[style*="display: none"] + .logo-fallback {
     inset: 0;
     pointer-events: none;
     opacity: 0.055;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.85) 0.8px, transparent 0.8px);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.8px, transparent 0.8px);
     background-size: 18px 18px;
-    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.14));
-    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.14));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.18));
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.18));
 }
 
 .basair-splash__stage {
     position: relative;
-    width: min(88vw, 400px);
-    aspect-ratio: 1;
-    display: grid;
-    place-items: center;
+    z-index: 2;
+    width: min(92vw, 460px);
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
     text-align: center;
-    animation: basair-splash-stage-in 1.15s cubic-bezier(.16, 1, .3, 1) both;
-}
-
-.basair-splash__ring,
-.basair-splash__ring::before,
-.basair-splash__ring::after {
-    position: absolute;
-    inset: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 999px;
-    pointer-events: none;
+    animation: basair-splash-enter 1.05s cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .basair-splash__ring {
-    width: 100%;
-    height: 100%;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 290px;
+    height: 290px;
+    transform: translate(-50%, -55%);
+    border-radius: 999px;
+    border: 1px solid rgba(212, 175, 55, 0.22);
     box-shadow:
-        0 0 0 18px rgba(212, 175, 55, 0.035),
-        0 0 90px rgba(212, 175, 55, 0.08);
-    animation: basair-splash-ring-rotate 20s linear infinite;
+        0 0 0 18px rgba(255, 255, 255, 0.018),
+        0 0 0 46px rgba(212, 175, 55, 0.028),
+        0 0 70px rgba(212, 175, 55, 0.10);
+    pointer-events: none;
+    animation: basair-splash-ring 7s ease-in-out infinite;
 }
 
 .basair-splash__ring::before {
     content: "";
-    width: 80%;
-    height: 80%;
-    border: 1px solid rgba(212, 175, 55, 0.24);
-    animation: basair-splash-ring-breathe 4.8s ease-in-out infinite;
+    position: absolute;
+    inset: 28px;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .basair-splash__ring::after {
     content: "";
-    width: 58%;
-    height: 58%;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    animation: basair-splash-ring-breathe 4.2s ease-in-out infinite reverse;
+    position: absolute;
+    inset: 58px;
+    border-radius: inherit;
+    border: 1px solid rgba(212, 175, 55, 0.18);
 }
 
 .basair-splash__mark {
     position: relative;
     z-index: 2;
-    width: clamp(136px, 25vw, 176px);
-    height: clamp(136px, 25vw, 176px);
+    width: clamp(150px, 18vw, 210px);
+    height: clamp(150px, 18vw, 210px);
     display: grid;
     place-items: center;
     border-radius: 999px;
     background:
-        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 58%, rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(212, 175, 55, 0.28);
+        radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.065) 58%, rgba(255, 255, 255, 0.025) 100%);
+    border: 1px solid rgba(212, 175, 55, 0.32);
     box-shadow:
-        0 0 0 10px rgba(255, 255, 255, 0.025),
-        0 20px 60px rgba(0, 0, 0, 0.30),
-        0 0 38px rgba(212, 175, 55, 0.14);
-    animation: basair-splash-logo-float 4.6s ease-in-out infinite;
+        0 24px 70px rgba(0, 0, 0, 0.32),
+        0 0 0 10px rgba(255, 255, 255, 0.026),
+        0 0 46px rgba(212, 175, 55, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    animation: basair-splash-logo-float 4.8s ease-in-out infinite;
+}
+
+.basair-splash__mark::before {
+    content: "";
+    position: absolute;
+    inset: -14px;
+    border-radius: inherit;
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    opacity: 0.75;
 }
 
 .basair-splash__logo {
-    width: 68%;
-    height: 68%;
+    width: 70%;
+    height: 70%;
     object-fit: contain;
     display: block;
     filter:
-        drop-shadow(0 12px 24px rgba(0, 0, 0, 0.28))
-        drop-shadow(0 0 18px rgba(212, 175, 55, 0.12));
+        drop-shadow(0 14px 26px rgba(0, 0, 0, 0.30))
+        drop-shadow(0 0 20px rgba(212, 175, 55, 0.14));
 }
 
 .basair-splash__wordmark {
-    position: absolute;
-    top: calc(50% + 108px);
-    left: 50%;
-    transform: translateX(-50%);
-    color: #F7F1E2;
-    font-size: clamp(0.95rem, 2.5vw, 1.14rem);
-    font-weight: 800;
-    letter-spacing: 0.34em;
+    position: relative;
+    z-index: 2;
+    color: #F8F4E6;
+    font-size: clamp(1.05rem, 2.2vw, 1.55rem);
+    font-weight: 900;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
     white-space: nowrap;
+    text-shadow: 0 12px 32px rgba(0, 0, 0, 0.30);
 }
 
 .basair-splash__line {
-    position: absolute;
-    top: calc(50% + 148px);
-    left: 50%;
-    width: 92px;
+    position: relative;
+    z-index: 2;
+    width: 112px;
     height: 1px;
-    transform: translateX(-50%);
-    background: linear-gradient(90deg, rgba(212, 175, 55, 0), rgba(212, 175, 55, 0.95), rgba(212, 175, 55, 0));
+    margin-top: -8px;
+    background: linear-gradient(
+        90deg,
+        rgba(212, 175, 55, 0),
+        rgba(212, 175, 55, 0.95),
+        rgba(212, 175, 55, 0)
+    );
+    box-shadow: 0 0 18px rgba(212, 175, 55, 0.35);
 }
 
-@keyframes basair-splash-stage-in {
+@keyframes basair-splash-enter {
     from {
         opacity: 0;
-        transform: translateY(22px) scale(0.96);
+        transform: translateY(18px) scale(0.96);
         filter: blur(10px);
     }
 
@@ -385,68 +400,54 @@ img[style*="display: none"] + .logo-fallback {
     }
 }
 
-@keyframes basair-splash-ring-rotate {
-    to {
-        transform: translate(-50%, -50%) rotate(360deg);
-    }
-}
-
-@keyframes basair-splash-ring-breathe {
+@keyframes basair-splash-ring {
     0%, 100% {
-        transform: translate(-50%, -50%) scale(1);
         opacity: 0.62;
+        transform: translate(-50%, -55%) scale(0.985);
     }
 
     50% {
-        transform: translate(-50%, -50%) scale(1.03);
         opacity: 1;
+        transform: translate(-50%, -55%) scale(1.035);
     }
 }
 
-@keyframes basair-splash-sweep {
-    from {
-        transform: translateX(20%);
-        opacity: 0;
+@keyframes basair-splash-glow {
+    0%, 100% {
+        opacity: 0.72;
+        transform: scale(0.97);
     }
 
-    20% {
-        opacity: 0.10;
-    }
-
-    to {
-        transform: translateX(-20%);
-        opacity: 0.08;
-    }
-}
-
-@keyframes basair-splash-orb {
-    from {
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-
-    to {
-        transform: translate3d(18px, 20px, 0) scale(1.08);
+    50% {
+        opacity: 1;
+        transform: scale(1.04);
     }
 }
 
 @media (max-width: 640px) {
     .basair-splash__stage {
-        width: min(90vw, 320px);
+        width: min(92vw, 340px);
+        min-height: 340px;
+        gap: 20px;
+    }
+
+    .basair-splash__ring {
+        width: 250px;
+        height: 250px;
     }
 
     .basair-splash__mark {
-        width: 136px;
-        height: 136px;
+        width: 150px;
+        height: 150px;
     }
 
     .basair-splash__wordmark {
-        top: calc(50% + 90px);
-        font-size: 0.9rem;
-        letter-spacing: 0.26em;
+        font-size: 0.96rem;
+        letter-spacing: 0.24em;
     }
 
     .basair-splash__line {
-        top: calc(50% + 128px);
+        width: 92px;
     }
 }
 
