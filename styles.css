@@ -1,94 +1,303 @@
-```css
 /* ==========================================
-   إعدادات الخطوط والخلفية الأساسية
+   Basair Academy — Premium Interface System
    ========================================== */
-body { background-color: #FDFDF5; color: #0A1F44; -webkit-font-smoothing: antialiased; }
+
+:root {
+    --ink: #071A2F;
+    --navy: #0A1F44;
+    --quranic: #00563F;
+    --quranic-2: #0B6B53;
+    --gold: #D4AF37;
+    --gold-soft: #F2D77B;
+    --ivory: #FDFDF5;
+    --paper: rgba(255, 255, 248, 0.78);
+    --line: rgba(10, 31, 68, 0.10);
+    --shadow-soft: 0 24px 70px rgba(10, 31, 68, 0.10);
+    --shadow-card: 0 18px 45px rgba(10, 31, 68, 0.09);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+    scroll-behavior: smooth;
+    text-rendering: geometricPrecision;
+}
+
+body {
+    min-height: 100vh;
+    color: var(--ink);
+    background:
+        radial-gradient(circle at 14% 8%, rgba(212, 175, 55, 0.16), transparent 28rem),
+        radial-gradient(circle at 86% 18%, rgba(0, 86, 63, 0.11), transparent 30rem),
+        linear-gradient(180deg, #FFFFF7 0%, #F7F4E7 45%, #FDFDF5 100%);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -2;
+    opacity: 0.45;
+    background-image:
+        linear-gradient(rgba(10, 31, 68, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(10, 31, 68, 0.035) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
 
 body.route-ar { font-family: 'Tajawal', sans-serif; }
 body:not(.route-ar) { font-family: 'Inter', sans-serif; }
 
-/* ==========================================
-  نظام العرض اللغوي المحصن (Language Display System)
-  يضمن إخفاء كل اللغات باستثناء اللغة النشطة ويمنع التداخل
-  ==========================================
-*/
-/* 1. الإخفاء الافتراضي: إخفاء جميع اللغات أولاً */
-.lang-ar, .lang-en, .lang-fr, .lang-ru {
-    display: none !important;
+::selection {
+    color: #fff;
+    background: var(--quranic);
 }
 
-/* 2. الإظهار المشروط والتخطيط الذكي */
+/* ==========================================
+   Language Display System
+   ========================================== */
+.lang-ar, .lang-en, .lang-fr, .lang-ru { display: none !important; }
 body.route-ar .lang-ar { display: block !important; }
 body.route-en .lang-en { display: block !important; }
 body.route-fr .lang-fr { display: block !important; }
 body.route-ru .lang-ru { display: block !important; }
 
-/* السماح للنصوص الصغيرة (span) بالبقاء في سياقها */
 body.route-ar span.lang-ar,
 body.route-en span.lang-en,
 body.route-fr span.lang-fr,
-body.route-ru span.lang-ru {
-    display: inline !important;
-}
+body.route-ru span.lang-ru { display: inline !important; }
 
-/* السماح للأزرار التي صُممت كـ inline-block بالبقاء كذلك */
 body.route-ar a.lang-ar.inline-block,
 body.route-en a.lang-en.inline-block,
 body.route-fr a.lang-fr.inline-block,
-body.route-ru a.lang-ru.inline-block {
-    display: inline-block !important;
-}
+body.route-ru a.lang-ru.inline-block { display: inline-block !important; }
 
-/* السماح للأزرار التي صُممت كـ flex (مثل أزرار الواتساب) بالبقاء كذلك */
 body.route-ar a.lang-ar.flex,
 body.route-en a.lang-en.flex,
 body.route-fr a.lang-fr.flex,
-body.route-ru a.lang-ru.flex {
-    display: flex !important;
-}
+body.route-ru a.lang-ru.flex { display: flex !important; }
 
-/* إصلاح التداخل المرن (Flexbox) للحاويات كالبطاقات */
 body.route-ar div.lang-ar.flex-col,
 body.route-en div.lang-en.flex-col,
 body.route-fr div.lang-fr.flex-col,
-body.route-ru div.lang-ru.flex-col {
-    display: flex !important;
-}
+body.route-ru div.lang-ru.flex-col { display: flex !important; }
 
 /* ==========================================
-   التنسيقات العامة للموقع (UI Components)
+   Navigation
    ========================================== */
 .glass-nav {
-    background: rgba(253, 253, 245, 0.98);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background: rgba(253, 253, 245, 0.78);
+    -webkit-backdrop-filter: blur(22px) saturate(1.25);
+    backdrop-filter: blur(22px) saturate(1.25);
+    border-bottom: 1px solid rgba(212, 175, 55, 0.18);
+    box-shadow: 0 18px 45px rgba(10, 31, 68, 0.055);
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, background 0.35s ease;
 }
 
-.bg-pattern {
-    background-image: radial-gradient(rgba(212, 175, 55, 0.15) 1px, transparent 1px);
-    background-size: 30px 30px;
+#navbar img[src*="logo"] {
+    filter: drop-shadow(0 12px 22px rgba(10, 31, 68, 0.10));
+}
+
+.nav-link {
+    isolation: isolate;
+}
+
+.nav-link::before {
+    content: "";
+    position: absolute;
+    inset: -0.45rem -0.75rem;
+    z-index: -1;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.14), rgba(0, 86, 63, 0.07));
+    opacity: 0;
+    transform: scale(0.92);
+    transition: opacity 0.28s ease, transform 0.28s var(--ease-out);
+}
+
+.nav-link:hover::before,
+.nav-link.active-section::before {
+    opacity: 1;
+    transform: scale(1);
 }
 
 .dropdown-menu {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     transform-origin: top;
-    transform: scaleY(0);
+    transform: translateY(10px) scale(0.96);
     opacity: 0;
     visibility: hidden;
-    box-shadow: 0 10px 25px -5px rgba(10, 31, 68, 0.15);
+    background: rgba(255, 255, 252, 0.94) !important;
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 24px 70px rgba(10, 31, 68, 0.18);
+    transition: opacity 0.26s ease, transform 0.26s var(--ease-out), visibility 0.26s ease;
 }
 
 .dropdown-menu.active {
-    transform: scaleY(1);
+    transform: translateY(0) scale(1);
     opacity: 1;
     visibility: visible;
 }
 
-/* تنسيقات المحتوى الأكاديمي */
+.logo-fallback {
+    display: none;
+    font-weight: 900;
+    color: var(--navy);
+    font-size: 1.5rem;
+}
+
+img[style*="display: none"] + .logo-fallback { display: block; }
+
+/* ==========================================
+   Hero and Section Atmosphere
+   ========================================== */
+.bg-pattern {
+    background-image:
+        radial-gradient(rgba(212, 175, 55, 0.18) 1px, transparent 1px),
+        radial-gradient(rgba(0, 86, 63, 0.09) 1px, transparent 1px);
+    background-size: 34px 34px, 58px 58px;
+    background-position: 0 0, 12px 18px;
+}
+
+section {
+    position: relative;
+}
+
+section::before {
+    content: "";
+    position: absolute;
+    inset-inline: 5vw;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.32), transparent);
+    pointer-events: none;
+    opacity: 0.75;
+}
+
+#home {
+    overflow: hidden;
+}
+
+#home::after {
+    content: "";
+    position: absolute;
+    inset-inline-end: -9rem;
+    top: 9rem;
+    width: 30rem;
+    height: 30rem;
+    pointer-events: none;
+    opacity: 0.16;
+    border-radius: 45% 55% 48% 52%;
+    background: conic-gradient(from 160deg, var(--gold), transparent, var(--quranic), transparent, var(--gold));
+    filter: blur(8px);
+    animation: basair-orbit 18s linear infinite;
+}
+
+@keyframes basair-orbit {
+    from { transform: rotate(0deg) scale(1); }
+    to { transform: rotate(360deg) scale(1.03); }
+}
+
+#home h1,
+#tracks h2,
+#about h2,
+#faq h2,
+#testimonials h2 {
+    letter-spacing: -0.035em;
+}
+
+#home p,
 .academic-doc p {
-    color: rgba(10, 31, 68, 0.85);
+    text-wrap: pretty;
+}
+
+/* ==========================================
+   Premium Cards and Buttons
+   ========================================== */
+a[href*="wa.me"],
+a[href="#tracks"],
+a[href="#about"],
+button[type="submit"],
+.filter-btn {
+    transition: transform 0.28s var(--ease-out), box-shadow 0.28s ease, background 0.28s ease, border-color 0.28s ease;
+}
+
+a[href*="wa.me"]:hover,
+a[href="#tracks"]:hover,
+a[href="#about"]:hover,
+button[type="submit"]:hover,
+.filter-btn:hover {
+    transform: translateY(-2px);
+}
+
+.rounded-3xl,
+.rounded-2xl {
+    backface-visibility: hidden;
+}
+
+.shadow-xl,
+.shadow-2xl,
+.shadow-lg {
+    box-shadow: var(--shadow-card) !important;
+}
+
+#tracks article,
+#tracks .group,
+.video-card,
+#testimonials article,
+#faq details,
+form,
+.academic-doc {
+    border-color: rgba(212, 175, 55, 0.16) !important;
+}
+
+#tracks article,
+.video-card,
+#faq details,
+form {
+    position: relative;
+    overflow: hidden;
+}
+
+#tracks article::before,
+.video-card::before,
+#faq details::before,
+form::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.18), transparent 36%, rgba(0, 86, 63, 0.10));
+    transition: opacity 0.35s ease;
+}
+
+#tracks article:hover::before,
+.video-card:hover::before,
+#faq details:hover::before,
+form:hover::before {
+    opacity: 1;
+}
+
+#tracks article:hover,
+.video-card:hover,
+#faq details:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 28px 80px rgba(10, 31, 68, 0.14) !important;
+}
+
+#tracks article,
+.video-card,
+#faq details {
+    transition: transform 0.35s var(--ease-out), box-shadow 0.35s ease, border-color 0.35s ease;
+}
+
+/* ==========================================
+   Academic Document
+   ========================================== */
+.academic-doc p {
+    color: rgba(7, 26, 47, 0.82);
     line-height: 2;
     margin-bottom: 1.5rem;
     font-size: 1.125rem;
@@ -99,16 +308,16 @@ body.route-ru div.lang-ru.flex-col {
     font-weight: 900;
     margin-top: 3rem;
     margin-bottom: 1.5rem;
-    font-size: 1.75rem;
-    color: #0A1F44;
+    font-size: clamp(1.55rem, 3vw, 2rem);
+    color: var(--navy);
 }
 
 .academic-doc h4 {
-    font-weight: 800;
+    font-weight: 850;
     margin-top: 2.5rem;
     margin-bottom: 1.25rem;
     font-size: 1.35rem;
-    color: #00563F;
+    color: var(--quranic);
 }
 
 .academic-doc ul {
@@ -118,83 +327,108 @@ body.route-ru div.lang-ru.flex-col {
 }
 
 .academic-doc li {
-    color: rgba(10, 31, 68, 0.85);
+    color: rgba(7, 26, 47, 0.82);
     margin-bottom: 1.25rem;
     line-height: 1.9;
     position: relative;
-    padding-inline-start: 1.5rem;
+    padding-inline-start: 1.7rem;
     font-weight: 500;
 }
 
 .academic-doc li::before {
-    content: "■";
+    content: "";
     position: absolute;
     inset-inline-start: 0;
-    font-size: 0.85rem;
-    color: #D4AF37;
-    top: 0.4rem;
+    top: 0.72rem;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, var(--gold), var(--quranic));
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.13);
 }
 
 .academic-doc strong {
-    color: #0A1F44;
+    color: var(--navy);
     font-weight: 900;
-    opacity: 1;
 }
 
 .academic-doc blockquote {
-    border-inline-start: 4px solid #D4AF37;
-    padding-inline-start: 1.25rem;
+    border-inline-start: 4px solid var(--gold);
+    padding: 1rem 1.25rem;
     margin-inline-start: 0;
-    background: transparent;
+    border-radius: 1.25rem;
+    background: rgba(212, 175, 55, 0.09);
     font-weight: 800;
     margin-bottom: 2.5rem;
-    font-size: 1.35rem;
-    color: #0A1F44;
+    font-size: 1.25rem;
+    color: var(--navy);
 }
 
-details > summary {
-    list-style: none;
-}
-
-details > summary::-webkit-details-marker {
-    display: none;
-}
-
-details[open] summary ~ * {
-    animation: sweep 0.3s ease-in-out;
-}
+/* ==========================================
+   FAQ, Mobile Menu, Slider
+   ========================================== */
+details > summary { list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] summary ~ * { animation: sweep 0.3s ease-in-out; }
 
 @keyframes sweep {
-    0% {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.nav-link.active-section {
-    color: #D4AF37;
+.mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 26, 47, 0.46);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    z-index: 40;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
 }
 
-.logo-fallback {
-    display: none;
-    font-weight: 900;
-    color: #0A1F44;
-    font-size: 1.5rem;
+.mobile-backdrop.active { opacity: 1; visibility: visible; }
+
+.mobile-drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: min(86%, 410px);
+    background:
+        radial-gradient(circle at top, rgba(212, 175, 55, 0.13), transparent 16rem),
+        rgba(253, 253, 245, 0.98);
+    z-index: 50;
+    overflow-y: auto;
+    box-shadow: -14px 0 45px rgba(7, 26, 47, 0.17);
+    transition: transform 0.48s var(--ease-out);
 }
 
-img[style*="display: none"] + .logo-fallback {
-    display: block;
+.route-ar .mobile-drawer { right: 0; transform: translateX(100%); }
+.route-ar .mobile-drawer.active { transform: translateX(0); }
+body:not(.route-ar) .mobile-drawer { left: 0; transform: translateX(-100%); }
+body:not(.route-ar) .mobile-drawer.active { transform: translateX(0); }
+
+.slider-track {
+    display: flex;
+    width: max-content;
+    animation: scroll-rtl 42s linear infinite;
 }
+body:not(.route-ar) .slider-track { animation: scroll-ltr 42s linear infinite; }
+.slider-track:hover { animation-play-state: paused; }
+
+@keyframes scroll-rtl {
+    from { transform: translateX(0); }
+    to { transform: translateX(50%); }
+}
+@keyframes scroll-ltr {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
 /* ==========================================
-   Basair Splash Screen
-   Simple premium loading screen
+   Splash Screen — safe and smooth
    ========================================== */
-
 #splash-screen.basair-splash {
     position: fixed;
     inset: 0;
@@ -203,18 +437,16 @@ img[style*="display: none"] + .logo-fallback {
     place-items: center;
     overflow: hidden;
     background:
-        radial-gradient(circle at center, rgba(212, 175, 55, 0.08), transparent 22rem),
-        #FDFDF5;
-    transition:
-        opacity 0.9s ease,
-        visibility 0.9s ease,
-        filter 0.9s ease;
+        radial-gradient(circle at center, rgba(212, 175, 55, 0.10), transparent 24rem),
+        var(--ivory);
+    transition: opacity 0.9s var(--ease-out), visibility 0.9s var(--ease-out), filter 0.9s var(--ease-out);
 }
 
 #splash-screen.basair-splash.splash-hidden {
-    opacity: 0;
-    visibility: hidden;
+    opacity: 0 !important;
+    visibility: hidden !important;
     filter: blur(6px);
+    pointer-events: none !important;
 }
 
 .basair-splash__content {
@@ -222,26 +454,28 @@ img[style*="display: none"] + .logo-fallback {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.35rem;
-    animation: basair-splash-enter 0.9s ease both;
+    gap: 1.45rem;
+    animation: basair-splash-enter 0.9s var(--ease-out) both;
 }
 
 .basair-splash__logo {
-    width: clamp(190px, 22vw, 320px);
+    width: clamp(220px, 25vw, 370px);
     height: auto;
     object-fit: contain;
     display: block;
-    filter: drop-shadow(0 18px 36px rgba(10, 31, 68, 0.10));
-    animation: basair-logo-breathe 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 20px 40px rgba(10, 31, 68, 0.12));
+    animation: basair-logo-breathe 2.8s ease-in-out infinite;
+    will-change: transform, opacity;
 }
 
 .basair-splash__loader {
-    width: 148px;
+    width: 168px;
     height: 4px;
     overflow: hidden;
     border-radius: 999px;
     background: rgba(10, 31, 68, 0.10);
     position: relative;
+    transform: translateZ(0);
 }
 
 .basair-splash__loader span {
@@ -249,206 +483,72 @@ img[style*="display: none"] + .logo-fallback {
     inset: 0;
     width: 46%;
     border-radius: inherit;
-    background: linear-gradient(
-        90deg,
-        rgba(212, 175, 55, 0),
-        rgba(212, 175, 55, 1),
-        rgba(212, 175, 55, 0)
-    );
+    background: linear-gradient(90deg, rgba(212, 175, 55, 0), rgba(212, 175, 55, 1), rgba(212, 175, 55, 0));
     box-shadow: 0 0 18px rgba(212, 175, 55, 0.35);
-    animation: basair-loader-slide 1.25s cubic-bezier(.65, 0, .35, 1) infinite;
+    animation: basair-loader-slide 1.12s linear infinite;
+    will-change: transform;
 }
 
 @keyframes basair-splash-enter {
-    from {
-        opacity: 0;
-        transform: translateY(12px) scale(0.98);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 @keyframes basair-logo-breathe {
-    0%, 100% {
-        transform: scale(0.985);
-        opacity: 0.92;
-    }
-
-    50% {
-        transform: scale(1.015);
-        opacity: 1;
-    }
+    0%, 100% { transform: scale(0.985); opacity: 0.93; }
+    50% { transform: scale(1.015); opacity: 1; }
 }
-
 @keyframes basair-loader-slide {
-    from {
-        transform: translateX(-120%);
-    }
-
-    to {
-        transform: translateX(250%);
-    }
-}
-
-@media (max-width: 640px) {
-    .basair-splash__logo {
-        width: clamp(170px, 58vw, 250px);
-    }
-
-    .basair-splash__loader {
-        width: 128px;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .basair-splash__content,
-    .basair-splash__logo,
-    .basair-splash__loader span {
-        animation: none !important;
-    }
-}
-
-/* تنسيقات القائمة الجانبية المحسنة */
-.mobile-backdrop {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(10, 31, 68, 0.4);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    z-index: 40;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.4s ease;
-}
-
-.mobile-backdrop.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-.mobile-drawer {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    width: 85%;
-    max-width: 400px;
-    background-color: #FDFDF5;
-    z-index: 50;
-    overflow-y: auto;
-    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
-    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.route-ar .mobile-drawer {
-    right: 0;
-    transform: translateX(100%);
-}
-
-.route-ar .mobile-drawer.active {
-    transform: translateX(0);
-}
-
-body:not(.route-ar) .mobile-drawer {
-    left: 0;
-    transform: translateX(-100%);
-}
-
-body:not(.route-ar) .mobile-drawer.active {
-    transform: translateX(0);
-}
-
-/* الحركة المستمرة للآراء */
-.slider-track {
-    display: flex;
-    width: max-content;
-    animation: scroll-rtl 40s linear infinite;
-}
-
-body:not(.route-ar) .slider-track {
-    animation: scroll-ltr 40s linear infinite;
-}
-
-.slider-track:hover {
-    animation-play-state: paused;
-}
-
-@keyframes scroll-rtl {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(50%);
-    }
-}
-
-@keyframes scroll-ltr {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(-50%);
-    }
-}
-
-/* تأثيرات الانبثاق (Fade-in Up) الفاخرة للاستمارة */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.animate-fade-in-up {
-    animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    opacity: 0;
-}
-
-.delay-100 {
-    animation-delay: 100ms;
-}
-
-.delay-200 {
-    animation-delay: 200ms;
-}
-
-.delay-300 {
-    animation-delay: 300ms;
-}
-
-.delay-400 {
-    animation-delay: 400ms;
+    from { transform: translate3d(-120%, 0, 0); }
+    to { transform: translate3d(250%, 0, 0); }
 }
 
 /* ==========================================
-   تحسينات الوصول وتقليل الحركة
+   Form Fields and Motion
    ========================================== */
+input,
+select,
+textarea {
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.16) !important;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.8s var(--ease-out) forwards;
+    opacity: 0;
+}
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+
 :focus-visible {
     outline: 3px solid rgba(212, 175, 55, 0.85);
     outline-offset: 3px;
 }
 
+@media (max-width: 640px) {
+    body::before { background-size: 32px 32px; }
+    .glass-nav { background: rgba(253, 253, 245, 0.92); }
+    .basair-splash__logo { width: clamp(190px, 62vw, 290px); }
+    .basair-splash__loader { width: 148px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
         scroll-behavior: auto !important;
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
     }
-
-    .slider-track {
-        animation: none !important;
-    }
+    .slider-track { animation: none !important; }
 }
-```
