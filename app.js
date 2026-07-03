@@ -19,6 +19,7 @@ import {
   signOut,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
 // ==========================================
 // Firebase setup — basair-academy-4a1d0
 // ==========================================
@@ -43,18 +44,28 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 // ==========================================
 // Splash screen safety
 // ==========================================
+let splashReleased = false;
+
 function hideSplash(delay) {
   const wait = typeof delay === "number" ? delay : 1200;
 
   window.setTimeout(function () {
     const splash = document.getElementById("splash-screen");
-    if (!splash) return;
+    if (!splash || splashReleased) return;
 
+    splashReleased = true;
     splash.classList.add("splash-hidden");
+    splash.style.setProperty("opacity", "0", "important");
+    splash.style.setProperty("visibility", "hidden", "important");
+    splash.style.setProperty("pointer-events", "none", "important");
+    splash.style.setProperty("filter", "blur(6px)", "important");
 
     window.setTimeout(function () {
-      splash.style.display = "none";
-    }, 800);
+      const currentSplash = document.getElementById("splash-screen");
+      if (currentSplash) {
+        currentSplash.style.setProperty("display", "none", "important");
+      }
+    }, 900);
   }, wait);
 }
 
@@ -671,9 +682,7 @@ async function loadDynamicContent() {
         const elements = document.querySelectorAll(selector);
 
         elements.forEach(function (element) {
-          // لا تسمح للنصوص المحفوظة في Firebase أن تبدّل أسئلة وأجوبة FAQ.
           if (element.closest && element.closest("#faq")) return;
-
           element.textContent = value;
         });
       });
@@ -699,6 +708,7 @@ async function loadDynamicContent() {
     console.error("خطأ في تحميل المحتوى العام:", error);
   }
 }
+
 // ==========================================
 // Secure Admin Panel
 // ==========================================
@@ -1040,7 +1050,6 @@ function initAdminPanel() {
   const resetVideoBtn = byId("admin-reset-video-form");
   const refreshBtn = byId("admin-refresh-content");
   const textForm = byId("admin-text-form");
-  
 
   if (closeBtn) closeBtn.addEventListener("click", closeAdminPanel);
   if (resetVideoBtn) resetVideoBtn.addEventListener("click", resetAdminVideoForm);
@@ -1058,35 +1067,32 @@ function initAdminPanel() {
     });
   }
 
-if (googleLoginBtn) {
-  googleLoginBtn.addEventListener("click", async function () {
-    try {
-      setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
+  if (googleLoginBtn) {
+    googleLoginBtn.addEventListener("click", async function () {
+      try {
+        setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
 
-      const result = await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
 
-      console.log("Google sign-in success:", result.user);
+        console.log("Google sign-in success:", result.user);
 
-      setAdminMessage(
-        "تم تسجيل الدخول بحساب: " + (result.user.email || "Google"),
-        "success"
-      );
-    } catch (error) {
-      console.error("Google popup sign-in failed:", error);
+        setAdminMessage(
+          "تم تسجيل الدخول بحساب: " + (result.user.email || "Google"),
+          "success"
+        );
+      } catch (error) {
+        console.error("Google popup sign-in failed:", error);
 
-      const errorCode = error && error.code ? error.code : "no-code";
-      const errorMessage = error && error.message ? error.message : "لا توجد رسالة تفصيلية";
+        const errorCode = error && error.code ? error.code : "no-code";
+        const errorMessage = error && error.message ? error.message : "لا توجد رسالة تفصيلية";
 
-      setAdminMessage(
-        "فشل تسجيل الدخول: " + errorCode + " — " + errorMessage,
-        "error"
-      );
-    }
-  });
-}
-
-
-  
+        setAdminMessage(
+          "فشل تسجيل الدخول: " + errorCode + " — " + errorMessage,
+          "error"
+        );
+      }
+    });
+  }
 
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async function () {
