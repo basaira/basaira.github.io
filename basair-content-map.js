@@ -1,5 +1,5 @@
 // Basair editable text map
-// Safe version: text indexing only, with a CSS safeguard for the loading overlay.
+// Safe version: text indexing, splash safeguard, and premium class hooks.
 (function () {
   "use strict";
 
@@ -9,6 +9,21 @@
     style.id = "basair-splash-safeguard";
     style.textContent = "#splash-screen.basair-splash.splash-hidden{opacity:0!important;visibility:hidden!important;pointer-events:none!important}#splash-screen[style*='display: none']{display:none!important}";
     document.head.appendChild(style);
+  })();
+
+  (function addPremiumHooks() {
+    var css = "body.basair-premium-ready #home{position:relative;isolation:isolate}body.basair-premium-ready #home:before{content:'';position:absolute;inset:7.5rem 3vw auto 3vw;height:min(52rem,74vh);z-index:-2;border-radius:3rem;background:linear-gradient(135deg,rgba(255,255,255,.62),rgba(255,255,255,.18)),radial-gradient(circle at 20% 20%,rgba(212,175,55,.20),transparent 24rem),radial-gradient(circle at 84% 36%,rgba(0,86,63,.13),transparent 25rem);border:1px solid rgba(212,175,55,.18);box-shadow:0 36px 110px rgba(10,31,68,.11);backdrop-filter:blur(18px)}body.basair-premium-ready #tracks article,body.basair-premium-ready .video-card,body.basair-premium-ready #faq details{background-image:linear-gradient(135deg,rgba(255,255,255,.82),rgba(255,255,255,.48)),radial-gradient(circle at top right,rgba(212,175,55,.10),transparent 45%)!important}body.basair-premium-ready #tracks article:hover,body.basair-premium-ready .video-card:hover,body.basair-premium-ready #faq details:hover{transform:translateY(-4px);box-shadow:0 28px 80px rgba(10,31,68,.14)!important;border-color:rgba(212,175,55,.35)!important}body.basair-premium-ready #home a[href*=wa],body.basair-premium-ready #home a[href='#tracks']{position:relative;overflow:hidden}body.basair-premium-ready #home a[href*=wa]:after,body.basair-premium-ready #home a[href='#tracks']:after{content:'';position:absolute;inset:0;transform:translateX(-120%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.38),transparent);transition:transform .75s cubic-bezier(.16,1,.3,1)}body.basair-premium-ready #home a[href*=wa]:hover:after,body.basair-premium-ready #home a[href='#tracks']:hover:after{transform:translateX(120%)}@media(max-width:640px){body.basair-premium-ready #home:before{inset:6.5rem .85rem auto .85rem;height:35rem;border-radius:2rem}}";
+    if (!document.getElementById("basair-premium-hooks")) {
+      var style = document.createElement("style");
+      style.id = "basair-premium-hooks";
+      style.textContent = css;
+      document.head.appendChild(style);
+    }
+    function apply() {
+      if (document.body) document.body.classList.add("basair-premium-ready");
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
+    else apply();
   })();
 
   var LANGS = ["ar", "en", "fr", "ru"];
@@ -22,18 +37,13 @@
   }
 
   function slug(value) {
-    return String(value || "global")
-      .toLowerCase()
-      .replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 46) || "global";
+    return String(value || "global").toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 46) || "global";
   }
 
   function getLang(element) {
     for (var i = 0; i < LANGS.length; i += 1) {
       if (element.classList && element.classList.contains("lang-" + LANGS[i])) return LANGS[i];
     }
-
     var id = element.getAttribute && element.getAttribute("data-content-id") || "";
     var match = String(id).match(/(?:^|-)(ar|en|fr|ru)(?:-|$)/i);
     return match ? match[1].toLowerCase() : "general";
@@ -46,9 +56,7 @@
   }
 
   function hasStructuralChildren(element) {
-    return Array.prototype.some.call(element.children || [], function (child) {
-      return !SKIP_TAGS[child.tagName];
-    });
+    return Array.prototype.some.call(element.children || [], function (child) { return !SKIP_TAGS[child.tagName]; });
   }
 
   function isSafeTextElement(element) {
@@ -56,7 +64,6 @@
     if (element.closest && element.closest(NEVER_EDIT)) return false;
     if (element.querySelector && element.querySelector("br")) return false;
     if (hasStructuralChildren(element)) return false;
-
     var text = cleanText(element.textContent);
     return text.length >= 2 && text.length <= 900;
   }
@@ -70,40 +77,30 @@
 
   function collect(root) {
     root = root || document;
-
     var counters = Object.create(null);
     var output = [];
     var elements = Array.prototype.slice.call(root.querySelectorAll(EDITABLE_SELECTOR));
     var seen = [];
-
     elements.forEach(function (element) {
       if (seen.indexOf(element) !== -1) return;
       seen.push(element);
       if (!shouldCollect(element)) return;
-
       var explicitId = element.getAttribute("data-content-id");
       var lang = getLang(element);
       var section = nearestSectionId(element);
       var tag = slug(element.tagName.toLowerCase());
       var key = section + "-" + lang + "-" + tag;
       counters[key] = (counters[key] || 0) + 1;
-
       var id = explicitId || key + "-" + String(counters[key]).padStart(2, "0");
       var text = cleanText(element.textContent);
-
       element.setAttribute("data-content-id", id);
       if (!explicitId) element.setAttribute("data-auto-content-id", "true");
-
       output.push({ id: id, text: text, lang: lang, section: section, tag: tag, index: counters[key], explicit: Boolean(explicitId) });
     });
-
     return output;
   }
 
-  function assign(root) {
-    return collect(root || document);
-  }
-
+  function assign(root) { return collect(root || document); }
   function extractFromHtml(html) {
     var parser = new DOMParser();
     var doc = parser.parseFromString(String(html || ""), "text/html");
@@ -112,9 +109,6 @@
 
   window.BasairTextMap = { assign: assign, extractFromHtml: extractFromHtml, cleanText: cleanText };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { assign(document); }, { once: true });
-  } else {
-    assign(document);
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { assign(document); }, { once: true });
+  else assign(document);
 })();
