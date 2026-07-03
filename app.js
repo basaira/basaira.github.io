@@ -671,14 +671,9 @@ async function loadDynamicContent() {
     const elements = document.querySelectorAll(selector);
 
     elements.forEach(function (element) {
-      // منع أي نص محفوظ في Firebase من تغيير قسم الأسئلة الشائعة
-      // لأن هذا القسم حصل فيه خلط بين الأسئلة والأجوبة بسبب IDs تلقائية قديمة.
-      if (element.closest && element.closest("#faq")) return;
-
-      element.textContent = value;
+     if (element.closest && element.closest("#faq")) return;
+     element.textContent = value;
     });
-  });
-}
 
     if (Array.isArray(data.videos)) {
       const grid = document.getElementById("video-grid");
