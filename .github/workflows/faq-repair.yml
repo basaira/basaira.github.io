@@ -1,0 +1,36 @@
+name: FAQ Repair
+on:
+  push:
+    paths:
+      - ".github/workflows/faq-repair.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text(encoding='utf-8')
+          h=h.replace('<script src="./basair-content-map.js?v=20260702-explicit-text-map-1"></script>','')
+          Path('index.html').write_text(h,encoding='utf-8')
+          s=Path('app.js').read_text(encoding='utf-8')
+          old='''elements.forEach(function (element) {
+          element.textContent = value;
+        });'''
+          new='''elements.forEach(function (element) {
+          if (element.closest && element.closest("#faq")) return;
+          element.textContent = value;
+        });'''
+          s=s.replace(old,new)
+          Path('app.js').write_text(s,encoding='utf-8')
+          PY
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html app.js
+          git commit -m "Prevent FAQ dynamic text drift" || exit 0
+          git push
