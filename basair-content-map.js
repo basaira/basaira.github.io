@@ -1,7 +1,15 @@
 // Basair editable text map
-// Safe version: text indexing only. It does not control the splash screen.
+// Safe version: text indexing only, with a CSS safeguard for the loading overlay.
 (function () {
   "use strict";
+
+  (function addSplashSafeguard() {
+    if (document.getElementById("basair-splash-safeguard")) return;
+    var style = document.createElement("style");
+    style.id = "basair-splash-safeguard";
+    style.textContent = "#splash-screen.basair-splash.splash-hidden{opacity:0!important;visibility:hidden!important;pointer-events:none!important}#splash-screen[style*='display: none']{display:none!important}";
+    document.head.appendChild(style);
+  })();
 
   var LANGS = ["ar", "en", "fr", "ru"];
   var LANGUAGE_SELECTOR = LANGS.map(function (lang) { return ".lang-" + lang; }).join(",");
