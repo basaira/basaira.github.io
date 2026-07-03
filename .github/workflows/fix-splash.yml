@@ -1,0 +1,174 @@
+name: One-time splash repair
+
+on:
+  push:
+    paths:
+      - ".github/workflows/fix-splash.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch splash behavior
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Make app.js the single owner of the splash lifetime.
+          app = Path('app.js')
+          text = app.read_text(encoding='utf-8')
+          text = text.replace('hideSplash(5200);', 'hideSplash(6200);')
+          text = text.replace('hideSplash(1200);', 'hideSplash(6200);')
+          text = text.replace('}, 12000);', '}, 15000);')
+          app.write_text(text, encoding='utf-8')
+
+          # 2) Remove the old blocking splash override from the text map file.
+          cmap = Path('basair-content-map.js')
+          cmap.write_text(r'''// Basair editable text map
+// Safe version: text indexing only. It does not control the splash screen.
+(function () {
+  "use strict";
+
+  var LANGS = ["ar", "en", "fr", "ru"];
+  var LANGUAGE_SELECTOR = LANGS.map(function (lang) { return ".lang-" + lang; }).join(",");
+  var EDITABLE_SELECTOR = "[data-content-id]," + LANGUAGE_SELECTOR;
+  var NEVER_EDIT = "#admin-modal,#splash-screen";
+  var SKIP_TAGS = { SCRIPT: true, STYLE: true, NOSCRIPT: true, IMG: true, SVG: true, PATH: true, INPUT: true, TEXTAREA: true, SELECT: true, OPTION: true };
+
+  function cleanText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function slug(value) {
+    return String(value || "global").toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 46) || "global";
+  }
+
+  function getLang(element) {
+    for (var i = 0; i < LANGS.length; i += 1) {
+      if (element.classList && element.classList.contains("lang-" + LANGS[i])) return LANGS[i];
+    }
+    var id = element.getAttribute && element.getAttribute("data-content-id") || "";
+    var match = String(id).match(/(?:^|-)(ar|en|fr|ru)(?:-|$)/i);
+    return match ? match[1].toLowerCase() : "general";
+  }
+
+  function nearestSectionId(element) {
+    var section = element.closest && element.closest("section[id], header[id], footer[id], nav[id], main[id], div[id]");
+    if (section && section.id) return slug(section.id);
+    return "global";
+  }
+
+  function hasStructuralChildren(element) {
+    return Array.prototype.some.call(element.children || [], function (child) {
+      return !SKIP_TAGS[child.tagName];
+    });
+  }
+
+  function isSafeTextElement(element) {
+    if (!element || SKIP_TAGS[element.tagName]) return false;
+    if (element.closest && element.closest(NEVER_EDIT)) return false;
+    if (element.querySelector && element.querySelector("br")) return false;
+    if (hasStructuralChildren(element)) return false;
+    var text = cleanText(element.textContent);
+    return text.length >= 2 && text.length <= 900;
+  }
+
+  function shouldCollect(element) {
+    if (element.getAttribute && element.getAttribute("data-content-id")) return isSafeTextElement(element);
+    if (!element.matches || !element.matches(LANGUAGE_SELECTOR)) return false;
+    if (element.closest && element.closest("a, button, summary, label")) return false;
+    return isSafeTextElement(element);
+  }
+
+  function collect(root) {
+    root = root || document;
+    var counters = Object.create(null);
+    var output = [];
+    var elements = Array.prototype.slice.call(root.querySelectorAll(EDITABLE_SELECTOR));
+    var seen = [];
+
+    elements.forEach(function (element) {
+      if (seen.indexOf(element) !== -1) return;
+      seen.push(element);
+      if (!shouldCollect(element)) return;
+
+      var explicitId = element.getAttribute("data-content-id");
+      var lang = getLang(element);
+      var section = nearestSectionId(element);
+      var tag = slug(element.tagName.toLowerCase());
+      var key = section + "-" + lang + "-" + tag;
+      counters[key] = (counters[key] || 0) + 1;
+
+      var id = explicitId || key + "-" + String(counters[key]).padStart(2, "0");
+      var text = cleanText(element.textContent);
+      element.setAttribute("data-content-id", id);
+      if (!explicitId) element.setAttribute("data-auto-content-id", "true");
+      output.push({ id: id, text: text, lang: lang, section: section, tag: tag, index: counters[key], explicit: Boolean(explicitId) });
+    });
+
+    return output;
+  }
+
+  window.BasairTextMap = {
+    assign: function (root) { return collect(root || document); },
+    extractFromHtml: function (html) {
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(String(html || ""), "text/html");
+      return collect(doc);
+    },
+    cleanText: cleanText
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () { collect(document); }, { once: true });
+  } else {
+    collect(document);
+  }
+})();
+''', encoding='utf-8')
+
+          # 3) Improve splash visuals and smooth the loading bar in styles.css.
+          css = Path('styles.css')
+          c = css.read_text(encoding='utf-8')
+          c = c.replace('width: clamp(190px, 22vw, 320px);', 'width: clamp(230px, 26vw, 380px);')
+          c = c.replace('filter: drop-shadow(0 18px 36px rgba(10, 31, 68, 0.10));', 'filter: drop-shadow(0 20px 40px rgba(10, 31, 68, 0.12));')
+          c = c.replace('width: 148px;\n    height: 4px;', 'width: 168px;\n    height: 4px;')
+          c = c.replace('animation: basair-loader-slide 1.25s cubic-bezier(.65, 0, .35, 1) infinite;', 'animation: basair-loader-slide 1.12s linear infinite;\n    will-change: transform;')
+          c = c.replace('transform: translateX(-120%);', 'transform: translate3d(-120%, 0, 0);')
+          c = c.replace('transform: translateX(250%);', 'transform: translate3d(250%, 0, 0);')
+          c = c.replace('width: clamp(170px, 58vw, 250px);', 'width: clamp(200px, 64vw, 300px);')
+          c = c.replace('width: 128px;', 'width: 148px;')
+          css.write_text(c, encoding='utf-8')
+
+          # 4) Bust browser cache for the changed files.
+          index = Path('index.html')
+          h = index.read_text(encoding='utf-8')
+          h = h.replace('href="styles.css"', 'href="styles.css?v=20260703-splash-fix-1"')
+          h = h.replace('./basair-content-map.js?v=20260702-content-map-fix-1', './basair-content-map.js?v=20260703-safe-map-1')
+          h = h.replace('./basair-content-map.js?v=20260702-content-map-safe-1', './basair-content-map.js?v=20260703-safe-map-1')
+          h = h.replace('./basair-content-map.js?v=20260702-explicit-text-map-1', './basair-content-map.js?v=20260703-safe-map-1')
+          h = h.replace('./app.js?v=20260616-auth-final-1', './app.js?v=20260703-splash-fix-1')
+          h = h.replace('./app.js?v=20260702-dynamic-text-1', './app.js?v=20260703-splash-fix-1')
+          index.write_text(h, encoding='utf-8')
+
+          # 5) Remove unused experimental files if they exist.
+          for name in ['basair-splash.css', 'basair-content-map-next.js']:
+            p = Path(name)
+            if p.exists():
+              p.unlink()
+          PY
+
+      - name: Commit repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js styles.css index.html basair-content-map.js
+          git rm -f basair-splash.css basair-content-map-next.js || true
+          git commit -m "Repair splash screen architecture" || exit 0
+          git push
