@@ -1,0 +1,67 @@
+/* Basair splash screen — dedicated override layer */
+#splash-screen.basair-splash {
+  display: grid !important;
+  place-items: center;
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  filter: none;
+  transition:
+    opacity 0.95s cubic-bezier(.16, 1, .3, 1),
+    visibility 0.95s cubic-bezier(.16, 1, .3, 1),
+    filter 0.95s cubic-bezier(.16, 1, .3, 1);
+}
+
+#splash-screen.basair-splash.splash-hidden:not(.basair-splash--released) {
+  display: grid !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+#splash-screen.basair-splash.basair-splash--released {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  filter: blur(6px) !important;
+  pointer-events: none !important;
+}
+
+.basair-splash__content {
+  gap: 1.5rem !important;
+  transform: translateZ(0);
+}
+
+.basair-splash__logo {
+  width: clamp(250px, 28vw, 410px) !important;
+  height: auto;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  filter: drop-shadow(0 20px 42px rgba(10, 31, 68, 0.13)) !important;
+}
+
+.basair-splash__loader {
+  width: 176px !important;
+  height: 4px !important;
+  transform: translateZ(0);
+}
+
+.basair-splash__loader span {
+  animation: basair-loader-slide-smooth 1.12s linear infinite !important;
+  will-change: transform;
+}
+
+@keyframes basair-loader-slide-smooth {
+  from { transform: translate3d(-120%, 0, 0); }
+  to { transform: translate3d(250%, 0, 0); }
+}
+
+@media (max-width: 640px) {
+  .basair-splash__logo {
+    width: clamp(215px, 68vw, 315px) !important;
+  }
+
+  .basair-splash__loader {
+    width: 154px !important;
+  }
+}
