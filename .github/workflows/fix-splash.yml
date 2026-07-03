@@ -20,7 +20,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          # 1) Make app.js the single owner of the splash lifetime.
           app = Path('app.js')
           text = app.read_text(encoding='utf-8')
           text = text.replace('hideSplash(5200);', 'hideSplash(6200);')
@@ -28,7 +27,6 @@ jobs:
           text = text.replace('}, 12000);', '}, 15000);')
           app.write_text(text, encoding='utf-8')
 
-          # 2) Remove the old blocking splash override from the text map file.
           cmap = Path('basair-content-map.js')
           cmap.write_text(r'''// Basair editable text map
 // Safe version: text indexing only. It does not control the splash screen.
@@ -133,7 +131,6 @@ jobs:
 })();
 ''', encoding='utf-8')
 
-          # 3) Improve splash visuals and smooth the loading bar in styles.css.
           css = Path('styles.css')
           c = css.read_text(encoding='utf-8')
           c = c.replace('width: clamp(190px, 22vw, 320px);', 'width: clamp(230px, 26vw, 380px);')
@@ -146,7 +143,6 @@ jobs:
           c = c.replace('width: 128px;', 'width: 148px;')
           css.write_text(c, encoding='utf-8')
 
-          # 4) Bust browser cache for the changed files.
           index = Path('index.html')
           h = index.read_text(encoding='utf-8')
           h = h.replace('href="styles.css"', 'href="styles.css?v=20260703-splash-fix-1"')
@@ -157,7 +153,6 @@ jobs:
           h = h.replace('./app.js?v=20260702-dynamic-text-1', './app.js?v=20260703-splash-fix-1')
           index.write_text(h, encoding='utf-8')
 
-          # 5) Remove unused experimental files if they exist.
           for name in ['basair-splash.css', 'basair-content-map-next.js']:
             p = Path(name)
             if p.exists():
