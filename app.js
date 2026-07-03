@@ -664,16 +664,20 @@ async function loadDynamicContent() {
     const data = docSnap.data();
 
     if (data.texts && typeof data.texts === "object") {
-  Object.entries(data.texts).forEach(function ([id, value]) {
-    if (typeof id !== "string" || typeof value !== "string") return;
+      Object.entries(data.texts).forEach(function ([id, value]) {
+        if (typeof id !== "string" || typeof value !== "string") return;
 
-    const selector = "[data-content-id=\"" + escapeCssIdentifier(id) + "\"]";
-    const elements = document.querySelectorAll(selector);
+        const selector = "[data-content-id=\"" + escapeCssIdentifier(id) + "\"]";
+        const elements = document.querySelectorAll(selector);
 
-    elements.forEach(function (element) {
-     if (element.closest && element.closest("#faq")) return;
-     element.textContent = value;
-    });
+        elements.forEach(function (element) {
+          // لا تسمح للنصوص المحفوظة في Firebase أن تبدّل أسئلة وأجوبة FAQ.
+          if (element.closest && element.closest("#faq")) return;
+
+          element.textContent = value;
+        });
+      });
+    }
 
     if (Array.isArray(data.videos)) {
       const grid = document.getElementById("video-grid");
@@ -695,7 +699,6 @@ async function loadDynamicContent() {
     console.error("خطأ في تحميل المحتوى العام:", error);
   }
 }
-
 // ==========================================
 // Secure Admin Panel
 // ==========================================
