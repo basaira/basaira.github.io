@@ -1,5 +1,5 @@
 // Basair editable text map
-// Single responsibility: discover editable text nodes for the admin panel.
+// Safe version: text indexing only. It does not control the splash screen.
 (function () {
   "use strict";
 
@@ -7,18 +7,7 @@
   var LANGUAGE_SELECTOR = LANGS.map(function (lang) { return ".lang-" + lang; }).join(",");
   var EDITABLE_SELECTOR = "[data-content-id]," + LANGUAGE_SELECTOR;
   var NEVER_EDIT = "#admin-modal,#splash-screen";
-  var SKIP_TAGS = {
-    SCRIPT: true,
-    STYLE: true,
-    NOSCRIPT: true,
-    IMG: true,
-    SVG: true,
-    PATH: true,
-    INPUT: true,
-    TEXTAREA: true,
-    SELECT: true,
-    OPTION: true
-  };
+  var SKIP_TAGS = { SCRIPT: true, STYLE: true, NOSCRIPT: true, IMG: true, SVG: true, PATH: true, INPUT: true, TEXTAREA: true, SELECT: true, OPTION: true };
 
   function cleanText(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
@@ -34,9 +23,7 @@
 
   function getLang(element) {
     for (var i = 0; i < LANGS.length; i += 1) {
-      if (element.classList && element.classList.contains("lang-" + LANGS[i])) {
-        return LANGS[i];
-      }
+      if (element.classList && element.classList.contains("lang-" + LANGS[i])) return LANGS[i];
     }
 
     var id = element.getAttribute && element.getAttribute("data-content-id") || "";
@@ -46,7 +33,8 @@
 
   function nearestSectionId(element) {
     var section = element.closest && element.closest("section[id], header[id], footer[id], nav[id], main[id], div[id]");
-    return section && section.id ? slug(section.id) : "global";
+    if (section && section.id) return slug(section.id);
+    return "global";
   }
 
   function hasStructuralChildren(element) {
@@ -90,7 +78,6 @@
       var section = nearestSectionId(element);
       var tag = slug(element.tagName.toLowerCase());
       var key = section + "-" + lang + "-" + tag;
-
       counters[key] = (counters[key] || 0) + 1;
 
       var id = explicitId || key + "-" + String(counters[key]).padStart(2, "0");
@@ -99,33 +86,27 @@
       element.setAttribute("data-content-id", id);
       if (!explicitId) element.setAttribute("data-auto-content-id", "true");
 
-      output.push({
-        id: id,
-        text: text,
-        lang: lang,
-        section: section,
-        tag: tag,
-        index: counters[key],
-        explicit: Boolean(explicitId)
-      });
+      output.push({ id: id, text: text, lang: lang, section: section, tag: tag, index: counters[key], explicit: Boolean(explicitId) });
     });
 
     return output;
   }
 
-  window.BasairTextMap = {
-    assign: function (root) { return collect(root || document); },
-    extractFromHtml: function (html) {
-      var parser = new DOMParser();
-      var doc = parser.parseFromString(String(html || ""), "text/html");
-      return collect(doc);
-    },
-    cleanText: cleanText
-  };
+  function assign(root) {
+    return collect(root || document);
+  }
+
+  function extractFromHtml(html) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(String(html || ""), "text/html");
+    return collect(doc);
+  }
+
+  window.BasairTextMap = { assign: assign, extractFromHtml: extractFromHtml, cleanText: cleanText };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { collect(document); }, { once: true });
+    document.addEventListener("DOMContentLoaded", function () { assign(document); }, { once: true });
   } else {
-    collect(document);
+    assign(document);
   }
 })();

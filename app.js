@@ -59,12 +59,12 @@ function hideSplash(delay) {
 }
 
 window.addEventListener("load", function () {
-  hideSplash(2600);
+  hideSplash(5200);
 }, { once: true });
 
 window.setTimeout(function () {
   hideSplash(0);
-}, 9000);
+}, 12000);
 
 // ==========================================
 // Language system
@@ -1130,7 +1130,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initEnrollmentForm();
     initAdminPanel();
     loadDynamicContent();
-    hideSplash(2600);
+    hideSplash(1200);
   } catch (error) {
     console.error("Application bootstrap error:", error);
     hideSplash(0);
