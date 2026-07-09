@@ -531,12 +531,14 @@ body:not(.route-ar) .slider-track {
     max-width: 1050px;
     margin-inline: auto;
     font-weight: 900;
-    letter-spacing: -0.045em;
-    line-height: 1.16;
-    font-size: clamp(2.85rem, 7vw, 6.35rem);
+    letter-spacing: 0;
+    line-height: 1.45;
+    font-size: clamp(2.6rem, 5.8vw, 5.4rem);
     text-wrap: balance;
     text-shadow: 0 14px 48px rgba(10, 31, 68, 0.08);
+    overflow: visible;
 }
+
 
 #home h1 span span {
     color: transparent !important;
@@ -626,9 +628,10 @@ body:not(.route-ar) .slider-track {
     }
 
     #home h1 {
-        letter-spacing: -0.025em;
-        line-height: 1.28;
-    }
+    letter-spacing: 0;
+    line-height: 1.55;
+    font-size: clamp(2.15rem, 9vw, 3.2rem);
+}
 
     #home p.lang-ar,
     #home p.lang-en,
