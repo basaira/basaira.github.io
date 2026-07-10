@@ -1526,4 +1526,185 @@ body:not(.route-ar) #home .hero-title {
         inset-inline-start: 0.9rem;
     }
 }
+/* ==========================================
+   UX Step 06 — Testimonials Premium Rail
+   CSS-only, scoped to #testimonials
+   ========================================== */
+
+#testimonials {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding-block: clamp(5.25rem, 9vw, 8rem);
+    background:
+        radial-gradient(circle at 20% 18%, rgba(212, 175, 55, 0.12), transparent 24rem),
+        radial-gradient(circle at 80% 82%, rgba(0, 86, 63, 0.08), transparent 26rem),
+        linear-gradient(180deg, #FFFFFF 0%, #FDFDF5 100%);
+    border-top: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+#testimonials::before,
+#testimonials::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: min(14vw, 8rem);
+    z-index: 3;
+    pointer-events: none;
+}
+
+#testimonials::before {
+    inset-inline-start: 0;
+    background: linear-gradient(
+        90deg,
+        #FFFFFF,
+        rgba(255, 255, 255, 0)
+    );
+}
+
+#testimonials::after {
+    inset-inline-end: 0;
+    background: linear-gradient(
+        270deg,
+        #FFFFFF,
+        rgba(255, 255, 255, 0)
+    );
+}
+
+#testimonials h2 {
+    position: relative;
+    width: fit-content;
+    margin-inline: auto;
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+    color: #0A1F44;
+    font-size: clamp(2.25rem, 5vw, 4rem);
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+}
+
+#testimonials h2::after {
+    content: "";
+    position: absolute;
+    inset-inline: 18%;
+    bottom: -0.75rem;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #D4AF37,
+        transparent
+    );
+}
+
+/* مسار الحركة */
+#testimonials .slider-track {
+    gap: 1.25rem;
+    padding-block: 1rem 1.5rem;
+    will-change: transform;
+}
+
+/* كروت الآراء */
+#testimonials .slider-track > * {
+    position: relative;
+    width: min(82vw, 25rem);
+    min-height: 15rem;
+    padding: 1.55rem;
+    border-radius: 1.65rem;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(253, 253, 245, 0.96));
+    border: 1px solid rgba(212, 175, 55, 0.16);
+    box-shadow:
+        0 26px 58px -46px rgba(10, 31, 68, 0.46),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92);
+    overflow: hidden;
+}
+
+#testimonials .slider-track > *::before {
+    content: "”";
+    position: absolute;
+    top: -0.35rem;
+    inset-inline-start: 1.15rem;
+    font-size: 5.5rem;
+    line-height: 1;
+    font-weight: 900;
+    color: rgba(212, 175, 55, 0.14);
+    pointer-events: none;
+}
+
+body.route-ar #testimonials .slider-track > *::before {
+    content: "“";
+}
+
+/* نصوص الكروت */
+#testimonials .slider-track p {
+    position: relative;
+    z-index: 2;
+    color: rgba(10, 31, 68, 0.84);
+    font-size: 1.03rem;
+    line-height: 1.9;
+    font-weight: 500;
+}
+
+#testimonials .slider-track strong,
+#testimonials .slider-track h3,
+#testimonials .slider-track h4 {
+    color: #0A1F44;
+    font-weight: 900;
+}
+
+/* عناصر النجوم إن وجدت */
+#testimonials svg,
+#testimonials .text-yellow-400,
+#testimonials .text-yellow-500,
+#testimonials .text-[#D4AF37] {
+    color: #D4AF37 !important;
+}
+
+/* تهذيب الحركة على الهاتف */
+@media (max-width: 768px) {
+    #testimonials {
+        padding-block: 4.75rem;
+    }
+
+    #testimonials::before,
+    #testimonials::after {
+        width: 2.4rem;
+    }
+
+    #testimonials h2 {
+        margin-bottom: 2.7rem;
+        font-size: clamp(2rem, 8vw, 2.75rem);
+    }
+
+    #testimonials .slider-track {
+        gap: 0.95rem;
+        animation-duration: 52s;
+    }
+
+    #testimonials .slider-track > * {
+        width: min(84vw, 22rem);
+        min-height: 14rem;
+        padding: 1.35rem;
+        border-radius: 1.35rem;
+    }
+
+    #testimonials .slider-track p {
+        font-size: 0.98rem;
+        line-height: 1.85;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #testimonials .slider-track {
+        animation: none !important;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+    }
+
+    #testimonials .slider-track > * {
+        scroll-snap-align: center;
+    }
+}
 
