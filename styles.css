@@ -969,3 +969,161 @@ body:not(.route-ar) #home .hero-title {
     width: 0.72rem;
     height: 0.72rem;
 }
+/* ==========================================
+   UX Step 04 — About Section Architecture
+   CSS-only, scoped to #about
+   ========================================== */
+
+#about {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding-block: clamp(5.5rem, 9vw, 8rem);
+    background:
+        radial-gradient(circle at 78% 20%, rgba(212, 175, 55, 0.12), transparent 22rem),
+        radial-gradient(circle at 18% 85%, rgba(0, 86, 63, 0.08), transparent 24rem),
+        linear-gradient(180deg, #FFFFFF 0%, #FDFDF5 100%);
+    border-block: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+#about::before {
+    content: "";
+    position: absolute;
+    inset-inline: 8%;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(212, 175, 55, 0.55),
+        transparent
+    );
+    pointer-events: none;
+}
+
+#about > div {
+    position: relative;
+    max-width: 920px;
+}
+
+#about h2 {
+    position: relative;
+    width: fit-content;
+    margin-inline: auto;
+    margin-bottom: clamp(2.4rem, 5vw, 3.6rem);
+    font-size: clamp(2.15rem, 4.8vw, 3.45rem);
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    color: #0A1F44;
+}
+
+#about h2::after {
+    content: "";
+    position: absolute;
+    inset-inline: 18%;
+    bottom: -0.75rem;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        #D4AF37,
+        transparent
+    );
+}
+
+#about > div > div {
+    position: relative;
+    overflow: hidden;
+    border-radius: clamp(1.8rem, 4vw, 2.75rem);
+    padding: clamp(2rem, 5vw, 3.35rem);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(253, 253, 245, 0.96)),
+        #FDFDF5;
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    box-shadow:
+        0 34px 80px -60px rgba(10, 31, 68, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+#about > div > div::before {
+    content: "";
+    position: absolute;
+    inset: 1rem;
+    border-radius: calc(clamp(1.8rem, 4vw, 2.75rem) - 0.7rem);
+    border: 1px solid rgba(255, 255, 255, 0.64);
+    pointer-events: none;
+}
+
+#about > div > div::after {
+    content: "";
+    position: absolute;
+    width: 14rem;
+    height: 14rem;
+    inset-block-start: -7rem;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(212, 175, 55, 0.16), transparent 68%);
+    pointer-events: none;
+}
+
+#about .lang-ar,
+#about .lang-en,
+#about .lang-fr,
+#about .lang-ru {
+    position: relative;
+    z-index: 2;
+}
+
+#about p {
+    max-width: 760px;
+    margin-inline: auto;
+    color: rgba(10, 31, 68, 0.86);
+    font-size: clamp(1.08rem, 2vw, 1.26rem);
+    line-height: 2.05;
+    font-weight: 500;
+}
+
+#about p + p {
+    margin-top: 1.6rem;
+}
+
+#about strong {
+    color: #00563F;
+    font-weight: 900;
+    background: linear-gradient(
+        180deg,
+        transparent 58%,
+        rgba(212, 175, 55, 0.18) 58%
+    );
+    padding-inline: 0.08em;
+}
+
+@media (max-width: 768px) {
+    #about {
+        padding-block: 4.75rem;
+    }
+
+    #about h2 {
+        margin-bottom: 2.5rem;
+        font-size: clamp(2rem, 8vw, 2.7rem);
+    }
+
+    #about > div > div {
+        padding: 2rem 1.35rem;
+        border-radius: 1.75rem;
+    }
+
+    #about > div > div::before {
+        inset: 0.7rem;
+        border-radius: 1.25rem;
+    }
+
+    #about p {
+        font-size: 1.06rem;
+        line-height: 2;
+        text-align: start;
+    }
+}
+
