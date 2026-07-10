@@ -1708,7 +1708,7 @@ body.route-ar #testimonials .slider-track > *::before {
     }
 }
 /* ==========================================
-   UX Step 07 — Video Library Cinematic Architecture
+   UX Step 07 — Video Library Refined Editorial
    CSS-only, scoped to #video-library
    ========================================== */
 
@@ -1716,13 +1716,17 @@ body.route-ar #testimonials .slider-track > *::before {
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    padding-block: clamp(5.5rem, 9vw, 8.5rem);
+    padding-block: clamp(4.75rem, 8vw, 7rem);
     background:
-        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.14), transparent 28rem),
-        radial-gradient(circle at 12% 80%, rgba(0, 86, 63, 0.28), transparent 28rem),
-        radial-gradient(circle at 88% 76%, rgba(212, 175, 55, 0.08), transparent 24rem),
-        linear-gradient(180deg, #061126 0%, #081A2F 48%, #051024 100%);
-    border-block: 1px solid rgba(212, 175, 55, 0.14);
+        linear-gradient(180deg, #061126 0%, #071A2D 52%, #061126 100%);
+    border-block: 1px solid rgba(212, 175, 55, 0.16);
+}
+
+#video-library > div.absolute {
+    position: absolute !important;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.72;
 }
 
 #video-library::before {
@@ -1730,221 +1734,268 @@ body.route-ar #testimonials .slider-track > *::before {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background-image:
-        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(circle at center, black, transparent 78%);
+    background:
+        radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.13), transparent 22rem),
+        radial-gradient(circle at 12% 84%, rgba(0, 86, 63, 0.24), transparent 24rem);
     pointer-events: none;
 }
 
 #video-library::after {
     content: "";
     position: absolute;
-    inset-inline: 8%;
+    inset-inline: 10%;
     top: 0;
     height: 1px;
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(212, 175, 55, 0.62),
+        rgba(212, 175, 55, 0.7),
         transparent
     );
     pointer-events: none;
 }
-
 
 #video-library > .max-w-7xl {
     position: relative;
     z-index: 2;
 }
 
-
-#video-library > div.absolute {
-    position: absolute !important;
-    z-index: 0;
+/* الإطار التحريري الداخلي */
+#video-library > .max-w-7xl::before {
+    content: "";
+    position: absolute;
+    inset: -1.5rem 0 auto;
+    height: 100%;
+    min-height: 22rem;
+    border-radius: clamp(1.8rem, 4vw, 3rem);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow:
+        0 38px 90px -70px rgba(0, 0, 0, 0.9),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
     pointer-events: none;
 }
 
+#video-library .text-center,
+#video-filters,
+#video-grid {
+    position: relative;
+    z-index: 2;
+}
+
 #video-library .text-center {
-    margin-bottom: clamp(3rem, 6vw, 4.5rem);
+    max-width: 850px;
+    margin-inline: auto;
+    margin-bottom: clamp(2.2rem, 5vw, 3.5rem);
 }
 
 #video-library .text-center > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    padding: 0.55rem 1rem;
+    border-radius: 999px;
     color: #D4AF37;
-    letter-spacing: 0.24em;
-    opacity: 0.96;
+    background: rgba(212, 175, 55, 0.08);
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    letter-spacing: 0.18em;
 }
 
 #video-library h2 {
-    max-width: 880px;
+    max-width: 780px;
     margin-inline: auto;
     color: #FFFFFF;
-    font-size: clamp(2.15rem, 5vw, 3.8rem);
-    line-height: 1.22;
-    letter-spacing: -0.015em;
+    font-size: clamp(2.1rem, 4.8vw, 3.65rem);
+    line-height: 1.25;
+    letter-spacing: -0.012em;
     text-wrap: balance;
 }
 
-/* أزرار الفلترة */
+/* شريط الفلاتر */
 #video-filters {
-    position: relative;
-    z-index: 3;
-    gap: 0.75rem;
-    margin-bottom: clamp(2.4rem, 5vw, 3.5rem);
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    padding: 0.45rem;
+    gap: 0.45rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.065);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
 }
 
 #video-filters .filter-btn {
-    min-height: 2.75rem;
-    padding-inline: 1.25rem;
+    min-height: 2.55rem;
+    padding-inline: 1.15rem;
     border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.075);
-    color: rgba(255, 255, 255, 0.88);
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.88rem;
     font-weight: 900;
-    box-shadow:
-        0 14px 30px -25px rgba(0, 0, 0, 0.75),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    box-shadow: none;
 }
 
 #video-filters .filter-btn:hover {
-    background: rgba(255, 255, 255, 0.13);
     color: #FFFFFF;
-    border-color: rgba(212, 175, 55, 0.32);
-    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
 }
 
-#video-filters .filter-btn.active {
-    background:
-        linear-gradient(135deg, #D4AF37 0%, #F1D779 55%, #B99322 100%);
-    color: #07162B;
-    border-color: rgba(255, 255, 255, 0.24);
+#video-filters .filter-btn.active,
+#video-filters .filter-btn.bg-\[\#D4AF37\] {
+    color: #07162B !important;
+    background: linear-gradient(135deg, #D4AF37 0%, #F1D779 58%, #B99322 100%) !important;
     box-shadow:
-        0 20px 42px -25px rgba(212, 175, 55, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+        0 16px 34px -24px rgba(212, 175, 55, 0.85),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
 }
 
 /* شبكة الفيديو */
 #video-grid {
-    position: relative;
+    align-items: stretch;
 }
 
-/* كروت الفيديو المضافة من app.js */
-#video-grid > * {
-    position: relative;
-    overflow: hidden;
-    border-radius: 1.75rem;
-    background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045));
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow:
-        0 30px 68px -48px rgba(0, 0, 0, 0.85),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-}
-
-#video-grid > *::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background:
-        linear-gradient(
-            180deg,
-            transparent 0%,
-            rgba(5, 16, 36, 0.18) 50%,
-            rgba(5, 16, 36, 0.68) 100%
-        );
-    pointer-events: none;
-}
-
-#video-grid iframe,
-#video-grid video,
-#video-grid img {
-    width: 100%;
+/* حالة الفراغ: هادئة لا مسرحية */
+#video-grid:empty {
     display: block;
-    border-radius: inherit;
 }
 
-#video-grid h3,
-#video-grid h4 {
-    color: #FFFFFF;
-    font-weight: 900;
-    line-height: 1.45;
-}
-
-#video-grid p {
-    color: rgba(255, 255, 255, 0.76);
-    line-height: 1.8;
-}
-
-/* حالة عدم وجود فيديوهات */
 #video-grid:empty::before {
-    content: "سيتم عرض المواد المرئية هنا";
+    content: "سيتم عرض المواد المرئية هنا قريبًا";
     display: grid;
     place-items: center;
-    min-height: 16rem;
-    border-radius: 2rem;
+    min-height: 11rem;
+    max-width: 760px;
+    margin-inline: auto;
+    border-radius: 1.75rem;
     color: rgba(255, 255, 255, 0.68);
     font-weight: 900;
-    font-size: 1.15rem;
-    border: 1px dashed rgba(212, 175, 55, 0.28);
+    font-size: 1.05rem;
+    text-align: center;
+    border: 1px dashed rgba(212, 175, 55, 0.26);
     background:
-        linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025));
+        linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
 }
 
 body.route-en #video-grid:empty::before {
-    content: "Video lessons will appear here";
+    content: "Video lessons will appear here soon";
 }
 
 body.route-fr #video-grid:empty::before {
-    content: "Les vidéos apparaîtront ici";
+    content: "Les vidéos apparaîtront bientôt ici";
 }
 
 body.route-ru #video-grid:empty::before {
-    content: "Видеоуроки появятся здесь";
+    content: "Видеоуроки скоро появятся здесь";
+}
+
+/* الكروت الديناميكية */
+#video-grid .video-card {
+    padding: 0.8rem;
+    border-radius: 1.55rem;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035));
+    border: 1px solid rgba(255, 255, 255, 0.095);
+    box-shadow:
+        0 30px 64px -50px rgba(0, 0, 0, 0.9),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transition:
+        transform 0.28s ease,
+        border-color 0.28s ease,
+        background 0.28s ease;
+}
+
+#video-grid .video-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(212, 175, 55, 0.28);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045));
+}
+
+#video-grid .video-card > div:first-child {
+    height: clamp(12.5rem, 19vw, 15.5rem);
+    margin-bottom: 1rem;
+    border-radius: 1.15rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#video-grid .video-card h3 {
+    padding-inline: 0.35rem;
+    color: #FFFFFF;
+    font-size: 1.12rem;
+    line-height: 1.55;
+    font-weight: 900;
+}
+
+#video-grid .video-card p {
+    padding-inline: 0.35rem;
+    padding-bottom: 0.3rem;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+/* زر التشغيل داخل الكارت */
+#video-grid .video-card a[aria-label] {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+#video-grid .video-card:hover a[aria-label] {
+    background: rgba(212, 175, 55, 0.92);
+    border-color: rgba(241, 215, 121, 0.5);
 }
 
 @media (max-width: 768px) {
     #video-library {
-        padding-block: 4.75rem;
+        padding-block: 4.25rem;
+    }
+
+    #video-library > .max-w-7xl::before {
+        inset: -1rem 0 auto;
+        border-radius: 1.65rem;
     }
 
     #video-library h2 {
-        font-size: clamp(2rem, 8vw, 2.65rem);
+        font-size: clamp(1.9rem, 7.6vw, 2.55rem);
     }
 
     #video-filters {
+        width: 100%;
         justify-content: flex-start;
         overflow-x: auto;
         flex-wrap: nowrap;
-        padding-bottom: 0.55rem;
+        border-radius: 1.25rem;
+        padding: 0.5rem;
         scroll-snap-type: x mandatory;
     }
 
     #video-filters .filter-btn {
         flex: 0 0 auto;
         scroll-snap-align: start;
-        min-height: 2.65rem;
-        padding-inline: 1.05rem;
-        font-size: 0.88rem;
-    }
-
-    #video-grid {
-        gap: 1.25rem;
-    }
-
-    #video-grid > * {
-        border-radius: 1.35rem;
+        min-height: 2.45rem;
+        padding-inline: 1rem;
+        font-size: 0.84rem;
     }
 
     #video-grid:empty::before {
-        min-height: 12rem;
-        border-radius: 1.4rem;
-        font-size: 1rem;
+        min-height: 9.5rem;
+        border-radius: 1.25rem;
+        font-size: 0.98rem;
+    }
+
+    #video-grid .video-card {
+        border-radius: 1.25rem;
+        padding: 0.7rem;
+    }
+
+    #video-grid .video-card > div:first-child {
+        height: 12.5rem;
+        border-radius: 0.95rem;
     }
 }
-
