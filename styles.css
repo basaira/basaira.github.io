@@ -527,27 +527,7 @@ body:not(.route-ar) .slider-track {
     animation: basair-hero-badge-sheen 5.5s ease-in-out infinite;
 }
 
-#home h1 {
-    max-width: 1050px;
-    margin-inline: auto;
-    font-weight: 900;
-    letter-spacing: 0;
-    line-height: 1.45;
-    font-size: clamp(2.6rem, 5.8vw, 5.4rem);
-    text-wrap: balance;
-    text-shadow: 0 14px 48px rgba(10, 31, 68, 0.08);
-    overflow: visible;
-}
 
-
-#home h1 span span {
-    color: transparent !important;
-    background:
-        linear-gradient(135deg, #9B7617 0%, #D4AF37 42%, #F1D779 58%, #9B7617 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    filter: drop-shadow(0 10px 22px rgba(212, 175, 55, 0.16));
-}
 
 #home p.lang-ar,
 #home p.lang-en,
@@ -627,11 +607,7 @@ body:not(.route-ar) .slider-track {
         padding-bottom: 5rem;
     }
 
-    #home h1 {
-    letter-spacing: 0;
-    line-height: 1.55;
-    font-size: clamp(2.15rem, 9vw, 3.2rem);
-}
+   
 
     #home p.lang-ar,
     #home p.lang-en,
@@ -644,6 +620,111 @@ body:not(.route-ar) .slider-track {
     #home > div > a {
         width: min(100%, 22rem);
         text-align: center;
+    }
+}
+/* ==========================================
+   Hero Title Component — Tajawal Architecture
+   Real Arabic glyphs, decorative gold behind text
+   ========================================== */
+
+#home .hero-title {
+    max-width: 1080px;
+    margin: 0 auto 2rem;
+    padding-block: 0.08em;
+    color: #0A1F44;
+    font-family: 'Tajawal', sans-serif;
+    font-size: clamp(2.55rem, 5.6vw, 5.25rem);
+    font-weight: 800;
+    line-height: 1.48;
+    letter-spacing: 0;
+    text-align: center;
+    text-wrap: balance;
+    overflow: visible;
+    text-shadow: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+#home .hero-title__set {
+    display: none !important;
+}
+
+body.route-ar #home .hero-title__set.lang-ar,
+body.route-en #home .hero-title__set.lang-en,
+body.route-fr #home .hero-title__set.lang-fr,
+body.route-ru #home .hero-title__set.lang-ru {
+    display: block !important;
+}
+
+#home .hero-title__line {
+    display: block;
+    padding-block: 0.035em;
+}
+
+#home .hero-title__line--accent {
+    position: relative;
+    z-index: 0;
+    display: inline-block;
+    padding-inline: 0.04em;
+    color: #C29B25;
+    -webkit-text-fill-color: #C29B25;
+}
+
+#home .hero-title__line--accent::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset-inline: -0.18em;
+    inset-block: 0.22em 0.16em;
+    border-radius: 999px;
+    background:
+        linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(212, 175, 55, 0.16) 24%,
+            rgba(241, 215, 121, 0.24) 50%,
+            rgba(212, 175, 55, 0.16) 76%,
+            transparent 100%
+        );
+    filter: blur(7px);
+    opacity: 0.95;
+}
+
+body:not(.route-ar) #home .hero-title {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    line-height: 1.16;
+    letter-spacing: -0.035em;
+}
+
+@media (max-width: 768px) {
+    #home .hero-title {
+        margin-bottom: 1.65rem;
+        font-size: clamp(2.05rem, 8.4vw, 3.05rem);
+        font-weight: 800;
+        line-height: 1.6;
+        letter-spacing: 0;
+    }
+
+    #home .hero-title__line {
+        padding-block: 0.045em;
+    }
+
+    #home .hero-title__line--accent {
+        color: #B99322;
+        -webkit-text-fill-color: #B99322;
+    }
+
+    #home .hero-title__line--accent::before {
+        inset-inline: -0.12em;
+        inset-block: 0.26em 0.18em;
+        filter: blur(5px);
+        opacity: 0.8;
+    }
+
+    body:not(.route-ar) #home .hero-title {
+        font-size: clamp(2.1rem, 8.7vw, 3.15rem);
+        line-height: 1.22;
     }
 }
 /* ==========================================
