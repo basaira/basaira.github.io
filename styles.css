@@ -1753,9 +1753,17 @@ body.route-ar #testimonials .slider-track > *::before {
     pointer-events: none;
 }
 
-#video-library > div {
+
+#video-library > .max-w-7xl {
     position: relative;
     z-index: 2;
+}
+
+
+#video-library > div.absolute {
+    position: absolute !important;
+    z-index: 0;
+    pointer-events: none;
 }
 
 #video-library .text-center {
