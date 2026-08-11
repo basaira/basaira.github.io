@@ -1268,9 +1268,52 @@
     
     
 
-    
+ <script>
+(function () {
+    "use strict";
+
+    var released = false;
+
+    function releaseSplash() {
+        if (released) return;
+
+        var splash = document.getElementById("splash-screen");
+        if (!splash) return;
+
+        released = true;
+
+        splash.style.setProperty("opacity", "0", "important");
+        splash.style.setProperty("visibility", "hidden", "important");
+        splash.style.setProperty("pointer-events", "none", "important");
+
+        window.setTimeout(function () {
+            if (splash && splash.parentNode) {
+                splash.parentNode.removeChild(splash);
+            }
+        }, 450);
+    }
+
+    /*
+     * Public boot contract:
+     * app.js can release the splash as soon as initialization succeeds.
+     */
+    window.BasairBoot = Object.freeze({
+        ready: releaseSplash
+    });
+
+    /*
+     * Absolute fail-safe:
+     * مهما حدث في أي module خارجي، لا تبقى الصفحة محجوبة.
+     */
+    window.setTimeout(releaseSplash, 8000);
+
+    window.addEventListener("load", function () {
+        window.setTimeout(releaseSplash, 2500);
+    }, { once: true });
+})();
+</script>   
    
-<script type="module" src="./app.js?v=20260811-realtime-content-1"></script>
+<script type="module" src="./app.js?v=20260811-runtime-repair-1"></script>
 
 <a
   href="./admin.html"
