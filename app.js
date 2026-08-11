@@ -1063,26 +1063,7 @@ async function loadDynamicContent() {
   }
 }
 
-    if (Array.isArray(data.videos)) {
-      const grid = document.getElementById("video-grid");
-
-      if (grid) {
-        document.querySelectorAll(".dynamic-video").forEach(function (element) {
-          element.remove();
-        });
-
-        data.videos.slice().reverse().forEach(function (item) {
-          const video = normalizeVideo(item);
-          if (video) grid.prepend(createVideoCard(video));
-        });
-
-        initVideoFilter();
-      }
-    }
-  } catch (error) {
-    console.error("خطأ في تحميل المحتوى العام:", error);
-  }
-}
+    
 
 // ==========================================
 // Secure Admin Panel
@@ -1512,11 +1493,26 @@ document.addEventListener("DOMContentLoaded", function () {
     initSlider();
     initEnrollmentForm();
     initAdminPanel();
+
+    /*
+     * Firestore realtime subscription must not block first paint.
+     */
     startDynamicContentSubscription();
-    hideSplash(1200);
+
   } catch (error) {
     console.error("Application bootstrap error:", error);
-    hideSplash(0);
+
+  } finally {
+    /*
+     * UI readiness must never depend on Firestore/network completion.
+     */
+    if (
+      window.BasairBoot &&
+      typeof window.BasairBoot.ready === "function"
+    ) {
+      window.BasairBoot.ready();
+    } else {
+      hideSplash(0);
+    }
   }
 });
-
