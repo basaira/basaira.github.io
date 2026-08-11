@@ -395,11 +395,228 @@ function normalizeVideo(video) {
     videoUrl: isSafeHttpsUrl(videoUrl) ? videoUrl : "#"
   };
 }
+// ==========================================
+// Embedded Video Player
+// YouTube playback inside Basair
+// ==========================================
 
+const videoPlayer = (function () {
+  let modal = null;
+  let frame = null;
+  let titleElement = null;
+  let closeButton = null;
+  let lastFocusedElement = null;
+
+  function getYouTubeVideoId(rawUrl) {
+    if (typeof rawUrl !== "string" || !rawUrl.trim()) return null;
+
+    try {
+      const url = new URL(rawUrl.trim());
+      const hostname = url.hostname
+        .toLowerCase()
+        .replace(/^www\./, "");
+
+      let videoId = null;
+
+      if (hostname === "youtu.be") {
+        videoId = url.pathname.split("/").filter(Boolean)[0] || null;
+      }
+
+      if (
+        hostname === "youtube.com" ||
+        hostname === "m.youtube.com" ||
+        hostname === "music.youtube.com"
+      ) {
+        if (url.pathname === "/watch") {
+          videoId = url.searchParams.get("v");
+        } else {
+          const match = url.pathname.match(
+            /^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/
+          );
+
+          if (match) {
+            videoId = match[1];
+          }
+        }
+      }
+
+      if (!videoId) return null;
+
+      return /^[A-Za-z0-9_-]{11}$/.test(videoId)
+        ? videoId
+        : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function getEmbedUrl(rawUrl) {
+    const videoId = getYouTubeVideoId(rawUrl);
+
+    if (!videoId) return null;
+
+    const params = new URLSearchParams({
+      autoplay: "1",
+      playsinline: "1",
+      rel: "0"
+    });
+
+    return (
+      "https://www.youtube-nocookie.com/embed/" +
+      encodeURIComponent(videoId) +
+      "?" +
+      params.toString()
+    );
+  }
+
+  function ensureModal() {
+    if (modal) return;
+
+    modal = document.createElement("div");
+    modal.id = "video-player-modal";
+    modal.className = "video-player-modal";
+    modal.setAttribute("aria-hidden", "true");
+
+    modal.innerHTML = `
+      <div
+        class="video-player-modal__backdrop"
+        data-video-close
+        aria-hidden="true"
+      ></div>
+
+      <div
+        class="video-player-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="video-player-title"
+      >
+        <div class="video-player-modal__header">
+          <h3
+            id="video-player-title"
+            class="video-player-modal__title"
+          ></h3>
+
+          <button
+            type="button"
+            class="video-player-modal__close"
+            data-video-close
+            aria-label="إغلاق الفيديو"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M6 6L18 18M18 6L6 18"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="video-player-modal__stage">
+          <iframe
+            class="video-player-modal__frame"
+            title="مشغل فيديو أكاديمية بصائر"
+            src=""
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    frame = modal.querySelector(".video-player-modal__frame");
+    titleElement = modal.querySelector(".video-player-modal__title");
+    closeButton = modal.querySelector(".video-player-modal__close");
+
+    modal.addEventListener("click", function (event) {
+      if (event.target.closest("[data-video-close]")) {
+        close();
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (
+        event.key === "Escape" &&
+        modal &&
+        modal.classList.contains("is-open")
+      ) {
+        close();
+      }
+    });
+  }
+
+  function open(video) {
+    ensureModal();
+
+    const embedUrl = getEmbedUrl(video.videoUrl);
+
+    if (!embedUrl || !frame || !titleElement) {
+      console.warn("Unsupported or invalid YouTube video URL.");
+      return;
+    }
+
+    lastFocusedElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    titleElement.textContent = video.title || "فيديو";
+
+    frame.src = embedUrl;
+
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+
+    document.body.classList.add("video-player-open");
+
+    window.requestAnimationFrame(function () {
+      if (closeButton) closeButton.focus();
+    });
+  }
+
+  function close() {
+    if (!modal || !frame) return;
+
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+
+    /*
+     * إزالة src مهمة:
+     * توقف الفيديو والصوت فعليًا عند إغلاق المشغل.
+     */
+    frame.src = "";
+
+    document.body.classList.remove("video-player-open");
+
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+    }
+
+    lastFocusedElement = null;
+  }
+
+  return {
+    open: open,
+    close: close
+  };
+})();
 function createVideoCard(video) {
   const card = document.createElement("article");
   card.className = "video-card group cursor-pointer animate-fade-in-up dynamic-video";
   card.setAttribute("data-category", video.category);
+  card.addEventListener("click", function (event) {
+  if (event.target.closest("button")) return;
+
+  videoPlayer.open(video);
+});
 
   const imageWrapper = document.createElement("div");
   imageWrapper.className = "relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg";
@@ -416,12 +633,23 @@ function createVideoCard(video) {
   const playLayer = document.createElement("div");
   playLayer.className = "absolute inset-0 flex items-center justify-center z-20";
 
-  const playCircle = document.createElement("a");
-  playCircle.href = video.videoUrl;
-  playCircle.target = "_blank";
-  playCircle.rel = "noopener noreferrer";
-  playCircle.setAttribute("aria-label", "تشغيل فيديو: " + video.title);
-  playCircle.className = "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
+  const playCircle = document.createElement("button");
+playCircle.type = "button";
+
+playCircle.setAttribute(
+  "aria-label",
+  "تشغيل الفيديو داخل الموقع: " + video.title
+);
+
+playCircle.className =
+  "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
+
+playCircle.addEventListener("click", function (event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  videoPlayer.open(video);
+});
 
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "w-6 h-6 text-white translate-x-0.5");
