@@ -9,7 +9,8 @@ import {
   serverTimestamp,
   getDoc,
   doc,
-  setDoc
+  setDoc,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -891,30 +892,176 @@ function normalizeAdminContent(data) {
   return { videos: videos, texts: texts };
 }
 
-async function loadDynamicContent() {
-  try {
-    if (window.BasairTextMap && typeof window.BasairTextMap.assign === "function") {
-      window.BasairTextMap.assign(document);
-    }
+// ==========================================
+// Dynamic Public Content
+// Single renderer + real-time Firestore subscription
+// ==========================================
 
-    const docSnap = await getDoc(adminContentRef);
-    if (!docSnap.exists()) return;
+let dynamicContentUnsubscribe = null;
 
-    const data = docSnap.data();
+function renderDynamicContent(data) {
+  const safeData =
+    data && typeof data === "object"
+      ? data
+      : {};
 
-    if (data.texts && typeof data.texts === "object") {
-      Object.entries(data.texts).forEach(function ([id, value]) {
-        if (typeof id !== "string" || typeof value !== "string") return;
+  // ------------------------------
+  // Dynamic texts
+  // ------------------------------
+  if (
+    safeData.texts &&
+    typeof safeData.texts === "object"
+  ) {
+    Object.entries(safeData.texts).forEach(function ([id, value]) {
+      if (
+        typeof id !== "string" ||
+        typeof value !== "string"
+      ) {
+        return;
+      }
 
-        const selector = "[data-content-id=\"" + escapeCssIdentifier(id) + "\"]";
-        const elements = document.querySelectorAll(selector);
+      const selector =
+        '[data-content-id="' +
+        escapeCssIdentifier(id) +
+        '"]';
 
-        elements.forEach(function (element) {
-          if (element.closest && element.closest("#faq")) return;
+      document
+        .querySelectorAll(selector)
+        .forEach(function (element) {
+          // FAQ remains static
+          if (
+            element.closest &&
+            element.closest("#faq")
+          ) {
+            return;
+          }
+
           element.textContent = value;
         });
-      });
+    });
+  }
+
+  // ------------------------------
+  // Dynamic videos
+  // ------------------------------
+  const grid = document.getElementById("video-grid");
+
+  if (!grid) return;
+
+  // Remove only dynamically generated cards.
+  grid
+    .querySelectorAll(".dynamic-video")
+    .forEach(function (element) {
+      element.remove();
+    });
+
+  const videos = Array.isArray(safeData.videos)
+    ? safeData.videos
+    : [];
+
+  const fragment = document.createDocumentFragment();
+
+  videos
+    .slice()
+    .reverse()
+    .forEach(function (item) {
+      const video = normalizeVideo(item);
+
+      if (!video) return;
+
+      fragment.appendChild(
+        createVideoCard(video)
+      );
+    });
+
+  grid.appendChild(fragment);
+
+  /*
+   * Re-apply current filter without rebinding
+   * duplicate event listeners.
+   */
+  const activeFilter =
+    document.querySelector(
+      "#video-filters .filter-btn.active"
+    ) ||
+    document.querySelector(
+      '#video-filters .filter-btn[data-filter="all"]'
+    );
+
+  applyVideoFilter(
+    activeFilter
+      ? activeFilter.getAttribute("data-filter") || "all"
+      : "all"
+  );
+}
+
+function startDynamicContentSubscription() {
+  if (dynamicContentUnsubscribe) {
+    return;
+  }
+
+  if (
+    window.BasairTextMap &&
+    typeof window.BasairTextMap.assign === "function"
+  ) {
+    window.BasairTextMap.assign(document);
+  }
+
+  dynamicContentUnsubscribe = onSnapshot(
+    adminContentRef,
+
+    function (snapshot) {
+      if (!snapshot.exists()) {
+        renderDynamicContent({
+          texts: {},
+          videos: []
+        });
+
+        return;
+      }
+
+      renderDynamicContent(
+        snapshot.data()
+      );
+    },
+
+    function (error) {
+      console.error(
+        "Dynamic content realtime subscription failed:",
+        error
+      );
     }
+  );
+}
+
+/*
+ * Retained as a compatibility function
+ * for existing admin-related calls in app.js.
+ */
+async function loadDynamicContent() {
+  try {
+    const snapshot =
+      await getDoc(adminContentRef);
+
+    if (!snapshot.exists()) {
+      renderDynamicContent({
+        texts: {},
+        videos: []
+      });
+
+      return;
+    }
+
+    renderDynamicContent(
+      snapshot.data()
+    );
+  } catch (error) {
+    console.error(
+      "Dynamic content reload failed:",
+      error
+    );
+  }
+}
 
     if (Array.isArray(data.videos)) {
       const grid = document.getElementById("video-grid");
@@ -1365,7 +1512,7 @@ document.addEventListener("DOMContentLoaded", function () {
     initSlider();
     initEnrollmentForm();
     initAdminPanel();
-    loadDynamicContent();
+    startDynamicContentSubscription();
     hideSplash(1200);
   } catch (error) {
     console.error("Application bootstrap error:", error);
