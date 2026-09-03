@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/><meta content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://www.gstatic.com; frame-src https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests" http-equiv="Content-Security-Policy"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>لوحة إدارة بصائر</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<style>
+    :root {
+      --bg: #050b18;
+      --panel: #0a1f44;
+      --gold: #d4af37;
+      --muted: rgba(255,255,255,.62);
+      --line: rgba(255,255,255,.12);
+      --danger: #ef4444;
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Tahoma, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(212,175,55,.18), transparent 34rem),
+        radial-gradient(circle at bottom left, rgba(16,43,89,.9), transparent 38rem),
+        var(--bg);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(1440px, calc(100% - 32px));
+      margin: 24px auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+    }
+
+    .sidebar,
+    .main-card,
+    .panel {
+      border: 1px solid var(--line);
+      background: rgba(10,31,68,.78);
+      box-shadow: 0 24px 80px rgba(0,0,0,.25);
+      backdrop-filter: blur(18px);
+      border-radius: 28px;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      height: calc(100vh - 48px);
+      padding: 22px;
+      overflow: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 22px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 23px;
+      line-height: 1.3;
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .seal {
+      width: 46px;
+      height: 46px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--gold), #fff3b0);
+      color: #0a1f44;
+      font-weight: 800;
+    }
+
+    .nav-btn {
+      width: 100%;
+      border: 0;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 8px 0;
+      padding: 13px 14px;
+      border-radius: 16px;
+      color: rgba(255,255,255,.78);
+      background: transparent;
+      transition: .2s ease;
+      text-align: right;
+    }
+
+    .nav-btn:hover,
+    .nav-btn.active {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+    }
+
+    .nav-btn.active {
+      outline: 1px solid rgba(212,175,55,.35);
+    }
+
+    .badge {
+      min-width: 28px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(212,175,55,.18);
+      color: #fde68a;
+      font-size: 12px;
+    }
+
+    .main-card {
+      min-height: calc(100vh - 48px);
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 22px 26px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(5,11,24,.28);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .topbar p {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .panel h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .hint {
+      color: var(--muted);
+      margin: 0 0 18px;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .stat {
+      padding: 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--line);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor: pointer;
+      font-weight: 800;
+      color: #0a1f44;
+      background: var(--gold);
+      transition: .18s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    .btn.secondary {
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .btn.danger {
+      background: rgba(239,68,68,.88);
+      color: #fff;
+    }
+
+    .btn.ok {
+      background: rgba(34,197,94,.9);
+      color: #052e16;
+    }
+
+    .btn.small {
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    label {
+      color: rgba(255,255,255,.82);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      color: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px 13px;
+      outline: none;
+      background: rgba(0,0,0,.22);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 130px;
+      line-height: 1.8;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(212,175,55,.7);
+      box-shadow: 0 0 0 3px rgba(212,175,55,.12);
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .status {
+      display: none;
+      margin-bottom: 16px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      font-weight: 800;
+      line-height: 1.8;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.success {
+      border-color: rgba(34,197,94,.3);
+      color: #bbf7d0;
+      background: rgba(34,197,94,.1);
+    }
+
+    .status.error {
+      border-color: rgba(239,68,68,.35);
+      color: #fecaca;
+      background: rgba(239,68,68,.1);
+    }
+
+    .status.warning {
+      border-color: rgba(245,158,11,.35);
+      color: #fde68a;
+      background: rgba(245,158,11,.1);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.055);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .item-title {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+      line-height: 1.7;
+      direction: ltr;
+      text-align: right;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(212,175,55,.14);
+      color: #fde68a;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr 170px 170px;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 22px;
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .ltr {
+      direction: ltr;
+      text-align: left;
+      display: inline-block;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .login-card {
+      width: min(560px, 100%);
+      margin: 60px auto;
+      text-align: center;
+    }
+
+    .login-card h2 {
+      margin-top: 0;
+    }
+
+    .uid-box {
+      direction: ltr;
+      text-align: left;
+      background: rgba(0,0,0,.25);
+      padding: 12px;
+      border-radius: 14px;
+      overflow-wrap: anywhere;
+      border: 1px solid var(--line);
+    }
+
+
+    .btn {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.18);
+      transition: transform .24s cubic-bezier(.2,.8,.2,1), box-shadow .24s ease, filter .2s ease, opacity .2s ease;
+    }
+    .btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: linear-gradient(105deg, transparent 25%, rgba(255,255,255,.22) 50%, transparent 75%);
+      transform: translateX(-145%);
+      transition: transform .62s cubic-bezier(.2,.8,.2,1);
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 15px 34px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.2); }
+    .btn:hover::after { transform: translateX(145%); }
+    .btn:active { transform: translateY(0) scale(.975); }
+    .btn:focus-visible { outline: 3px solid rgba(212,175,55,.36); outline-offset: 3px; }
+    .btn:disabled, .btn.is-loading { opacity: .62; cursor: wait; transform: none; }
+    .btn.is-loading::before { content: ""; width: 15px; height: 15px; border-radius: 50%; border: 2px solid currentColor; border-inline-start-color: transparent; animation: admin-spin .7s linear infinite; }
+    @keyframes admin-spin { to { transform: rotate(360deg); } }
+    .login-primary { width: 100%; min-height: 50px; margin-top: 2px; }
+    .google-btn { width: 100%; min-height: 50px; background: rgba(255,255,255,.96); color: #10243f; border: 1px solid rgba(255,255,255,.18); }
+    .google-mark { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: #fff; color: #4285f4; font-family: Arial,sans-serif; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(10,31,68,.1); }
+    .admin-login-form { display: grid; gap: 14px; margin: 22px 0 16px; text-align: right; }
+    .login-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin: 15px 0; }
+    .login-divider::before, .login-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+    .auth-help { margin: 16px 0 0; color: var(--muted); font-size: 11px; line-height: 1.8; direction: ltr; overflow-wrap: anywhere; }
+    @media (prefers-reduced-motion: reduce) { .btn, .btn::after, .nav-btn { transition-duration: .01ms !important; } .btn:hover,.btn:active { transform:none; } }
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+      }
+    }
+  
+      .video-publish-toggle {
+        min-height: 48px; display:flex; align-items:center; gap:.75rem; padding:.8rem .9rem;
+        border:1px solid rgba(212,175,55,.18); border-radius:14px; background:rgba(255,255,255,.035);
+        font-weight:800; cursor:pointer;
+      }
+      .video-publish-toggle input { width:1.15rem; height:1.15rem; accent-color:#D4AF37; }
+      @media (max-width: 860px) {
+        html, body { max-width:100%; overflow-x:hidden; }
+        .shell { width:100%; max-width:100%; padding:10px; gap:10px; }
+        .sidebar { width:100%; min-width:0; }
+        .main-card { min-width:0; width:100%; }
+        .grid-2, .grid-3 { grid-template-columns:1fr !important; }
+        .topbar { align-items:flex-start; gap:10px; }
+        .top-actions { width:100%; flex-wrap:wrap; }
+        .top-actions .btn { flex:1 1 150px; }
+        .panel, .login-card { max-width:100%; }
+        input, select, button { max-width:100%; }
+      }
+      @media (max-width: 520px) {
+        .shell { padding:6px; }
+        .main { border-radius:18px; }
+        .content { padding:12px !important; }
+        .panel { padding:14px !important; border-radius:16px; }
+        .row-actions { display:grid; grid-template-columns:1fr; }
+        .row-actions .btn { width:100%; }
+        .item-head { align-items:flex-start; gap:8px; }
+        .item-meta { overflow-wrap:anywhere; }
+      }
+</style>
+<meta content="strict-origin-when-cross-origin" name="referrer"/>
+  <script type="module" crossorigin src="./assets/admin-DjLMqlzJ.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/firebase-config-CpQW8loC.js">
+  <link rel="stylesheet" crossorigin href="./assets/firebase-config-cd9f7NCj.css">
+  <link rel="stylesheet" crossorigin href="./assets/admin-C0yueViI.css">
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<div class="brand">
+<div>
+<h1>لوحة بصائر</h1>
+<p>إدارة المحتوى والطلبات</p>
+</div>
+<div class="seal">ب</div>
+</div>
+<button class="nav-btn active" data-tab="overview" type="button">نظرة عامة <span class="badge">•</span></button>
+<button class="nav-btn" data-tab="requests" type="button">طلبات الالتحاق <span class="badge" id="badge-requests">0</span></button>
+<button class="nav-btn" data-tab="texts" type="button">نصوص الموقع <span class="badge" id="badge-texts">0</span></button>
+<button class="nav-btn" data-tab="videos" type="button">الفيديوهات <span class="badge" id="badge-videos">0</span></button>
+<button class="nav-btn" data-tab="settings" type="button">إعدادات التواصل <span class="badge">⚙</span></button>
+<button class="nav-btn" data-tab="audit" type="button">سجل التغييرات <span class="badge" id="badge-audit">0</span></button>
+<button class="nav-btn" data-tab="help" type="button">ملاحظات <span class="badge">؟</span></button>
+</aside>
+<main class="main-card" id="admin-main">
+<header class="topbar">
+<div class="topbar-copy">
+<span class="topbar-eyebrow">مركز الإدارة والتحرير</span>
+<h2>إدارة أكاديمية بصائر</h2>
+<p id="auth-line">جار فحص تسجيل الدخول...</p>
+</div>
+<div class="top-actions">
+<span class="console-security-chip" title="الكتابة محصورة بحسابات admin_roles النشطة"><span class="console-security-dot"></span>صلاحيات الإدارة محمية</span>
+<a class="btn secondary" href="./" rel="noopener" target="_blank">فتح الموقع</a>
+<button class="btn secondary" id="refresh-all-btn" type="button">تحديث البيانات</button>
+<button class="btn danger hidden" id="logout-btn" type="button">خروج</button>
+</div>
+</header>
+<div class="content">
+<div aria-atomic="true" aria-live="polite" class="status" id="status" role="status"></div>
+<section class="login-card panel hidden" id="login-screen">
+<h2>تسجيل دخول المدير</h2>
+<p class="hint">الدخول متصل بمشروع Firebase الرسمي لبصائر: <span class="ltr" id="firebase-project-label">basair-academy-4a1d0</span>. بعد المصادقة تُفحص صلاحية الإدارة من <span class="ltr">admin_roles/UID</span>.</p>
+<form class="admin-login-form" id="email-login-form" novalidate="">
+<div class="field"><label for="admin-email">البريد الإلكتروني</label><input autocomplete="username" id="admin-email" placeholder="admin@example.com" required="" type="email" maxlength="254"/></div>
+<div class="field"><label for="admin-password">كلمة المرور</label><input autocomplete="current-password" id="admin-password" minlength="6" placeholder="••••••••" required="" type="password"/></div>
+<button class="btn login-primary" id="email-login-btn" type="submit"><span>دخول بالبريد وكلمة المرور</span></button>
+</form>
+<div class="login-divider"><span>أو</span></div>
+<button class="btn google-btn" id="google-login-btn" type="button"><span aria-hidden="true" class="google-mark">G</span><span>تسجيل الدخول بحساب Google</span></button>
+<p class="auth-help" id="auth-help">إذا ظهر خطأ نطاق غير مصرح، أضف نطاق الموقع الحالي إلى Firebase Authentication → Settings → Authorized domains.</p>
+<button class="btn secondary" id="firebase-health-btn" style="margin-top:12px; width:100%;" type="button">فحص اتصال Firebase</button>
+<div class="hidden" id="uid-help" style="margin-top:18px; text-align:right;">
+<p class="hint">
+              هذا الحساب دخل بنجاح لكنه ليس مديرًا.
+              انسخ هذا UID وضعه في Firestore داخل
+              <span class="ltr">admin_roles/UID</span>
+              مع
+              <span class="ltr">active: true</span>.
+            </p>
+<div class="uid-box" id="uid-box"></div>
+<div class="row-actions" style="margin-top:10px; justify-content:center;">
+<button class="btn secondary" id="copy-uid-btn" type="button">نسخ UID</button>
+<a class="btn secondary" href="https://console.firebase.google.com/project/basair-academy-4a1d0/firestore/databases/-default-/data/~2Fadmin_roles" rel="noopener noreferrer" target="_blank">فتح Firestore</a>
+<a class="btn secondary" href="https://console.firebase.google.com/project/basair-academy-4a1d0/authentication/users" rel="noopener noreferrer" target="_blank">فتح Authentication</a>
+</div>
+</div>
+</section>
+<div class="hidden" id="admin-dashboard">
+<section class="section active" id="tab-overview">
+<div class="overview-intro"><div><span class="overview-kicker">لوحة موحّدة</span><h3>المحتوى والطلبات في مساحة واحدة</h3><p>تحرير النصوص، إدارة الطلبات والفيديوهات، وضبط قنوات التواصل مع سجل تدقيق لكل عملية إدارية.</p></div><div class="overview-mark" aria-hidden="true"><span></span><span></span><span></span></div></div>
+<div class="grid grid-4">
+<div class="stat">
+<strong id="stat-requests">0</strong>
+<span>طلبات الالتحاق</span>
+</div>
+<div class="stat">
+<strong id="stat-texts">0</strong>
+<span>نصوص ديناميكية</span>
+</div>
+<div class="stat">
+<strong id="stat-videos">0</strong>
+<span>فيديوهات محفوظة</span>
+</div>
+<div class="stat stat--accent"><strong id="stat-registry">0</strong><span>عناصر محتوى قابلة للتحرير</span></div></div>
+<div class="overview-grid-2" style="margin-top:16px;">
+<div class="panel console-capabilities-panel">
+<h3>ما الذي تستطيع إدارته من هنا؟</h3>
+<p class="hint">جميع عناصر المحتوى الديناميكي التي تظهر للزائر تُدار من هذه اللوحة، ثم تُحفظ في Firestore بسجل تدقيق واضح لكل عملية.</p>
+<div class="capability-list">
+<article class="capability-item"><div><strong>نصوص الموقع العامة</strong><p>كل العناصر المفهرسة عبر <span class="ltr">data-content-id</span> في الصفحات العامة، مع الرجوع إلى الأصل متى شئت.</p></div><b id="overview-cap-texts">0</b></article>
+<article class="capability-item"><div><strong>طلبات الالتحاق والتقييم</strong><p>تحديث الحالة، متابعة بيانات الطالب، والوصول السريع إلى WhatsApp أو البريد مع بقاء السجل محفوظًا.</p></div><b id="overview-cap-requests">0</b></article>
+<article class="capability-item"><div><strong>المكتبة المرئية</strong><p>إضافة الفيديوهات أو تعديلها أو إخفاؤها، مع حفظ البيانات الوصفية فقط داخل Firebase.</p></div><b id="overview-cap-videos">0</b></article>
+<article class="capability-item"><div><strong>إعدادات التواصل</strong><p>رقم WhatsApp واسم Telegram العامَّان اللذان تُبنى عليهما روابط التواصل في الموقع.</p></div><b id="overview-cap-settings">0</b></article>
+</div>
+<div class="row-actions capability-actions">
+<button class="btn" data-jump="requests" type="button">إدارة الطلبات</button>
+<button class="btn secondary" data-jump="texts" type="button">تعديل النصوص</button>
+<button class="btn secondary" data-jump="videos" type="button">إدارة الفيديوهات</button>
+<button class="btn secondary" data-jump="settings" type="button">إعدادات التواصل</button>
+</div>
+</div>
+<div class="panel console-integrity-panel">
+<span class="console-integrity-panel__eyebrow">سلامة الحفظ والربط</span>
+<h3>كيف نضمن سلامة ما يُحفَظ؟</h3>
+<p class="hint">اللوحة لا تكتب إلا في المسارات المصرَّح بها: <span class="ltr">site_content/public</span> للمحتوى، و<span class="ltr">assessment_requests</span> و<span class="ltr">enrollment_requests</span> للطلبات، و<span class="ltr">admin_audit</span> لسجل العمليات.</p>
+<ul class="integrity-checklist">
+<li><span></span><div><strong>تحقق صلاحية المدير</strong><small>الكتابة مقصورة على <span class="ltr">admin_roles/UID</span> مع <span class="ltr">active: true</span>.</small></div></li>
+<li><span></span><div><strong>حفظ مجمّع وآمن</strong><small>التعديلات تُرسَل بعمليات <span class="ltr">writeBatch</span> مع توثيق إداري مرافق.</small></div></li>
+<li><span></span><div><strong>منع حقن الشيفرة</strong><small>النصوص تُعرض عبر <span class="ltr">textContent</span>، ولا تسمح اللوحة بتحرير <span class="ltr">HTML/CSS/JS</span>.</small></div></li>
+<li><span></span><div><strong>أثر قابل للمراجعة</strong><small>كل تغيير إداري أساسي يُنسخ إلى سجل <span class="ltr">admin_audit</span> مع الوقت والفاعل.</small></div></li>
+</ul>
+<div class="integrity-meta-grid">
+<div class="integrity-meta-card"><small>التعديلات النصية المحفوظة</small><strong id="overview-edited-texts">0</strong></div>
+<div class="integrity-meta-card"><small>الطلبات الجديدة</small><strong id="overview-new-requests">0</strong></div>
+<div class="integrity-meta-card"><small>إعدادات التواصل المفعلة</small><strong id="overview-settings-state">0/2</strong></div>
+<div class="integrity-meta-card"><small>عمليات التدقيق المحمّلة</small><strong id="overview-audit-count">0</strong></div>
+</div>
+<div class="row-actions integrity-actions">
+<button class="btn secondary" id="overview-open-firestore" type="button">فتح Firestore Console</button>
+<button class="btn secondary" id="overview-open-auth" type="button">فتح Authentication</button>
+<button class="btn secondary" data-jump="audit" type="button">مراجعة سجل التغييرات</button>
+</div>
+</div>
+</div>
+</section>
+<section class="section" id="tab-requests">
+<div class="panel">
+<h3>طلبات الالتحاق</h3>
+<p class="hint">تظهر هنا الطلبات القادمة من نموذج الالتحاق. غيّر الحالة بعد التواصل مع الطالب.</p>
+<div class="toolbar">
+<input id="request-search" placeholder="بحث بالاسم أو الهاتف أو المسار" type="search" maxlength="160"/>
+<select id="request-status-filter">
+<option value="all">كل الحالات</option>
+<option value="new">جديد</option>
+<option value="contacted">تم التواصل</option>
+<option value="pending">مؤجل</option>
+<option value="accepted">مقبول</option>
+<option value="rejected">مرفوض</option>
+</select>
+<button class="btn secondary" id="refresh-requests-btn" type="button">تحديث الطلبات</button>
+</div>
+<div class="list" id="requests-list"></div>
+</div>
+</section>
+<section class="section" id="tab-texts">
+<div class="grid grid-2">
+<div class="panel">
+<h3>محرر نصوص الموقع</h3>
+<p class="hint">كل النصوص العامة متعددة اللغات مفهرسة من ملفات الموقع. Firestore يحفظ التعديلات فقط، ويظل النص الأصلي في الملفات مرجعًا آمنًا يمكن الرجوع إليه.</p>
+<form class="grid" id="text-form">
+<div class="field">
+<label for="text-id">معرّف النص</label>
+<input id="text-id" maxlength="120" placeholder="اختر نصًا من القائمة" readonly="" required="" type="text"/>
+</div>
+<div class="editor-meta-grid"><div class="editor-meta-card"><small>القسم</small><strong id="text-section-readonly">—</strong></div><div class="editor-meta-card"><small>اللغة</small><strong id="text-lang-readonly">—</strong></div></div><div class="field">
+<label for="text-value">النص</label>
+<textarea id="text-value" maxlength="12000" placeholder="اكتب النص الجديد هنا" required=""></textarea>
+</div><div class="original-preview"><div class="original-preview__head">النص الأصلي في ملفات الموقع</div><p id="text-original-preview">اختر عنصرًا من القائمة.</p></div>
+<div class="row-actions">
+<button class="btn" type="submit">حفظ النص</button>
+<button class="btn secondary" id="clear-text-btn" type="button">تفريغ</button>
+<button class="btn secondary" id="delete-text-btn" type="button">استعادة النص الأصلي</button>
+<a class="btn secondary hidden" href="./" id="text-preview-link" rel="noopener noreferrer" target="_blank">فتح الموضع في الموقع</a></div>
+</form>
+</div>
+<div class="panel">
+<h3>قائمة النصوص</h3>
+<p class="hint">ابحث أو رشّح حسب اللغة والقسم، ثم اختر النص. الحفظ يغيّر النص فقط ولا يسمح بإدخال HTML أو JavaScript.</p>
+<div class="toolbar" style="grid-template-columns:minmax(220px,1fr) 100px minmax(170px,230px) minmax(150px,200px) 120px;">
+<input id="text-search" placeholder="بحث في المعرف أو النص" type="search" maxlength="220"/>
+<select id="text-lang-filter">
+<option value="all">كل اللغات</option>
+<option value="ar">AR</option>
+<option value="en">EN</option>
+<option value="fr">FR</option>
+<option value="ru">RU</option>
+<option value="uz">UZ</option>
+</select>
+<select id="text-page-filter"><option value="all">كل الصفحات</option></select><select id="text-section-filter"><option value="all">كل الأقسام</option></select><button class="btn secondary" id="scan-content-ids-btn" type="button">تحديث الفهرس</button>
+</div><div class="registry-summary" id="text-results-count">—</div>
+<div class="list" id="texts-list"></div>
+</div>
+</div>
+</section>
+<section class="section" id="tab-videos">
+<div class="grid grid-2">
+<div class="panel">
+<h3>إضافة أو تعديل فيديو</h3>
+<p class="hint">يُحفظ الفيديو خارج Firebase. ضع هنا رابط HTTPS عام للفيديو ورابط صورة الغلاف، بينما يحتفظ Firestore بالبيانات الوصفية فقط.</p>
+<form class="grid" id="video-form">
+<input id="video-index" type="hidden"/>
+<div class="field">
+<label for="video-title">عنوان الفيديو</label>
+<input id="video-title" maxlength="120" required="" type="text"/>
+</div>
+<div class="field">
+<label for="video-category">التصنيف</label>
+<select id="video-category">
+<option value="all">عام</option>
+<option value="quran">قرآن</option>
+<option value="arabic">عربية</option>
+<option value="islamic">علوم إسلامية</option>
+<option value="tajweed">تجويد</option>
+<option value="grammar">نحو</option>
+<option value="specialization">تخصص</option>
+</select>
+</div>
+<div class="field">
+<label for="video-url">رابط الفيديو</label>
+<input id="video-url" placeholder="https://..." required="" type="url" maxlength="2048"/>
+</div>
+<div class="field">
+<label for="video-image">رابط صورة الغلاف (Poster)</label>
+<input id="video-image" placeholder="https://.../poster.webp" type="url" maxlength="2048"/>
+</div>
+<label class="video-publish-toggle" for="video-published">
+<input checked="" id="video-published" type="checkbox"/>
+<span>منشور ويظهر للزوار</span>
+</label>
+<div class="row-actions">
+<button class="btn" type="submit">حفظ الفيديو</button>
+<button class="btn secondary" id="clear-video-btn" type="button">تفريغ</button>
+</div>
+</form>
+</div>
+<div class="panel">
+<h3>الفيديوهات الحالية</h3>
+<p class="hint">اضغط تعديل لملء النموذج، أو حذف لإزالة بيانات الفيديو من Firestore. ملف الفيديو الخارجي نفسه لا يُحذف من مزود التخزين.</p>
+<div class="list" id="videos-list"></div>
+</div>
+</div>
+</section>
+<section class="section" id="tab-settings">
+<div class="grid grid-2">
+  <div class="panel">
+    <h3>إعدادات التواصل العامة</h3>
+    <p class="hint">غيّر رقم WhatsApp أو اسم Telegram من موضع واحد. سيُطبَّق التغيير على روابط الموقع العامة وصفحات الاستحواذ، مع الإبقاء على نص الرسالة الخاصة بكل مسار.</p>
+    <form class="grid" id="contact-settings-form">
+      <div class="field">
+        <label for="settings-whatsapp">رقم WhatsApp الدولي</label>
+        <input id="settings-whatsapp" inputmode="tel" maxlength="18" placeholder="201070441115" autocomplete="off" type="text"/>
+        <small class="field-note">أرقام فقط مع كود الدولة، من دون + أو مسافات.</small>
+      </div>
+      <div class="field">
+        <label for="settings-telegram">اسم مستخدم Telegram</label>
+        <input id="settings-telegram" maxlength="32" placeholder="BasairAcademy0" autocomplete="off" type="text"/>
+        <small class="field-note">من دون @. يقبل الحروف الإنجليزية والأرقام والشرطة السفلية.</small>
+      </div>
+      <div class="row-actions">
+        <button class="btn" type="submit">حفظ إعدادات التواصل</button>
+        <button class="btn secondary" id="settings-reset-btn" type="button">إعادة القيم المحفوظة</button>
+      </div>
+    </form>
+  </div>
+  <div class="panel settings-security-card">
+    <span class="settings-security-card__eyebrow">حدود آمنة مقصودة</span>
+    <h3>المحتوى نعم، الكود التنفيذي لا</h3>
+    <p class="hint">يمكن للمدير تعديل نصوص الموقع، روابط التواصل، بيانات الفيديوهات وحالات الطلبات. أمّا HTML/CSS/JavaScript وقواعد Firebase فلا تُحرَّر من Firestore؛ إبقاؤها داخل المستودع هو حاجز أمني متعمَّد يمنع تحويل حساب مدير مسروق إلى تنفيذ كود على أجهزة الزوار.</p>
+  </div>
+</div>
+</section>
+<section class="section" id="tab-audit"><div class="panel"><h3>سجل التغييرات الإداري</h3><p class="hint">يسجل Firestore آخر عمليات تعديل المحتوى والفيديوهات وحالات الطلبات مع هوية المدير ووقت التنفيذ، دون نسخ بيانات الطالب الحساسة داخل السجل.</p><div class="row-actions"><button class="btn secondary" id="refresh-audit-btn" type="button">تحديث السجل</button></div><div class="list audit-list" id="audit-list"></div></div></section><section class="section" id="tab-help">
+<div class="panel">
+<h3>ملاحظات مهمة</h3>
+<p class="hint">المحتوى النصي العام مفهرس تلقائيًا عبر <span class="ltr">data-content-id</span>، ولوحة الإدارة تعدّل النصوص فقط باستخدام textContent الآمن، ولا تسمح بتحرير HTML/CSS/JavaScript من Firestore.</p>
+<p class="hint">
+                طلبات التقييم الجديدة محفوظة في
+                <span class="ltr">assessment_requests</span>، وتعرض اللوحة أيضًا الطلبات القديمة من <span class="ltr">enrollment_requests</span>.
+                النصوص وإعدادات التواصل وبيانات الفيديو الوصفية محفوظة في
+                <span class="ltr">site_content/public</span>، أما ملفات الفيديو وصور الغلاف فتُستضاف خارج Firebase وتُحفظ روابطها فقط.
+              </p>
+</div>
+</section>
+</div>
+</div>
+</main>
+</div>
+</body>
+</html>
