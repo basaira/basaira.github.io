@@ -1,0 +1,161 @@
+/* Basair Academy — Visual Layout Hotfix v2 (2026-08-26)
+   Fixes real viewport regressions observed after the Impeccable stack:
+   - content-driven hero (no forced 90svh)
+   - restrained localized display scale
+   - no floating folio separators / dead bands
+   - tighter section rhythm and balanced wide-screen composition
+   - preserves track-buttons-v6.css as the final protected override
+*/
+
+:root{
+  --layout-section:clamp(3.8rem,5.4vw,5.35rem);
+  --layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);
+}
+
+html,body{overflow-x:clip}
+main{overflow-x:clip}
+
+/* The folio ornament created a visible line/diamond floating inside large empty top padding.
+   Keep the Overdrive reading edge, View Transitions and hero manuscript; remove this noisy cue. */
+.overdrive-folio-marker{display:none!important}
+
+/* ---------- Hero: content-led, centered, localized ---------- */
+#home,
+#home.unified-home,
+#home.academic-overview--integrated{
+  min-height:0!important;
+  min-block-size:0!important;
+  padding-block:clamp(7rem,8vw,8.4rem) clamp(3.75rem,5.5vw,5.25rem)!important;
+}
+#home>div{
+  width:min(100%,84rem)!important;
+  max-width:84rem!important;
+  margin-inline:auto!important;
+  padding-inline:clamp(1rem,3vw,2rem)!important;
+  row-gap:clamp(.95rem,1.7vw,1.35rem)!important;
+  justify-items:center!important;
+  text-align:center!important;
+}
+#home .hero-title{
+  width:100%!important;
+  max-width:84rem!important;
+  margin:0 auto .55rem!important;
+  text-align:center!important;
+}
+#home .hero-title__line{
+  font-size:clamp(2.7rem,3.75vw,4rem)!important;
+  line-height:1.035!important;
+  padding-block:.015em!important;
+}
+body.route-ar #home .hero-title__line{
+  font-size:clamp(2.75rem,4.15vw,4.45rem)!important;
+  line-height:1.16!important;
+}
+body.route-fr #home .hero-title__line,
+body.route-ru #home .hero-title__line,
+body.route-uz #home .hero-title__line{
+  font-size:clamp(2.55rem,3.45vw,3.8rem)!important;
+  line-height:1.08!important;
+}
+#home>div>p,
+#home p.lang-ar,#home p.lang-en,#home p.lang-fr,#home p.lang-ru,#home p.lang-uz{
+  width:min(100%,62ch)!important;
+  max-inline-size:62ch!important;
+  margin:0 auto!important;
+  font-size:clamp(.98rem,.35vw + .94rem,1.08rem)!important;
+}
+body.route-ar #home p.lang-ar{line-height:1.88!important}
+#home>div>.inline-flex{margin-bottom:.35rem!important}
+#home>div>a{margin-top:.55rem!important}
+
+/* ---------- Major section rhythm: no empty 'pages' between content blocks ---------- */
+#about,#contact,#tracks,#video-library,#testimonials,#faq{
+  padding-block:var(--layout-section)!important;
+}
+#quick-guide.basair-guide--learning{
+  padding-block:var(--layout-section)!important;
+}
+
+/* ---------- Concise guide: editorial, but not stretched apart ---------- */
+#quick-guide .basair-guide__shell{width:min(100%,80rem)!important;max-width:80rem!important}
+#quick-guide .basair-guide__intro--learning{
+  grid-template-columns:minmax(0,1.05fr) minmax(18rem,.95fr)!important;
+  gap:clamp(1.75rem,3.4vw,3.6rem)!important;
+  align-items:center!important;
+  padding-bottom:clamp(1.8rem,3vw,2.7rem)!important;
+}
+#quick-guide .basair-guide__intro h2{
+  font-size:clamp(2.15rem,3.45vw,3.55rem)!important;
+  line-height:1.08!important;
+}
+body.route-ar #quick-guide .basair-guide__intro h2{line-height:1.2!important}
+#quick-guide .learning-compass{margin-top:clamp(2rem,3.5vw,3rem)!important}
+#quick-guide .learning-outcomes{padding-top:clamp(3rem,4.7vw,4.5rem)!important}
+#quick-guide .learning-evidence{margin-top:clamp(3rem,4.7vw,4.5rem)!important}
+
+/* ---------- Academic tracks ---------- */
+#tracks>div>.text-center{margin-bottom:clamp(2.5rem,4vw,3.5rem)!important}
+#tracks>div>.flex{gap:clamp(3rem,5vw,4.75rem)!important}
+#tracks article{
+  column-gap:clamp(2.5rem,4.5vw,4rem)!important;
+  row-gap:clamp(1.75rem,3vw,2.5rem)!important;
+}
+#tracks article::before{top:-2rem!important}
+#tracks article>div:first-child{
+  padding:clamp(1.75rem,2.6vw,2.25rem)!important;
+  border-radius:clamp(1.65rem,2.4vw,2.15rem)!important;
+}
+#tracks .academic-doc{padding:clamp(1.4rem,2.5vw,2.25rem)!important;border-radius:clamp(1.4rem,2.2vw,1.9rem)!important}
+
+/* ---------- Video library: remove the deep empty crown ---------- */
+#video-library{padding-block:clamp(3.9rem,5vw,4.9rem)!important}
+#video-library>.max-w-7xl::before{inset:-.7rem 0 -.9rem!important}
+#video-library .text-center{margin-bottom:clamp(1.5rem,2.7vw,2.1rem)!important}
+#video-filters{margin-bottom:clamp(1.35rem,2.4vw,1.85rem)!important}
+
+/* ---------- Assessment / contact: centered conversion surface ---------- */
+#contact>div{
+  width:min(calc(100% - 2rem),66rem)!important;
+  max-width:66rem!important;
+  margin-inline:auto!important;
+  padding-inline:0!important;
+}
+#contact>div>h2{margin-bottom:.75rem!important}
+#contact>div>p{margin:0 auto clamp(1.75rem,3vw,2.35rem)!important}
+#contact>div>div{
+  width:100%!important;
+  max-width:62rem!important;
+  margin-inline:auto!important;
+  padding:clamp(1.35rem,2.7vw,2.5rem)!important;
+}
+
+/* ---------- About / proof headings ---------- */
+#about>div>div:first-child,#faq>div>div:first-child{margin-bottom:clamp(1.8rem,3vw,2.8rem)!important}
+
+@media (max-width:1120px){
+  #quick-guide .basair-guide__intro--learning{grid-template-columns:1fr!important;gap:1.25rem!important;align-items:start!important}
+  #quick-guide .basair-guide__intro--learning>p{max-width:52rem!important}
+}
+
+@media (max-width:767px){
+  :root{--layout-section:clamp(3.2rem,10vw,4.2rem)}
+  #home,#home.unified-home,#home.academic-overview--integrated{
+    padding-block:6.4rem 3.65rem!important;
+  }
+  #home>div{row-gap:.95rem!important}
+  #home .hero-title__line,
+  body.route-ar #home .hero-title__line,
+  body.route-fr #home .hero-title__line,
+  body.route-ru #home .hero-title__line,
+  body.route-uz #home .hero-title__line{
+    font-size:clamp(2.15rem,9.4vw,3rem)!important;
+  }
+  #home .hero-title__line{line-height:1.08!important}
+  body.route-ar #home .hero-title__line{line-height:1.2!important}
+  #quick-guide .basair-guide__intro h2{font-size:clamp(1.9rem,8.3vw,2.55rem)!important}
+  #tracks>div>.text-center{margin-bottom:2rem!important}
+  #tracks>div>.flex{gap:2.6rem!important}
+  #tracks article{gap:1.4rem!important}
+  #video-library{padding-block:3.45rem!important}
+  #contact>div{width:min(calc(100% - 1.5rem),66rem)!important}
+}

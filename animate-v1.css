@@ -1,0 +1,145 @@
+/* Basair Academy — Impeccable Animate v1
+   Motion thesis: illuminated manuscript reveal + quiet operational feedback.
+   Load before track-buttons-v6.css so protected track CTA motion remains authoritative. */
+:root{
+  --motion-feedback:140ms;
+  --motion-state:220ms;
+  --motion-overlay:340ms;
+  --motion-focal:680ms;
+  --motion-exit:180ms;
+  --motion-ease-out:cubic-bezier(.16,1,.3,1);
+  --motion-ease-state:cubic-bezier(.2,.8,.2,1);
+}
+
+/* Splash: acknowledgement, never a long gate. */
+#splash-screen.basair-splash{
+  transition:opacity var(--motion-overlay) var(--motion-ease-out),visibility var(--motion-overlay) linear!important;
+}
+#splash-screen.basair-splash.splash-hidden{filter:none!important}
+.basair-splash__content{animation-duration:420ms!important;animation-timing-function:var(--motion-ease-out)!important}
+.basair-splash__logo{animation:none!important}
+.basair-splash__loader span{animation-duration:900ms!important;animation-timing-function:linear!important}
+
+/* Focal moment — the hero reads like an illuminated manuscript opening.
+   Content is never hidden unless the always-available inline boot script opts in. */
+body.motion-prep:not(.motion-entered) #home>.max-w-7xl>div:first-child{
+  opacity:0;transform:translateY(6px)
+}
+body.motion-prep:not(.motion-entered) #home .hero-title__line{
+  clip-path:inset(0 0 100% 0);transform:translateY(.22em)
+}
+body.motion-prep:not(.motion-entered) #home .hero-title__line--accent::before{
+  transform:scaleX(0);opacity:0
+}
+body.motion-prep:not(.motion-entered) #home>.max-w-7xl>p,
+body.motion-prep:not(.motion-entered) #home>.max-w-7xl>a{
+  opacity:0;transform:translateY(8px)
+}
+body.motion-entered #home>.max-w-7xl>div:first-child{
+  opacity:1;transform:none;transition:opacity 420ms var(--motion-ease-out) 40ms,transform 420ms var(--motion-ease-out) 40ms
+}
+body.motion-entered #home .hero-title__line{
+  clip-path:inset(-8% -4% -8% -4%);transform:none;
+  transition:clip-path var(--motion-focal) var(--motion-ease-out),transform var(--motion-focal) var(--motion-ease-out)
+}
+body.motion-entered #home .hero-title__line:nth-child(1){transition-delay:100ms}
+body.motion-entered #home .hero-title__line:nth-child(2){transition-delay:190ms}
+body.motion-entered #home .hero-title__line:nth-child(3){transition-delay:280ms}
+body.motion-entered #home .hero-title__line--accent::before{
+  transform:scaleX(1);opacity:.95;transform-origin:center;
+  transition:transform 720ms var(--motion-ease-out) 330ms,opacity 420ms ease 330ms
+}
+body.motion-entered #home>.max-w-7xl>p{
+  opacity:1;transform:none;transition:opacity 420ms ease 430ms,transform 420ms var(--motion-ease-out) 430ms
+}
+body.motion-entered #home>.max-w-7xl>a{
+  opacity:1;transform:none;transition:opacity 420ms ease 500ms,transform 420ms var(--motion-ease-out) 500ms,background-color var(--motion-state) ease,box-shadow var(--motion-state) ease
+}
+/* Replace the perpetual hero pulse with one bounded acknowledgement. */
+#home .animate-pulse{animation:none!important}
+body.motion-entered #home>.max-w-7xl>div:first-child>span:first-child{
+  animation:basair-beacon 620ms var(--motion-ease-out) 420ms 1 both
+}
+@keyframes basair-beacon{
+  0%{box-shadow:0 0 0 0 rgba(212,175,55,.5)}
+  55%{box-shadow:0 0 0 8px rgba(212,175,55,0)}
+  100%{box-shadow:0 0 0 0 rgba(212,175,55,0)}
+}
+
+/* Navigation feedback uses transforms, not width animation. */
+#navbar .nav-link>span.absolute.bottom-0{
+  width:100%!important;transform:scaleX(0);transform-origin:left center;
+  transition:transform var(--motion-state) var(--motion-ease-out)!important
+}
+body.route-ar #navbar .nav-link>span.absolute.bottom-0{transform-origin:right center}
+#navbar .nav-link:hover>span.absolute.bottom-0,
+#navbar .nav-link:focus-visible>span.absolute.bottom-0,
+#navbar .nav-link.active-section>span.absolute.bottom-0{transform:scaleX(1)}
+
+/* Controls acknowledge press quickly; hover remains restrained. */
+:is(a,button)[class*="rounded"]:active{transition-duration:var(--motion-feedback)!important}
+#home>.max-w-7xl>a:active,
+#contact a:active,
+.filter-btn:active{transform:translateY(0) scale(.985)!important}
+
+/* Mobile navigation communicates spatial continuity. */
+.mobile-backdrop{transition:opacity var(--motion-state) ease,visibility var(--motion-state) linear!important}
+.mobile-drawer{transition:transform var(--motion-overlay) var(--motion-ease-out)!important}
+#langDropdown,.mobile-language-popover{transition-duration:var(--motion-state)!important}
+
+/* Video player: overlay relationship + fast close affordance. */
+.video-player-modal{transition:opacity var(--motion-state) ease,visibility var(--motion-state) linear!important}
+.video-player-modal__backdrop{opacity:0;transition:opacity var(--motion-overlay) ease!important}
+.video-player-modal.is-open .video-player-modal__backdrop{opacity:1}
+.video-player-modal__dialog{
+  transform:translateY(14px) scale(.988)!important;
+  transition:transform var(--motion-overlay) var(--motion-ease-out),opacity var(--motion-state) ease!important;
+  opacity:.92
+}
+.video-player-modal.is-open .video-player-modal__dialog{transform:none!important;opacity:1}
+.video-player-modal__close{transition:background var(--motion-feedback) ease,color var(--motion-feedback) ease,transform var(--motion-feedback) var(--motion-ease-out)!important}
+.video-player-modal__close:hover{transform:rotate(45deg)!important}
+
+/* Nonessential testimonial loop only runs while the section is relevant. */
+#testimonials.is-motion-paused .slider-track{animation-play-state:paused!important}
+#testimonials .slider-track:focus-within{animation-play-state:paused!important}
+
+/* Dynamic video cards should arrive as media, not float up as generic cards. */
+.video-card.dynamic-video.animate-fade-in-up{
+  animation:basair-media-arrive 360ms var(--motion-ease-out) both!important
+}
+@keyframes basair-media-arrive{
+  from{opacity:0;transform:scale(.985);filter:saturate(.92)}
+  to{opacity:1;transform:scale(1);filter:saturate(1)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  body.motion-prep #home>.max-w-7xl>div:first-child,
+  body.motion-prep #home .hero-title__line,
+  body.motion-prep #home>.max-w-7xl>p,
+  body.motion-prep #home>.max-w-7xl>a{opacity:1!important;transform:none!important;clip-path:none!important}
+  body.motion-prep #home .hero-title__line--accent::before{transform:none!important;opacity:.95!important}
+  #home .animate-pulse,#home>.max-w-7xl>div:first-child>span:first-child,
+  .video-card.dynamic-video.animate-fade-in-up{animation:none!important}
+  .mobile-drawer,.video-player-modal__dialog{transition:none!important;transform:none!important}
+  .video-player-modal__backdrop{transition:opacity var(--motion-feedback) ease!important}
+  #navbar .nav-link>span.absolute.bottom-0{transition:none!important}
+}
+
+/* Retire the old perpetual badge sheen; it now participates once in the authored entrance. */
+#home>div>.inline-flex::before{animation:none!important;transform:translateX(120%)}
+body.motion-entered #home>div>.inline-flex::before{
+  animation:basair-badge-illumination 760ms var(--motion-ease-out) 360ms 1 both!important
+}
+@keyframes basair-badge-illumination{
+  from{transform:translateX(120%);opacity:0}
+  25%{opacity:1}
+  to{transform:translateX(-120%);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  #home>div>.inline-flex::before,body.motion-entered #home>div>.inline-flex::before{animation:none!important;opacity:0!important}
+}
+
+/* Explicit transition properties avoid accidental layout animation. */
+.dropdown-menu{transition:transform var(--motion-state) var(--motion-ease-out),opacity var(--motion-state) ease,visibility var(--motion-state) linear!important}
+.video-card{transition:opacity var(--motion-exit) ease,border-color var(--motion-state) ease,box-shadow var(--motion-state) ease!important}

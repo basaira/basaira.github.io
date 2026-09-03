@@ -1,0 +1,98 @@
+/* Basair Academy — surgical UI stability layer, 2026-08-30.
+   Additive overrides only. No source component or CMS block is removed. */
+
+/* Remove the requested square/grid decoration without deleting the original rules. */
+#home.bg-pattern{background-image:none!important}
+#home .hero-visual-grid{background-image:none!important;opacity:0!important}
+#splash-screen.basair-splash::after{background-image:none!important}
+
+/* The welcome layer stays in the DOM and has one terminal state. */
+#splash-screen.basair-splash.splash-hidden{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  filter:blur(6px)!important;
+}
+
+/* Hero: restore a composed two-column fold instead of a giant narrow text tower. */
+@media (min-width:1024px){
+  #home > .hero-shell{
+    grid-template-columns:minmax(0,1.08fr) minmax(20rem,.92fr)!important;
+    column-gap:clamp(2.75rem,5vw,5rem)!important;
+  }
+  #home .hero-copy-column{max-inline-size:46rem!important}
+  #home .hero-title{max-inline-size:23ch!important}
+  #home .hero-title__line{
+    font-size:clamp(2.95rem,3.55vw,4.35rem)!important;
+    line-height:1.035!important;
+    letter-spacing:-.035em!important;
+  }
+  #home .hero-title__line--accent{
+    font-size:clamp(3.15rem,3.85vw,4.65rem)!important;
+    line-height:1.02!important;
+    letter-spacing:-.035em!important;
+  }
+  #home .hero-visual-stage{width:min(100%,27.5rem)!important}
+  #home .hero-visual-seal{width:30%!important}
+  #home .hero-visual-seal img{width:68%!important;max-inline-size:5.5rem!important}
+}
+@media (min-width:1280px){
+  #home .hero-title{max-inline-size:25ch!important}
+}
+
+/* Academic pathways: keep the manuscript split, but do not let a sticky card float alone
+   over a long blank viewport as the reader moves between documents. */
+@media (min-width:1180px){
+  #tracks .academic-pathway{
+    grid-template-columns:minmax(19.5rem,.84fr) minmax(0,1.52fr)!important;
+    column-gap:clamp(2.75rem,4.5vw,4.5rem)!important;
+  }
+  #tracks .pathway-summary{
+    position:relative!important;
+    top:auto!important;
+    align-self:start!important;
+  }
+}
+#tracks .pathway-stack{gap:clamp(4rem,6vw,5.5rem)!important}
+#tracks .academic-pathway + .academic-pathway{padding-top:clamp(4rem,6vw,5.5rem)!important}
+
+/* Preserve every homepage chapter as a paintable document region. These rules
+   never affect language-level visibility; they only prevent an enhancement
+   layer from collapsing a complete section. */
+#tracks.home-chapter,
+#video-library.home-chapter,
+#testimonials.home-chapter,
+#faq.home-chapter,
+#contact.home-chapter{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+#tracks .academic-pathway,
+#tracks .pathway-summary,
+#tracks .academic-doc,
+#contact .registration-shell{
+  visibility:visible!important;
+  opacity:1!important;
+}
+#video-library #video-grid{min-block-size:10rem}
+#testimonials .slider-track{min-block-size:14rem}
+
+@media (max-width:640px){
+  #home .hero-visual-seal{width:32%!important}
+  #home .hero-visual-seal img{width:66%!important;max-inline-size:4.6rem!important}
+}
+
+/* Keep all sections paintable even when optional enhancement scripts are unavailable. */
+html:not(.js-ready) .home-chapter,
+html:not(.js-ready) .home-chapter *{
+  animation-play-state:paused;
+}
+
+/* Desktop topbar: preserve the same controls, prevent English labels from breaking mid-navigation. */
+@media (min-width:1180px){
+  #navbar > div{max-width:82rem!important}
+  #navbar nav{gap:clamp(1.1rem,2vw,2rem)!important;padding-inline:clamp(.75rem,1.4vw,1.25rem)!important}
+  #navbar .nav-link{white-space:nowrap!important;font-size:.79rem!important;letter-spacing:.035em!important}
+  #navbar .nav-link > span:not(.absolute){white-space:nowrap!important}
+}

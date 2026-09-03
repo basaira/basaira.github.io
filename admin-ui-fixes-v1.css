@@ -1,0 +1,25 @@
+/* Quiet final admin cleanup requested on 2026-08-31. */
+.auth-help{display:none!important}
+.nav-btn .badge.is-hidden,
+.nav-btn .badge[data-empty="true"]{display:none!important}
+
+/* Impeccable v5 — login/error state should serve the task, not dominate the console. */
+.content:has(#login-screen:not(.hidden)) #status{
+  width:min(100%,38rem)!important;
+  margin:0 auto 1rem!important;
+  padding:.8rem .9rem!important;
+  border-radius:1rem!important;
+  font-size:.88rem!important;
+  font-weight:650!important;
+  line-height:1.65!important;
+  text-align:start!important;
+}
+.content:has(#login-screen:not(.hidden)) #status .status-mark{
+  flex:0 0 1.8rem!important;
+  inline-size:1.8rem!important;
+  block-size:1.8rem!important;
+}
+.content:has(#login-screen:not(.hidden)) #status .status-copy{
+  min-inline-size:0;
+  overflow-wrap:break-word;
+}

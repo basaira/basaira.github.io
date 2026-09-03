@@ -1,0 +1,250 @@
+/* Basair Academy — Impeccable Overdrive / Hero Section v2
+   Extraordinary through depth, pointer-local light and a scholarly orbital object.
+   Decorative only; content, CMS and submission flows stay untouched. */
+#home{
+  --hero-vx:0;
+  --hero-vy:0;
+  --hero-glow-x:52%;
+  --hero-glow-y:40%;
+}
+#home::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background:
+    radial-gradient(42rem 30rem at 14% 46%,rgba(212,175,55,.11),transparent 68%),
+    radial-gradient(38rem 32rem at 84% 44%,rgba(7,91,70,.10),transparent 70%);
+  opacity:.9;
+}
+#home .hero-shell{position:relative;z-index:10}
+#home .hero-title__line--accent{
+  position:relative;
+  display:inline-block;
+  width:max-content;
+  max-width:100%;
+  color:#075b46!important;
+  background:linear-gradient(112deg,#075b46 8%,#0b7258 50%,#9a7616 110%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+#home .hero-title__line--accent::after{
+  content:"";
+  position:absolute;
+  inset-inline:2% 4%;
+  inset-block-end:-.12em;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,.74) 16%,rgba(7,91,70,.32) 72%,transparent);
+  transform:scaleX(.82);
+  transform-origin:center;
+}
+#home .hero-kicker{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  border:1px solid rgba(176,137,22,.22)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,253,246,.76))!important;
+  box-shadow:0 14px 34px -28px rgba(7,29,61,.28),inset 0 1px rgba(255,255,255,.96)!important;
+}
+#home .hero-kicker::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(110deg,transparent 8%,rgba(255,255,255,.72) 43%,transparent 67%);
+  transform:translateX(-145%);
+  animation:heroKickerGlint 7.5s ease-in-out 2.2s infinite;
+}
+@keyframes heroKickerGlint{
+  0%,78%,100%{transform:translateX(-145%)}
+  88%{transform:translateX(145%)}
+}
+#home .hero-primary-cta{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  border:1px solid rgba(255,255,255,.14)!important;
+  background:linear-gradient(135deg,#0c7358 0%,#075b46 58%,#064737 100%)!important;
+  box-shadow:0 22px 44px -30px rgba(7,91,70,.58),inset 0 1px rgba(255,255,255,.16)!important;
+  transform:none!important;
+}
+#home .hero-primary-cta::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:radial-gradient(18rem circle at var(--hero-cta-x,50%) var(--hero-cta-y,50%),rgba(255,255,255,.22),transparent 52%);
+  opacity:0;
+  transition:opacity .22s ease;
+}
+#home .hero-primary-cta::after{
+  content:"→";
+  position:relative;
+  z-index:1;
+  inline-size:1.8rem;
+  block-size:1.8rem;
+  display:grid;
+  place-items:center;
+  border-radius:.65rem;
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.12);
+  font:800 .9rem/1 "Manrope",system-ui,sans-serif;
+  transition:transform .22s ease,background-color .22s ease;
+}
+body.route-ar #home .hero-primary-cta::after{content:"←"}
+#home .hero-primary-cta:hover::before,
+#home .hero-primary-cta:focus-visible::before{opacity:1}
+#home .hero-primary-cta:hover::after{transform:translateX(2px);background:rgba(212,175,55,.18)}
+body.route-ar #home .hero-primary-cta:hover::after{transform:translateX(-2px)}
+#home .hero-primary-cta:focus-visible{outline:3px solid rgba(212,175,55,.34)!important;outline-offset:4px}
+
+#home .hero-visual-stage{
+  --hero-stage-rx:calc(var(--hero-vy) * -2.4deg);
+  --hero-stage-ry:calc(var(--hero-vx) * 3deg);
+  position:relative;
+  display:grid;
+  place-items:center;
+  perspective:1100px;
+  contain:layout paint;
+}
+#home .hero-visual-stage::before{
+  content:"";
+  position:absolute;
+  inset:7%;
+  border-radius:50%;
+  background:radial-gradient(circle at var(--hero-glow-x) var(--hero-glow-y),rgba(239,216,130,.35),rgba(212,175,55,.08) 31%,rgba(7,91,70,.08) 55%,transparent 72%);
+  filter:blur(16px);
+  opacity:.82;
+  transform:translate3d(calc(var(--hero-vx) * 5px),calc(var(--hero-vy) * 5px),0);
+  pointer-events:none;
+}
+#home .hero-visual-plate{
+  position:relative;
+  width:88%;
+  aspect-ratio:1;
+  border-radius:38% 62% 54% 46% / 46% 38% 62% 54%;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(153,117,20,.16);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.76),rgba(255,252,240,.52)),
+    radial-gradient(circle at 28% 24%,rgba(212,175,55,.18),transparent 32%),
+    radial-gradient(circle at 72% 72%,rgba(7,91,70,.13),transparent 36%);
+  box-shadow:0 42px 80px -48px rgba(7,29,61,.38),inset 0 1px rgba(255,255,255,.94);
+  backdrop-filter:blur(18px);
+  transform:rotateX(var(--hero-stage-rx)) rotateY(var(--hero-stage-ry));
+  transform-style:preserve-3d;
+  transition:transform 180ms linear,border-radius 500ms cubic-bezier(.16,1,.3,1);
+  overflow:hidden;
+}
+#home .hero-visual-plate::before,
+#home .hero-visual-plate::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  pointer-events:none;
+}
+#home .hero-visual-plate::before{
+  inset:10%;
+  border:1px solid rgba(153,117,20,.16);
+  box-shadow:0 0 0 14px rgba(255,255,255,.14),0 0 0 15px rgba(7,91,70,.055);
+}
+#home .hero-visual-plate::after{
+  inset:25%;
+  border:1px dashed rgba(7,91,70,.24);
+  transform:rotate(14deg);
+}
+#home .hero-visual-grid{
+  position:absolute;
+  inset:0;
+  opacity:.33;
+  background-image:linear-gradient(rgba(7,29,61,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(7,29,61,.045) 1px,transparent 1px);
+  background-size:2.4rem 2.4rem;
+  mask-image:radial-gradient(circle at center,#000,transparent 74%);
+}
+#home .hero-visual-seal{
+  position:relative;
+  z-index:5;
+  width:43%;
+  aspect-ratio:1;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(255,251,235,.78));
+  border:1px solid rgba(212,175,55,.26);
+  box-shadow:0 24px 48px -34px rgba(7,29,61,.4),0 0 0 9px rgba(255,255,255,.22);
+  transform:translateZ(38px);
+}
+#home .hero-visual-seal img{
+  width:76%;
+  height:auto;
+  object-fit:contain;
+  filter:drop-shadow(0 12px 20px rgba(7,29,61,.10));
+}
+#home .hero-visual-orbit{
+  position:absolute;
+  inset:50% auto auto 50%;
+  translate:-50% -50%;
+  border-radius:50%;
+  border:1px solid rgba(153,117,20,.14);
+  pointer-events:none;
+}
+#home .hero-visual-orbit--a{width:71%;aspect-ratio:1;transform:rotate(14deg) scaleY(.72)}
+#home .hero-visual-orbit--b{width:87%;aspect-ratio:1;transform:rotate(-22deg) scaleY(.66);border-color:rgba(7,91,70,.12)}
+#home .hero-visual-node{
+  position:absolute;
+  z-index:7;
+  width:2.7rem;
+  height:2.7rem;
+  border-radius:.9rem;
+  display:grid;
+  place-items:center;
+  color:#075b46;
+  background:rgba(255,253,246,.86);
+  border:1px solid rgba(212,175,55,.25);
+  box-shadow:0 16px 28px -22px rgba(7,29,61,.32);
+  font:800 .73rem/1 "Manrope",system-ui,sans-serif;
+  letter-spacing:.08em;
+  transform:translateZ(52px);
+}
+#home .hero-visual-node--1{inset:17% auto auto 14%}
+#home .hero-visual-node--2{inset:auto 11% 22% auto}
+#home .hero-visual-node--3{inset:auto auto 11% 30%}
+#home .hero-visual-axis{
+  position:absolute;
+  z-index:4;
+  inset:50% auto auto 50%;
+  translate:-50% -50%;
+  width:68%;
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,.28),rgba(7,91,70,.16),transparent);
+  transform:rotate(-28deg) translateZ(10px);
+}
+
+@supports(animation-timeline:view()){
+  #home .hero-visual-stage{
+    animation:heroStageArrival 1ms linear both;
+    animation-timeline:view(block);
+    animation-range:entry 0% entry 56%;
+  }
+  @keyframes heroStageArrival{
+    from{opacity:.2;transform:translateY(24px) scale(.97)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+}
+@media(max-width:1023px){
+  #home .hero-visual-plate{width:86%}
+}
+@media(max-width:640px){
+  #home .hero-visual-node{width:2.3rem;height:2.3rem;border-radius:.78rem;font-size:.66rem}
+  #home .hero-visual-seal{width:46%}
+}
+@media(prefers-reduced-motion:reduce){
+  #home .hero-kicker::after{animation:none!important}
+  #home .hero-visual-plate{transform:none!important;transition:none!important}
+  #home .hero-visual-stage::before{transform:none!important}
+  #home .hero-primary-cta::before,
+  #home .hero-primary-cta::after{transition:none!important}
+}

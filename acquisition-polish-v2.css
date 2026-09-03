@@ -1,0 +1,74 @@
+/* Basair Academy — acquisition polish layer (2026-08-26)
+   Focus: hero welcome, buttons and card hierarchy across all locale funnels. */
+:root{
+  --aq-green:#0b755c;
+  --aq-green-deep:#085d49;
+  --aq-gold:#d4af37;
+  --aq-navy:#071d3d;
+}
+.hero{
+  position:relative;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(212,175,55,.12), transparent 16rem),
+    radial-gradient(circle at 82% 18%, rgba(8,117,92,.10), transparent 20rem),
+    linear-gradient(180deg, #fffef9 0%, #faf8f1 100%)!important;
+}
+.hero::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background-image:linear-gradient(rgba(7,29,61,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(7,29,61,.03) 1px, transparent 1px);
+  background-size:42px 42px;
+  mask-image:linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+}
+.btn{
+  min-height:3rem!important;
+  border-radius:1rem!important;
+  box-shadow:0 20px 42px -30px rgba(7,29,61,.24)!important;
+  position:relative;
+  overflow:hidden;
+  transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease!important;
+}
+.btn::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(115deg, rgba(255,255,255,.24), rgba(255,255,255,0) 38%);
+  pointer-events:none;
+}
+.btn:hover{transform:translateY(-2px)!important;box-shadow:0 26px 52px -32px rgba(7,29,61,.32)!important}
+.btn:active{transform:translateY(0)!important}
+.btn-primary{
+  background:linear-gradient(135deg, #0b8a6c 0%, #0b755c 54%, #085d49 100%)!important;
+}
+.btn-gold{
+  background:linear-gradient(135deg, #efd67f 0%, #d4af37 50%, #b98c1e 100%)!important;
+  color:#0a2242!important;
+  border-color:rgba(199,157,40,.24)!important;
+}
+.btn-ghost{
+  background:linear-gradient(180deg, #fffef9 0%, #f9f2df 100%)!important;
+  color:var(--aq-navy)!important;
+  border-color:rgba(212,175,55,.22)!important;
+}
+.dashboard,
+.card{
+  position:relative;
+  overflow:hidden;
+  border-radius:1.5rem!important;
+  box-shadow:0 30px 70px -48px rgba(7,29,61,.3)!important;
+}
+.dashboard::after,
+.card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(125deg, rgba(255,255,255,.22), rgba(255,255,255,0) 32%, rgba(255,255,255,.04) 72%, transparent 100%);
+}
+.card:hover{transform:translateY(-4px)}
+.status-pill{box-shadow:0 16px 30px -24px rgba(212,175,55,.38)!important}
+.footer-links a:hover{color:var(--aq-green)!important}
+@media(max-width:520px){.btn{min-height:2.8rem!important;border-radius:.9rem!important}.dashboard,.card{border-radius:1.2rem!important}}
+@media(prefers-reduced-motion:reduce){.btn,.card{transition:none!important}}

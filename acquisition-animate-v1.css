@@ -1,0 +1,60 @@
+/* Basair Acquisition — Impeccable Animate v1
+   Persuade mode: progress itself is the authored motion. */
+:root{
+  --acq-motion-feedback:140ms;
+  --acq-motion-state:220ms;
+  --acq-motion-layout:360ms;
+  --acq-motion-focal:620ms;
+  --acq-motion-ease:cubic-bezier(.16,1,.3,1);
+}
+/* Progressive enhancement: source content remains visible if module loading fails. */
+.reveal{opacity:1!important;transform:none!important;transition:none!important}
+html.motion-enabled .reveal{opacity:0!important;transform:translateY(5px)!important}
+html.motion-enabled .reveal.visible{
+  opacity:1!important;transform:none!important;
+  transition:opacity 260ms ease,transform 260ms var(--acq-motion-ease)!important
+}
+/* Dashboard progress is the focal material: measurement becomes visible. */
+.dashboard .progress-fill{transform-origin:left center;transform:scaleX(0);transition:none}
+[dir="rtl"] .dashboard .progress-fill{transform-origin:right center}
+html.motion-enabled .dashboard.visible .progress-fill{
+  transform:scaleX(1);transition:transform var(--acq-motion-focal) var(--acq-motion-ease)
+}
+html.motion-enabled .dashboard.visible .progress-row:nth-child(3) .progress-fill{transition-delay:80ms}
+html.motion-enabled .dashboard.visible .progress-row:nth-child(4) .progress-fill{transition-delay:150ms}
+html.motion-enabled .dashboard.visible .progress-row:nth-child(5) .progress-fill{transition-delay:220ms}
+html.motion-enabled .dashboard.visible .error-item{
+  animation:acq-ledger-item 280ms var(--acq-motion-ease) both
+}
+html.motion-enabled .dashboard.visible .error-item:nth-child(2){animation-delay:70ms}
+html.motion-enabled .dashboard.visible .error-item:nth-child(3){animation-delay:140ms}
+@keyframes acq-ledger-item{
+  from{opacity:0;transform:translateX(-6px)}
+  to{opacity:1;transform:none}
+}
+[dir="rtl"] html.motion-enabled .dashboard.visible .error-item,
+html[dir="rtl"].motion-enabled .dashboard.visible .error-item{animation-name:acq-ledger-item-rtl}
+@keyframes acq-ledger-item-rtl{
+  from{opacity:0;transform:translateX(6px)}
+  to{opacity:1;transform:none}
+}
+/* Buttons: cause-and-effect feedback, no exaggerated lift. */
+.btn{transition:transform var(--acq-motion-state) var(--acq-motion-ease),box-shadow var(--acq-motion-state) ease,background var(--acq-motion-state) ease,border-color var(--acq-motion-state) ease,color var(--acq-motion-state) ease!important}
+.btn:hover{transform:translateY(-1px)!important}
+.btn:active{transform:translateY(0) scale(.985)!important;transition-duration:var(--acq-motion-feedback)!important}
+/* Status appearance acknowledges form outcomes. */
+.form-status.show{animation:acq-status-in var(--acq-motion-state) var(--acq-motion-ease) both}
+#post-submit.show{animation:acq-status-in var(--acq-motion-layout) var(--acq-motion-ease) both}
+@keyframes acq-status-in{
+  from{opacity:0;transform:translateY(5px)}
+  to{opacity:1;transform:none}
+}
+/* Cards keep focus on content: border/shadow response instead of repeated floating. */
+.card{transition:border-color var(--acq-motion-state) ease,box-shadow var(--acq-motion-state) ease,background var(--acq-motion-state) ease!important}
+.card:hover{transform:none!important}
+@media (prefers-reduced-motion:reduce){
+  html.motion-enabled .reveal,html.motion-enabled .reveal.visible{opacity:1!important;transform:none!important;transition:opacity var(--acq-motion-feedback) ease!important}
+  .dashboard .progress-fill,html.motion-enabled .dashboard.visible .progress-fill{transform:none!important;transition:none!important}
+  html.motion-enabled .dashboard.visible .error-item,.form-status.show,#post-submit.show{animation:none!important}
+  .btn:hover,.btn:active{transform:none!important}
+}

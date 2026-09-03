@@ -1,0 +1,742 @@
+/* Surgical public UI adjustments requested on 2026-08-31.
+   Purpose: calmer hero, centered copy, cleaner pathway cards, simpler public form,
+   and language-aware alignment without touching submission logic. */
+
+/* ---------- Hero: remove the useless visual and center the message ---------- */
+#home{
+  min-block-size:auto!important;
+  padding-block:clamp(7rem,10vh,8.4rem) clamp(3.4rem,5vh,4.6rem)!important;
+}
+#home > .hero-shell{
+  grid-template-columns:minmax(0,1fr)!important;
+  justify-items:center!important;
+  width:min(100%,76rem)!important;
+  max-width:76rem!important;
+}
+#home .hero-copy-column,
+body.route-ar #home .hero-copy-column{
+  align-items:center!important;
+  text-align:center!important;
+  justify-content:center!important;
+  max-inline-size:min(100%,48rem)!important;
+  margin-inline:auto!important;
+}
+#home .hero-kicker,
+body.route-ar #home .hero-kicker{
+  align-self:center!important;
+}
+#home .hero-title,
+#home .hero-copy-column > p{
+  max-inline-size:min(100%,40rem)!important;
+  margin-inline:auto!important;
+}
+#home .hero-copy-column > p{
+  text-wrap:pretty;
+}
+#home .hero-visual-stage,
+#home .hero-visual-plate,
+#home .hero-visual-grid,
+#home .hero-visual-orbit,
+#home .hero-visual-axis,
+#home .hero-visual-node,
+#home .hero-visual-seal{
+  display:none!important;
+}
+
+/* ---------- Hero CTAs: balanced spacing and size ---------- */
+#home .hero-cta-group,
+body.route-ar #home .hero-cta-group{
+  justify-content:center!important;
+  width:min(100%,46rem)!important;
+  margin-inline:auto!important;
+  gap:1rem!important;
+}
+#home .hero-cta,
+#home .hero-primary-cta,
+#home .hero-secondary-cta{
+  flex:1 1 18rem!important;
+  min-inline-size:min(100%,18rem)!important;
+  max-inline-size:none!important;
+}
+#home .hero-cta__copy{
+  width:100%;
+  text-align:center;
+}
+@media (max-width: 640px){
+  #home .hero-cta-group{gap:.75rem!important}
+  #home .hero-cta,
+  #home .hero-primary-cta,
+  #home .hero-secondary-cta{
+    flex:1 1 100%!important;
+    width:100%!important;
+    min-inline-size:0!important;
+  }
+}
+
+/* ---------- Track/card decorative numbering: remove noise without removing section chapter markers ---------- */
+#tracks .pathway-reading-rail,
+#tracks .course-dossier-index,
+#tracks .course-dossier-status,
+#tracks .course-dossier-footer,
+#tracks .pathway-summary > .absolute.top-0,
+#tracks .pathway-summary .course-dossier-kicker,
+#tracks .pathway-summary .course-dossier-meta,
+#tracks .pathway-summary .course-dossier-note{
+  display:none!important;
+}
+
+
+/* Chapter markers use a physical center so RTL does not shift them off-axis. */
+.homepage-chapter-marker{
+  left:50%!important;
+  right:auto!important;
+  inset-inline-start:auto!important;
+  inset-inline-end:auto!important;
+  transform:translateX(-50%)!important;
+}
+
+/* ---------- Section headings: keep them visually centered ---------- */
+#tracks > div > .text-center,
+#video-library > div.relative > .text-center,
+#testimonials > div > .text-center,
+#faq > div > .text-center,
+#contact > div > .text-center,
+#contact > div > h2{
+  text-align:center!important;
+  max-width:54rem!important;
+  margin-inline:auto!important;
+}
+#tracks > div > .text-center h2,
+#video-library > div.relative > .text-center h2,
+#testimonials > div > .text-center h2,
+#faq > div > .text-center h2,
+#contact > div > h2{
+  margin-inline:auto!important;
+}
+
+/* ---------- Pathway cards: calmer surface, no noisy counters ---------- */
+#tracks .pathway-summary,
+#tracks .pathway-summary.course-dossier-card{
+  background:linear-gradient(180deg,#fffefb 0%,#f9f5e9 100%)!important;
+  color:#0A1F44!important;
+  border:1px solid rgba(212,175,55,.20)!important;
+  box-shadow:0 20px 48px -40px rgba(10,31,68,.30)!important;
+}
+#tracks .pathway-summary::before,
+#tracks .pathway-summary.course-dossier-card::before{
+  background:radial-gradient(360px circle at 16% 10%,rgba(212,175,55,.16),transparent 42%)!important;
+  opacity:.8!important;
+}
+#tracks .pathway-summary h2,
+body.route-ar #tracks .pathway-summary h2,
+#tracks .pathway-summary p,
+#tracks .pathway-summary .track-detail-cta-v6,
+#tracks .pathway-summary .course-dossier-kicker{
+  color:#0A1F44!important;
+}
+#tracks .pathway-summary p{opacity:.86!important}
+#tracks .academic-pathway:nth-child(1) .pathway-summary,
+#tracks .academic-pathway:nth-child(2) .pathway-summary,
+#tracks .academic-pathway:nth-child(3) .pathway-summary{
+  background:linear-gradient(180deg,#fffefb 0%,#f9f5e9 100%)!important;
+}
+#tracks .track-detail-cta-v6{
+  margin-top:.35rem!important;
+}
+
+/* ---------- Registration form: simpler, cleaner, language aware ---------- */
+#contact .registration-shell{
+  max-width:52rem!important;
+  padding:clamp(1.2rem,3vw,2rem)!important;
+}
+#enrollment-form .form-overdrive-panel,
+#enrollment-form .form-section-pill,
+#enrollment-form .form-submit-caption,
+#enrollment-form .submit-seal,
+#enrollment-form .field-status-row,
+#enrollment-form .field-status-badge{
+  display:none!important;
+}
+#enrollment-form.overdrive-form .overdrive-field{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#enrollment-form{
+  text-align:start;
+}
+#enrollment-form .grid{
+  gap:1rem!important;
+}
+#enrollment-form .space-y-2{
+  display:flex;
+  flex-direction:column;
+  gap:.45rem!important;
+}
+#enrollment-form label{
+  display:block;
+  margin-bottom:0!important;
+}
+#enrollment-form input,
+#enrollment-form select,
+#enrollment-form textarea{
+  min-height:3.15rem!important;
+  border-radius:1rem!important;
+}
+#enrollment-form textarea{
+  min-height:8rem!important;
+}
+#enrollment-form [type="submit"]{
+  min-height:3.35rem!important;
+  border-radius:1rem!important;
+  margin-top:1rem!important;
+}
+body.route-ar #contact .registration-shell,
+body.route-ar #enrollment-form{
+  direction:rtl;
+  text-align:right!important;
+}
+body.route-ar #enrollment-form input:not([dir="ltr"]),
+body.route-ar #enrollment-form select,
+body.route-ar #enrollment-form textarea{
+  direction:rtl;
+  text-align:right!important;
+}
+body:not(.route-ar) #contact .registration-shell,
+body:not(.route-ar) #enrollment-form{
+  direction:ltr;
+  text-align:left!important;
+}
+body:not(.route-ar) #enrollment-form input:not([dir="ltr"]),
+body:not(.route-ar) #enrollment-form select,
+body:not(.route-ar) #enrollment-form textarea{
+  direction:ltr;
+  text-align:left!important;
+}
+
+/* Public track selector / text areas: remove extra noise in compact languages. */
+body.route-fr #enrollment-form .grid,
+body.route-ru #enrollment-form .grid,
+body.route-uz #enrollment-form .grid,
+body.route-en #enrollment-form .grid{
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important;
+}
+
+/* Slightly reduce surplus white space in section openings. */
+#tracks.home-chapter,
+#video-library.home-chapter,
+#testimonials.home-chapter,
+#contact.home-chapter{
+  padding-block:clamp(4.5rem,7vw,6rem)!important;
+}
+
+/* ==========================================================
+   Impeccable surgical pass — 2026-08-31
+   Pathway cards + chapter numbers + loading-line polish
+   ========================================================== */
+
+/* Chapter/page numbers are presentation-only; remove the entire marker, including its hairlines. */
+html body .homepage-chapter-marker{
+  display:none!important;
+}
+
+/* Remove any inherited seam between FAQ and assessment. */
+html body #faq.home-chapter{
+  border-bottom:0!important;
+}
+html body #contact.home-chapter{
+  border-top:0!important;
+}
+
+/* Public form no longer exposes the old readiness/loading strip. */
+html body #enrollment-form .form-overdrive-panel,
+html body #enrollment-form .form-overdrive-progress,
+html body #enrollment-form .form-overdrive-progress-track,
+html body #enrollment-form .form-overdrive-progress-fill{
+  display:none!important;
+}
+
+/* ---------- Academic pathway cards: Impeccable editorial dossier v4 ----------
+   Compatibility marker retained for the existing v4 regression contract.
+   Impeccable v6 course-card polish: scholarly folio, no side-stripe, no ghost shadow. */
+#tracks article > div.pathway-summary.course-dossier-card{
+  --pathway-summary-ink:#0A1F44!important;
+  --pathway-summary-muted:#4B5B72!important;
+  --pathway-summary-line:rgba(10,31,68,.11)!important;
+  --dossier-accent:#0B6A52;
+  --dossier-border:rgba(11,106,82,.24);
+  position:relative!important;
+  align-self:start!important;
+  min-height:0!important;
+  padding:clamp(1.45rem,2.1vw,1.9rem)!important;
+  border:1px solid var(--dossier-border)!important;
+  border-radius:1rem!important;
+  background:#FFFDF8!important;
+  color:#0A1F44!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+  transform:none!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transition:border-color 180ms cubic-bezier(.16,1,.3,1),background-color 180ms cubic-bezier(.16,1,.3,1)!important;
+}
+#tracks .academic-pathway:nth-child(2) > div.pathway-summary.course-dossier-card{
+  --dossier-accent:#8A6D14;
+  --dossier-border:rgba(138,109,20,.24);
+}
+#tracks .academic-pathway:nth-child(3) > div.pathway-summary.course-dossier-card{
+  --dossier-accent:#315C7D;
+  --dossier-border:rgba(49,92,125,.24);
+}
+
+/* A short top rule identifies the track without the banned side-stripe pattern. */
+#tracks article > div.pathway-summary.course-dossier-card::after{
+  content:""!important;
+  display:block!important;
+  position:absolute!important;
+  inset-block-start:0!important;
+  inset-inline:clamp(1.2rem,2vw,1.65rem)!important;
+  block-size:3px!important;
+  inline-size:auto!important;
+  border:0!important;
+  border-radius:0 0 999px 999px!important;
+  background:var(--dossier-accent)!important;
+  opacity:.9!important;
+  pointer-events:none!important;
+}
+#tracks article > div.pathway-summary.course-dossier-card::before{
+  content:none!important;
+  display:none!important;
+}
+
+#tracks article > div.pathway-summary.course-dossier-card > .relative,
+#tracks article > div.pathway-summary.course-dossier-card > .course-dossier-card__inner,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-card__inner{
+  width:100%!important;
+  min-width:0!important;
+  padding:0!important;
+  display:grid!important;
+  align-content:start!important;
+  gap:clamp(.88rem,1.25vw,1.05rem)!important;
+}
+
+/* Legacy injected dossier chrome is intentionally invisible: content + action are the hierarchy. */
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-head,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-index,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-kicker,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-meta,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-footer,
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-note,
+#tracks article > div.pathway-summary.course-dossier-card .pathway-reading-rail,
+#tracks article > div.pathway-summary.course-dossier-card > div.absolute{
+  display:none!important;
+}
+
+#tracks article > div.pathway-summary.course-dossier-card :is(h2,h2.lang-ar,h2.lang-en,h2.lang-fr,h2.lang-ru,h2.lang-uz){
+  max-width:100%!important;
+  margin:0!important;
+  color:#0A1F44!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:clamp(1.52rem,1.82vw,1.86rem)!important;
+  font-weight:800!important;
+  line-height:1.22!important;
+  letter-spacing:-.022em!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:none!important;
+  text-wrap:balance!important;
+}
+body.route-ar #tracks article > div.pathway-summary.course-dossier-card :is(h2,h2.lang-ar){
+  font-family:"IBM Plex Sans Arabic","Tajawal",sans-serif!important;
+  font-size:clamp(1.58rem,1.9vw,1.92rem)!important;
+  font-weight:700!important;
+  line-height:1.46!important;
+  letter-spacing:0!important;
+  text-align:right!important;
+}
+body.route-ru #tracks article > div.pathway-summary.course-dossier-card h2,
+body.route-fr #tracks article > div.pathway-summary.course-dossier-card h2{
+  font-size:clamp(1.42rem,1.65vw,1.72rem)!important;
+  line-height:1.28!important;
+}
+
+#tracks article > div.pathway-summary.course-dossier-card :is(p,p.lang-ar,p.lang-en,p.lang-fr,p.lang-ru,p.lang-uz){
+  max-width:100%!important;
+  margin:0!important;
+  color:#4B5B72!important;
+  font-size:.98rem!important;
+  font-weight:500!important;
+  line-height:1.72!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:auto!important;
+  text-wrap:pretty!important;
+}
+body.route-ar #tracks article > div.pathway-summary.course-dossier-card :is(p,p.lang-ar){
+  color:#44536A!important;
+  line-height:1.9!important;
+  text-align:right!important;
+}
+body:not(.route-ar) #tracks article > div.pathway-summary.course-dossier-card :is(h2,p){
+  text-align:left!important;
+}
+
+/* Preserve the protected CTA component; this rule owns only spacing in the card layout. */
+#tracks article > div.pathway-summary.course-dossier-card .course-dossier-divider{display:none!important}
+#tracks article > div.pathway-summary.course-dossier-card .track-detail-cta-v6{margin-top:.5rem!important}
+
+#tracks article > div.pathway-summary.course-dossier-card:hover,
+#tracks article.is-course-card-active > div.pathway-summary.course-dossier-card,
+#tracks article > div.pathway-summary.course-dossier-card:focus-within{
+  transform:none!important;
+  filter:none!important;
+  border-color:var(--dossier-accent)!important;
+  background:#FFFEFB!important;
+  box-shadow:none!important;
+}
+
+/* Restore the original useful sticky summary on desktop, without expensive paint effects. */
+@media(min-width:1024px){
+  #tracks article > div.pathway-summary.course-dossier-card{
+    position:sticky!important;
+    top:8.25rem!important;
+  }
+}
+@media(max-width:1023px){
+  #tracks article > div.pathway-summary.course-dossier-card{
+    position:relative!important;
+    top:auto!important;
+  }
+}
+@media(max-width:767px){
+  #tracks article > div.pathway-summary.course-dossier-card{
+    padding:1.25rem!important;
+    border-radius:1rem!important;
+  }
+  #tracks article > div.pathway-summary.course-dossier-card :is(h2,h2.lang-ar,h2.lang-en,h2.lang-fr,h2.lang-ru,h2.lang-uz){
+    max-width:100%!important;
+    font-size:1.46rem!important;
+  }
+  body.route-ar #tracks article > div.pathway-summary.course-dossier-card :is(h2,h2.lang-ar){
+    font-size:1.52rem!important;
+  }
+  #tracks article > div.pathway-summary.course-dossier-card :is(p,p.lang-ar,p.lang-en,p.lang-fr,p.lang-ru,p.lang-uz){
+    max-width:100%!important;
+    font-size:.95rem!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #tracks article > div.pathway-summary.course-dossier-card{transition:none!important}
+}
+
+/* Loader override is repeated in the fresh public polish layer so browsers do not depend on the older splash cache key. */
+#splash-screen .basair-splash__loader{
+  width:clamp(9.5rem,16vw,11.25rem)!important;
+  height:5px!important;
+  margin-inline:auto!important;
+  border-radius:999px!important;
+  background:rgba(10,31,68,.075)!important;
+  border:1px solid rgba(10,31,68,.035)!important;
+  box-shadow:inset 0 1px 1px rgba(10,31,68,.035),0 1px 0 rgba(255,255,255,.8)!important;
+}
+#splash-screen .basair-splash__loader span{
+  width:38%!important;
+  height:100%!important;
+  border-radius:inherit!important;
+  background:linear-gradient(90deg,#0B765B 0%,#0B8A6C 100%)!important;
+  box-shadow:0 0 14px rgba(11,138,108,.18)!important;
+  animation:basair-loader-slide-refined 1.22s cubic-bezier(.45,0,.55,1) infinite!important;
+}
+
+
+/* ---------- Scroll performance + no persistent progress line ---------- */
+html body .overdrive-reading-progress,
+html body #navbar>.max-w-7xl::after{
+  display:none!important;
+}
+#tracks .academic-pathway{
+  view-timeline-name:none!important;
+}
+#tracks .pathway-reading-rail,
+#tracks .pathway-reading-rail__fill{
+  display:none!important;
+  animation:none!important;
+}
+#video-library > .absolute{
+  display:none!important;
+  filter:none!important;
+}
+@supports(animation-timeline:scroll()){
+  #home .overdrive-manuscript{
+    animation:none!important;
+    transform:none!important;
+  }
+}
+#home .overdrive-manuscript::before{
+  transform:none!important;
+  transition:none!important;
+  will-change:auto!important;
+}
+
+/* ==========================================================
+   Impeccable v5 — multilingual typeset + adaptive topbar
+   Root-cause fixes from the 2026-08-31 visual QA pass.
+   ========================================================== */
+
+/* Faculty / Methodology: long translated words must wrap only at real word boundaries. */
+#about > div{
+  grid-template-columns:minmax(21rem,.92fr) minmax(0,1.58fr)!important;
+  gap:clamp(3rem,5vw,5rem)!important;
+}
+#about > div > h2{
+  inline-size:100%!important;
+  max-inline-size:14ch!important;
+  min-inline-size:0!important;
+  font-size:clamp(2.6rem,3.25vw,3.55rem)!important;
+  line-height:1.06!important;
+  letter-spacing:-.025em!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:none!important;
+  text-wrap:balance!important;
+}
+#about > div > h2 :is(.lang-en,.lang-fr,.lang-ru,.lang-uz,.cms-text){
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:none!important;
+}
+body.route-ru #about > div > h2,
+body.route-uz #about > div > h2{
+  max-inline-size:15ch!important;
+  letter-spacing:-.018em!important;
+}
+body.route-fr #about > div > h2{max-inline-size:16ch!important}
+body.route-ar #about > div > h2{
+  line-height:1.2!important;
+  letter-spacing:0!important;
+}
+#about > div > h2::after{
+  inset-inline:0 auto!important;
+  inline-size:42%!important;
+  block-size:2px!important;
+  background:linear-gradient(90deg,#8A6D14,rgba(138,109,20,.08))!important;
+}
+body.route-ar #about > div > h2::after{inset-inline:auto 0!important}
+
+/* A two-column manuscript only earns its place when the heading column can breathe. */
+@media(max-width:1179px){
+  #about > div{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:2.25rem!important;
+  }
+  #about > div > h2,
+  body.route-ru #about > div > h2,
+  body.route-uz #about > div > h2,
+  body.route-fr #about > div > h2{
+    position:relative!important;
+    top:auto!important;
+    max-inline-size:18ch!important;
+    inline-size:auto!important;
+    margin-inline:auto!important;
+    text-align:center!important;
+    font-size:clamp(2.35rem,5vw,3.25rem)!important;
+  }
+  #about > div > h2::after,
+  body.route-ar #about > div > h2::after{
+    inset-inline:50% auto!important;
+    transform:translateX(-50%)!important;
+    inline-size:min(8rem,42%)!important;
+  }
+  #about > div > div,
+  body.route-ar #about > div > div{
+    padding:1.75rem 0 0!important;
+    border-inline-start:0!important;
+    border-block-start:1px solid rgba(10,31,68,.10)!important;
+  }
+}
+
+/* Uzbek navbar: do not solve i18n by making navigation microscopic. */
+@media(min-width:1280px){
+  body.route-uz #navbar nav.hidden.lg\:flex{
+    display:flex!important;
+    gap:clamp(.34rem,.65vw,.68rem)!important;
+  }
+  body.route-uz #navbar .nav-link{
+    min-height:2.45rem!important;
+    padding:.5rem .38rem!important;
+    font-size:clamp(.78rem,.84vw,.84rem)!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+    letter-spacing:0!important;
+    text-transform:none!important;
+    white-space:nowrap!important;
+  }
+  body.route-uz #navbar #lang-btn .language-trigger__copy strong{
+    display:inline!important;
+    font-size:.75rem!important;
+  }
+  body.route-uz #navbar #lang-btn{
+    min-width:6.8rem!important;
+    min-height:2.5rem!important;
+  }
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0>a[href="#contact"]{
+    min-height:2.5rem!important;
+    padding:.58rem .82rem!important;
+    font-size:.78rem!important;
+  }
+}
+
+/* Between tablet and roomy desktop, use the existing mobile command pattern instead of compressed labels. */
+@media(min-width:1024px) and (max-width:1279px){
+  body.route-uz #navbar nav.hidden.lg\:flex,
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0{
+    display:none!important;
+  }
+  body.route-uz #navbar .lg\:hidden.flex.items-center{
+    display:flex!important;
+  }
+  body.route-uz #navbar>.max-w-7xl{
+    padding-inline:1rem!important;
+  }
+}
+
+/* Preserve readable nav labels at wide desktop; uppercase is not part of Uzbek orthography here. */
+body.route-uz #navbar .nav-link{text-transform:none!important}
+
+/* ==========================================================
+   Impeccable v7 — multilingual topbar + Arabic glyph safety
+   Scope: navigation and Arabic hero glyph rendering only.
+   No copy, CMS, CTA, form, video or Firebase logic changes.
+   ========================================================== */
+
+/* Arabic glyph safety: keep below-baseline dots/marks visible.
+   This specifically prevents the two dots of yaa and other Arabic marks
+   from being clipped by the tight display line box. */
+body.route-ar #home .hero-title,
+body.route-ar #home .hero-title__set,
+body.route-ar #home .hero-title__line,
+body.route-ar #home .hero-title__line .cms-text{
+  overflow:visible!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+body.route-ar #home .hero-title__set{
+  row-gap:.09em!important;
+}
+body.route-ar #home .hero-title__line{
+  padding-block:.035em .16em!important;
+}
+body.route-ar #home .hero-title__line--accent{
+  padding-block:.035em .17em!important;
+}
+
+/* Uzbek desktop uses the same centered command-bar geometry as the other
+   languages. Long copy is handled by responsive mode, never by microscopic text. */
+@media(min-width:1440px){
+  body.route-uz #navbar>.max-w-7xl{
+    width:100%!important;
+    max-width:80rem!important;
+    padding-inline:1.5rem!important;
+  }
+  body.route-uz #navbar>.max-w-7xl>.flex{
+    gap:1rem!important;
+  }
+  body.route-uz #navbar .flex-shrink-0 .flex-col.hidden.lg\:flex{
+    display:flex!important;
+  }
+  body.route-uz #navbar nav.hidden.lg\:flex{
+    display:flex!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
+    justify-content:center!important;
+    gap:clamp(.42rem,.6vw,.7rem)!important;
+    padding-inline:.35rem!important;
+  }
+  body.route-uz #navbar .nav-link{
+    min-height:2.45rem!important;
+    padding:.52rem .34rem!important;
+    font-size:.77rem!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+    letter-spacing:0!important;
+    text-transform:none!important;
+    white-space:nowrap!important;
+  }
+  body.route-uz #navbar .nav-link--video{
+    gap:.4rem!important;
+  }
+  body.route-uz #navbar .nav-link--video svg{
+    display:block!important;
+    width:.9rem!important;
+    height:.9rem!important;
+  }
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0{
+    display:flex!important;
+    gap:.5rem!important;
+    padding:.25rem!important;
+    border-radius:1.2rem!important;
+  }
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0>a[data-contact-channel="telegram"]{
+    display:inline-flex!important;
+    width:2.6rem!important;
+    height:2.6rem!important;
+  }
+  body.route-uz #navbar #lang-btn{
+    min-width:auto!important;
+    min-height:2.6rem!important;
+    padding:.58rem .72rem!important;
+    gap:.45rem!important;
+  }
+  body.route-uz #navbar #lang-btn .language-trigger__copy strong{
+    display:inline!important;
+    font-size:.75rem!important;
+  }
+  body.route-uz #navbar #desktop-language-code{
+    min-width:1.55rem!important;
+    height:1.3rem!important;
+    padding-inline:.26rem!important;
+    font-size:.6rem!important;
+  }
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0>a[href="#contact"]{
+    min-height:2.6rem!important;
+    padding:.62rem .86rem!important;
+    font-size:.75rem!important;
+    white-space:nowrap!important;
+  }
+}
+
+/* If the full Uzbek sentence set no longer has enough room, use the existing
+   mobile command controls rather than shrinking or truncating words. */
+@media(min-width:1024px) and (max-width:1439px){
+  body.route-uz #navbar nav.hidden.lg\:flex,
+  body.route-uz #navbar .hidden.lg\:flex.flex-shrink-0{
+    display:none!important;
+  }
+  body.route-uz #navbar .lg\:hidden.flex.items-center{
+    display:flex!important;
+  }
+  body.route-uz #navbar>.max-w-7xl{
+    width:min(100%,80rem)!important;
+    max-width:80rem!important;
+    padding-inline:1rem!important;
+  }
+}
+
+/* Russian navigation keeps natural title casing. The existing word
+   “Видеотека” is correct and remains byte-for-byte unchanged. */
+body.route-ru #navbar .nav-link{
+  text-transform:none!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+}
+body.route-ru #navbar .nav-link--video{
+  gap:.4rem!important;
+}
+
+@media(max-width:640px){
+  body.route-ar #home .hero-title__line{
+    padding-block:.04em .18em!important;
+  }
+}

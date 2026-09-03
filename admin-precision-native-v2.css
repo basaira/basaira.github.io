@@ -1,0 +1,59 @@
+/* Basair Academy Admin — Precision Native Overdrive v2
+   Interaction/performance polish only. No layout geometry ownership. */
+:root {
+  --pn-admin-fast: 140ms;
+  --pn-admin-state: 220ms;
+  --pn-admin-ease: cubic-bezier(.16,1,.3,1);
+}
+
+/* Remove ornamental motion from an operational surface. */
+.btn,
+.btn::after,
+.nav-btn,
+.item,
+.status {
+  transition-duration: var(--pn-admin-state) !important;
+  transition-timing-function: var(--pn-admin-ease) !important;
+}
+.btn::after { display: none !important; }
+.btn:is(:hover,:active),
+.nav-btn:is(:hover,:active),
+button.item:is(:hover,:active) { transform: none !important; }
+
+.nav-btn[aria-selected="true"] {
+  box-shadow: inset 0 0 0 1px rgba(244,222,130,.16), 0 8px 24px rgba(0,0,0,.08);
+}
+
+.item.is-native-pending {
+  opacity: .78;
+  box-shadow: inset 0 0 0 1px rgba(244,222,130,.22);
+}
+.item.is-native-pending .pill { filter: saturate(.8); }
+
+form[aria-busy="true"],
+[aria-busy="true"] { cursor: progress; }
+
+:is(.btn,.nav-btn,.item,input,select,textarea,a):focus-visible {
+  outline: 3px solid rgba(244,222,130,.62) !important;
+  outline-offset: 3px !important;
+}
+
+@supports (view-transition-name: none) {
+  ::view-transition-group(basair-admin-panel) {
+    animation-duration: 240ms;
+    animation-timing-function: var(--pn-admin-ease);
+  }
+  ::view-transition-old(basair-admin-panel) { animation: pn-admin-old 120ms ease both; }
+  ::view-transition-new(basair-admin-panel) { animation: pn-admin-new 240ms var(--pn-admin-ease) both; }
+  .basair-admin-tab-transition::view-transition-old(root),
+  .basair-admin-tab-transition::view-transition-new(root) { animation: none !important; }
+  @keyframes pn-admin-old { to { opacity: 0; filter: blur(1px); } }
+  @keyframes pn-admin-new { from { opacity: 0; filter: blur(1px); } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,.nav-btn,.item,.status { transition-duration: .01ms !important; animation: none !important; }
+  .btn:is(:hover,:active),
+.nav-btn:is(:hover,:active),
+button.item:is(:hover,:active) { transform: none !important; }
+}

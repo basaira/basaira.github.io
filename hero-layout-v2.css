@@ -1,0 +1,106 @@
+/* Basair Academy — Impeccable Layout / Hero Section v2
+   Asymmetric desktop composition, compact responsive rhythm, no page-wide geometry changes. */
+#home{
+  min-block-size:clamp(46rem,88svh,57rem)!important;
+  padding-block:clamp(8.1rem,11vh,9.8rem) clamp(4rem,6vh,5.75rem)!important;
+}
+#home > .hero-shell{
+  width:min(100%,82rem)!important;
+  max-width:82rem!important;
+  padding-inline:clamp(1rem,3vw,2.4rem)!important;
+  margin-inline:auto;
+  display:grid!important;
+  grid-template-columns:minmax(0,1.16fr) minmax(19rem,.84fr)!important;
+  align-items:center!important;
+  justify-items:stretch!important;
+  column-gap:clamp(3.2rem,6.5vw,6.8rem)!important;
+  row-gap:clamp(2rem,4vw,3.5rem)!important;
+}
+#home .hero-copy-column{
+  min-inline-size:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:clamp(1rem,1.7vw,1.45rem);
+  text-align:start;
+  max-inline-size:48rem;
+}
+body.route-ar #home .hero-copy-column{
+  align-items:flex-end;
+  text-align:end;
+}
+#home .hero-kicker{
+  width:max-content;
+  max-width:min(100%,42rem);
+  margin:0!important;
+  align-self:flex-start;
+}
+body.route-ar #home .hero-kicker{align-self:flex-end}
+#home .hero-copy-column > .hero-title,
+#home .hero-copy-column > p,
+#home .hero-copy-column > .hero-primary-cta{
+  margin-block:0!important;
+  margin-inline:0!important;
+}
+#home .hero-copy-column > p{width:100%!important}
+#home .hero-primary-cta{
+  margin-top:.45rem!important;
+  max-inline-size:min(100%,26rem);
+  min-block-size:3.55rem;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  gap:.72rem;
+  padding:.92rem 1.5rem!important;
+}
+#home .hero-visual-stage{
+  min-inline-size:0;
+  width:min(100%,31rem);
+  aspect-ratio:.92;
+  justify-self:end;
+}
+body.route-ar #home .hero-visual-stage{justify-self:start}
+
+@media(max-width:1120px){
+  #home > .hero-shell{
+    grid-template-columns:minmax(0,1.1fr) minmax(17rem,.9fr)!important;
+    column-gap:clamp(2.2rem,4vw,4rem)!important;
+  }
+}
+@media(max-width:1023px){
+  #home{
+    min-block-size:auto!important;
+    padding-block:7.6rem 4.5rem!important;
+  }
+  #home > .hero-shell{
+    grid-template-columns:minmax(0,1fr)!important;
+    justify-items:center!important;
+    row-gap:2.6rem!important;
+  }
+  #home .hero-copy-column,
+  body.route-ar #home .hero-copy-column{
+    align-items:center;
+    text-align:center;
+    max-inline-size:48rem;
+  }
+  #home .hero-kicker,
+  body.route-ar #home .hero-kicker{align-self:center}
+  #home .hero-primary-cta{width:min(100%,25rem)}
+  #home .hero-visual-stage,
+  body.route-ar #home .hero-visual-stage{
+    justify-self:center;
+    width:min(82vw,27rem);
+  }
+}
+@media(max-width:640px){
+  #home{padding-block:7rem 3.9rem!important}
+  #home > .hero-shell{
+    padding-inline:clamp(.95rem,4vw,1.2rem)!important;
+    row-gap:2.05rem!important;
+  }
+  #home .hero-copy-column{gap:1rem}
+  #home .hero-kicker{max-width:100%;width:auto}
+  #home .hero-primary-cta{min-block-size:3.35rem;padding:.82rem 1.1rem!important}
+  #home .hero-visual-stage{width:min(88vw,22rem)}
+}

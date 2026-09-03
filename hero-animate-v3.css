@@ -1,0 +1,92 @@
+/* Basair Academy — Impeccable Animate / Hero Section v3
+   Purposeful one-shot entrance after splash release. */
+:root{--hero-motion-ease:cubic-bezier(.16,1,.3,1)}
+#home .hero-visual-stage{animation:none!important}
+
+body.motion-prep:not(.motion-entered) #home .hero-kicker,
+body.motion-prep:not(.motion-entered) #home .hero-title__line,
+body.motion-prep:not(.motion-entered) #home .hero-copy-column > p,
+body.motion-prep:not(.motion-entered) #home .hero-primary-cta,
+body.motion-prep:not(.motion-entered) #home .hero-visual-stage{
+  opacity:0;
+}
+body.motion-prep:not(.motion-entered) #home .hero-kicker{transform:translateY(10px)}
+body.motion-prep:not(.motion-entered) #home .hero-title__line{transform:translateY(18px)}
+body.motion-prep:not(.motion-entered) #home .hero-copy-column > p{transform:translateY(12px)}
+body.motion-prep:not(.motion-entered) #home .hero-primary-cta{transform:translateY(10px) scale(.985)!important}
+body.motion-prep:not(.motion-entered) #home .hero-visual-stage{transform:translateY(18px) scale(.965)}
+body.motion-prep:not(.motion-entered) #home .hero-title__line--accent::after{transform:scaleX(0)}
+
+#home .hero-kicker,
+#home .hero-title__line,
+#home .hero-copy-column > p,
+#home .hero-primary-cta,
+#home .hero-visual-stage{
+  transition:
+    opacity 520ms var(--hero-motion-ease),
+    transform 620ms var(--hero-motion-ease);
+}
+#home .hero-title__line--accent::after{
+  transition:transform 720ms var(--hero-motion-ease);
+}
+
+body.motion-entered #home .hero-kicker,
+body.motion-entered #home .hero-title__line,
+body.motion-entered #home .hero-copy-column > p,
+body.motion-entered #home .hero-primary-cta,
+body.motion-entered #home .hero-visual-stage{
+  opacity:1;
+  transform:none;
+}
+body.motion-entered #home .hero-title__line--accent::after{transform:scaleX(.82)}
+
+body.motion-entered #home .hero-kicker{transition-delay:70ms}
+body.motion-entered #home .hero-title__set .hero-title__line:nth-child(1){transition-delay:150ms}
+body.motion-entered #home .hero-title__set .hero-title__line:nth-child(2){transition-delay:220ms}
+body.motion-entered #home .hero-title__set .hero-title__line:nth-child(3){transition-delay:290ms}
+body.motion-entered #home .hero-title__line--accent::after{transition-delay:360ms}
+body.motion-entered #home .hero-copy-column > p{transition-delay:360ms}
+body.motion-entered #home .hero-primary-cta{transition-delay:450ms}
+body.motion-entered #home .hero-visual-stage{transition-delay:280ms}
+
+body.motion-prep:not(.motion-entered) #home .hero-visual-orbit--a{transform:rotate(-4deg) scaleY(.72) scale(.94)}
+body.motion-prep:not(.motion-entered) #home .hero-visual-orbit--b{transform:rotate(-42deg) scaleY(.66) scale(.95)}
+body.motion-prep:not(.motion-entered) #home .hero-visual-node--1{transform:translateZ(52px) translate(-7px,7px);opacity:0}
+body.motion-prep:not(.motion-entered) #home .hero-visual-node--2{transform:translateZ(52px) translate(7px,5px);opacity:0}
+body.motion-prep:not(.motion-entered) #home .hero-visual-node--3{transform:translateZ(52px) translate(-2px,8px);opacity:0}
+#home .hero-visual-orbit,
+#home .hero-visual-node{
+  transition:transform 720ms var(--hero-motion-ease),opacity 520ms ease;
+}
+body.motion-entered #home .hero-visual-orbit--a{transform:rotate(14deg) scaleY(.72)}
+body.motion-entered #home .hero-visual-orbit--b{transform:rotate(-22deg) scaleY(.66)}
+body.motion-entered #home .hero-visual-node{opacity:1}
+body.motion-entered #home .hero-visual-node--1{transition-delay:620ms}
+body.motion-entered #home .hero-visual-node--2{transition-delay:700ms}
+body.motion-entered #home .hero-visual-node--3{transition-delay:780ms}
+
+@media(max-width:1023px){
+  body.motion-prep:not(.motion-entered) #home .hero-visual-stage{transform:translateY(14px) scale(.98)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  body.motion-prep:not(.motion-entered) #home .hero-kicker,
+  body.motion-prep:not(.motion-entered) #home .hero-title__line,
+  body.motion-prep:not(.motion-entered) #home .hero-copy-column > p,
+  body.motion-prep:not(.motion-entered) #home .hero-primary-cta,
+  body.motion-prep:not(.motion-entered) #home .hero-visual-stage,
+  body.motion-prep:not(.motion-entered) #home .hero-visual-node{
+    opacity:1!important;
+    transform:none!important;
+  }
+  #home .hero-kicker,
+  #home .hero-title__line,
+  #home .hero-copy-column > p,
+  #home .hero-primary-cta,
+  #home .hero-visual-stage,
+  #home .hero-visual-orbit,
+  #home .hero-visual-node,
+  #home .hero-title__line--accent::after{
+    transition:none!important;
+  }
+}

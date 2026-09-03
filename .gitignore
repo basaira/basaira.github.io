@@ -1,0 +1,23 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Local editor / OS metadata
+.vscode/
+.idea/
+Thumbs.db
+
+# Media binaries are hosted outside GitHub/Firebase Storage
+*.mp4
+*.webm
+*.mov
+*.m4v
+*.mkv
+*.avi
+*.m3u8
+.env.*

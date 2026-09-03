@@ -1,0 +1,120 @@
+/* Basair Academy — Impeccable Polish / Hero Section v4
+   Subtractive refinement after Delight + Animate. */
+#home{
+  min-block-size:clamp(44rem,84svh,54rem)!important;
+  padding-block:clamp(7.85rem,10vh,9.2rem) clamp(3.8rem,5.5vh,5rem)!important;
+  background:
+    radial-gradient(circle at 14% 18%,rgba(200,164,58,.095),transparent 19rem),
+    radial-gradient(circle at 86% 26%,rgba(7,91,70,.062),transparent 23rem),
+    linear-gradient(180deg,#fffef9 0%,#fbfaf4 44%,#f7f5ef 100%)!important;
+}
+#home::before{opacity:.54!important}
+#home::after{opacity:.46!important}
+
+#home > .hero-shell{
+  width:min(100%,80rem)!important;
+  max-width:80rem!important;
+  grid-template-columns:minmax(0,1.18fr) minmax(18.25rem,.82fr)!important;
+  column-gap:clamp(3rem,6vw,5.8rem)!important;
+}
+#home .hero-copy-column{gap:clamp(.9rem,1.4vw,1.18rem);max-inline-size:47rem}
+#home .hero-kicker{
+  min-block-size:2.55rem;
+  padding:.54rem .95rem!important;
+  border-radius:999px!important;
+  border-color:rgba(176,137,22,.19)!important;
+  background:rgba(255,254,249,.88)!important;
+  box-shadow:0 10px 24px -23px rgba(7,29,61,.24),inset 0 1px rgba(255,255,255,.92)!important;
+}
+#home .hero-kicker{letter-spacing:.055em!important}
+body.route-ar #home .hero-kicker{letter-spacing:0!important}
+
+#home .hero-title{max-inline-size:min(100%,43.5rem)}
+#home .hero-title__line{line-height:1!important}
+#home .hero-title__line--accent{padding-block-end:.055em}
+#home .hero-title__line--accent::after{inset-inline:4% 8%;inset-block-end:-.065em;opacity:.68}
+#home .hero-copy-column > p{max-inline-size:40rem!important;color:rgba(10,31,68,.79)!important}
+body.route-ar #home .hero-copy-column > p{color:rgba(10,31,68,.84)!important}
+
+#home .hero-primary-cta{
+  min-block-size:3.35rem;
+  padding:.82rem 1.25rem!important;
+  border-radius:1rem!important;
+  box-shadow:0 16px 34px -28px rgba(7,91,70,.52),inset 0 1px rgba(255,255,255,.14)!important;
+  touch-action:manipulation;
+}
+#home .hero-primary-cta:hover{transform:translateY(-1px)!important;box-shadow:0 20px 38px -28px rgba(7,91,70,.58),inset 0 1px rgba(255,255,255,.15)!important}
+#home .hero-primary-cta:active{transform:none!important}
+#home .hero-primary-cta::after{inline-size:1.7rem;block-size:1.7rem;border-radius:.58rem}
+
+/* Replace the organic blob with a calmer academic folio/compass plate. */
+#home .hero-visual-stage{width:min(100%,27.75rem);aspect-ratio:1;isolation:isolate}
+#home .hero-visual-stage::before{inset:13%;filter:blur(20px);opacity:.48}
+#home .hero-visual-plate{
+  width:88%;
+  aspect-ratio:1;
+  border-radius:2.35rem;
+  border-color:rgba(153,117,20,.13);
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.82),rgba(255,252,240,.60)),
+    radial-gradient(circle at 30% 24%,rgba(212,175,55,.13),transparent 31%),
+    radial-gradient(circle at 72% 76%,rgba(7,91,70,.085),transparent 36%);
+  box-shadow:0 30px 64px -46px rgba(7,29,61,.32),inset 0 1px rgba(255,255,255,.94);
+}
+#home .hero-visual-plate::before{
+  inset:11%;
+  border-color:rgba(153,117,20,.12);
+  box-shadow:0 0 0 10px rgba(255,255,255,.105),0 0 0 11px rgba(7,91,70,.035);
+}
+#home .hero-visual-plate::after{inset:27%;border-color:rgba(7,91,70,.16);opacity:.72}
+#home .hero-visual-grid{opacity:.16;background-size:2.75rem 2.75rem}
+#home .hero-visual-orbit{opacity:.58}
+#home .hero-visual-axis{opacity:.72}
+#home .hero-visual-seal{
+  width:40%;
+  box-shadow:0 18px 38px -32px rgba(7,29,61,.34),0 0 0 7px rgba(255,255,255,.18);
+}
+#home .hero-visual-node{
+  width:2.42rem;
+  height:2.42rem;
+  border-radius:.76rem;
+  background:rgba(255,253,246,.92);
+  border-color:rgba(212,175,55,.22);
+  box-shadow:0 10px 22px -19px rgba(7,29,61,.26);
+}
+#home .hero-visual-node--1{inset:16% auto auto 13%}
+#home .hero-visual-node--2{inset:auto 10% 21% auto}
+#home .hero-visual-node--3{inset:auto auto 10% 31%}
+
+@media(max-width:1120px){
+  #home > .hero-shell{grid-template-columns:minmax(0,1.1fr) minmax(17rem,.9fr)!important;column-gap:clamp(2.2rem,4vw,3.8rem)!important}
+  #home .hero-visual-stage{width:min(100%,25rem)}
+}
+@media(max-width:1023px){
+  #home{min-block-size:auto!important;padding-block:7.35rem 4.2rem!important}
+  #home > .hero-shell{grid-template-columns:minmax(0,1fr)!important;row-gap:2.35rem!important}
+  #home .hero-copy-column,body.route-ar #home .hero-copy-column{max-inline-size:46rem}
+  #home .hero-title{max-inline-size:42rem}
+  #home .hero-copy-column > p{max-inline-size:39rem!important}
+  #home .hero-visual-stage{width:min(72vw,23.75rem)}
+}
+@media(max-width:640px){
+  #home{padding-block:6.65rem 3.35rem!important}
+  #home > .hero-shell{row-gap:1.8rem!important}
+  #home .hero-copy-column{gap:.86rem}
+  #home .hero-kicker{min-block-size:2.35rem;padding:.47rem .78rem!important}
+  #home .hero-copy-column > p{font-size:.96rem!important;line-height:1.68!important}
+  body.route-ar #home .hero-copy-column > p{font-size:1rem!important;line-height:1.8!important}
+  #home .hero-primary-cta{width:min(100%,22.5rem);min-block-size:3.15rem;padding:.75rem .95rem!important;border-radius:.92rem!important}
+  #home .hero-visual-stage{width:min(78vw,17.75rem)}
+  #home .hero-visual-plate{border-radius:1.65rem}
+  #home .hero-visual-grid{background-size:2rem 2rem}
+  #home .hero-visual-node{width:2rem;height:2rem;border-radius:.62rem;font-size:.59rem}
+}
+@media(max-width:390px){
+  #home .hero-visual-stage{width:min(80vw,16.75rem)}
+  #home .hero-kicker{max-inline-size:100%;justify-content:center;text-align:center}
+}
+@media(prefers-reduced-motion:reduce){#home .hero-primary-cta{transition:none!important}}
+body.motion-entered #home .hero-primary-cta:hover{transform:translateY(-1px)!important}
+body.motion-entered #home .hero-primary-cta:active{transform:none!important}

@@ -1,0 +1,132 @@
+/* Basair Academy — Impeccable Delight
+   Thesis: meaningful actions are acknowledged like a quiet academic seal,
+   while recovery paths remain explicit and immediate. */
+
+#enrollment-form[data-delight-state="received"] #success-message,
+#enrollment-form[data-delight-state="recovery"] #error-message {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+#success-message[data-delight-state="received"] {
+  border-color: rgba(212,175,55,.58) !important;
+  background:
+    linear-gradient(135deg, rgba(15,106,78,.34), rgba(5,64,49,.42)) !important;
+  color: #f5fff9 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 16px 34px rgba(0,0,0,.12);
+}
+
+#success-message[data-delight-state="received"]::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: -2rem;
+  inset-block-start: 50%;
+  width: 7.5rem;
+  aspect-ratio: 1;
+  border: 1px solid rgba(212,175,55,.18);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  box-shadow:
+    0 0 0 12px rgba(212,175,55,.045),
+    0 0 0 24px rgba(212,175,55,.025);
+  pointer-events: none;
+  z-index: -1;
+}
+
+#success-message[data-delight-state="received"] svg {
+  flex: 0 0 auto;
+  width: 2rem !important;
+  height: 2rem !important;
+  padding: .3rem;
+  color: #f4de82 !important;
+  border: 1px solid rgba(244,222,130,.5);
+  border-radius: 999px;
+  background: rgba(212,175,55,.08);
+  box-shadow: 0 0 0 5px rgba(212,175,55,.055);
+}
+
+.assessment-recovery {
+  margin-top: .75rem;
+  padding: .95rem;
+  border: 1px solid rgba(244,222,130,.26);
+  border-radius: 1rem;
+  background: rgba(255,255,255,.055);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.assessment-recovery__lead {
+  margin: 0 0 .7rem;
+  color: rgba(255,255,255,.86);
+  font-size: .875rem;
+  font-weight: 650;
+  line-height: 1.6;
+}
+
+.assessment-recovery__actions {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: .6rem;
+}
+
+.assessment-recovery__link {
+  min-height: 2.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .65rem .85rem;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: .85rem;
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 750;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    transform 160ms cubic-bezier(.16,1,.3,1),
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.assessment-recovery__link--whatsapp { background: rgba(18,140,98,.2); }
+.assessment-recovery__link--telegram { background: rgba(42,171,238,.15); }
+.assessment-recovery__link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(244,222,130,.42);
+  background: rgba(255,255,255,.11);
+}
+.assessment-recovery__link:focus-visible {
+  outline: 2px solid #f4de82;
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .assessment-recovery__actions { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #success-message[data-delight-state="received"] {
+    animation: basair-delight-seal-in 420ms cubic-bezier(.16,1,.3,1) both;
+  }
+  .assessment-recovery {
+    animation: basair-delight-recovery-in 260ms cubic-bezier(.16,1,.3,1) both;
+  }
+}
+
+@keyframes basair-delight-seal-in {
+  from { opacity: 0; transform: translateY(5px) scale(.995); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes basair-delight-recovery-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assessment-recovery__link { transition: none; }
+  .assessment-recovery__link:hover { transform: none; }
+}

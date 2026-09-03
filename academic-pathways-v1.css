@@ -1,0 +1,616 @@
+/* Basair Academic Pathways — Scholarly Living Manuscript
+   Impeccable: overdrive → layout → typeset → polish
+   Scope: #tracks only. Protected track CTAs remain owned by track-buttons-v6.css. */
+
+#tracks.academic-pathways{
+  --pathways-ink:#0A1F44;
+  --pathways-green:#00563F;
+  --pathways-green-deep:#044637;
+  --pathways-gold:#D4AF37;
+  --pathways-gold-ink:#8A6D14;
+  --pathways-ivory:#FDFCF3;
+  --pathways-paper:#FFFDF8;
+  --pathways-line:rgba(10,31,68,.12);
+  --pathways-line-strong:rgba(10,31,68,.20);
+  background:
+    radial-gradient(circle at 82% 8%,rgba(212,175,55,.075),transparent 25rem),
+    radial-gradient(circle at 12% 94%,rgba(0,86,63,.055),transparent 28rem),
+    var(--pathways-paper)!important;
+  overflow:clip;
+}
+
+/* ---------- chapter opening ---------- */
+#tracks .academic-pathways-heading{
+  position:relative;
+  max-width:58rem;
+  padding-bottom:clamp(1.6rem,3vw,2.25rem);
+  border-bottom:1px solid var(--pathways-line)!important;
+}
+#tracks .academic-pathways-heading::after{
+  content:"";
+  position:absolute;
+  inset-inline-start:0;
+  inset-block-end:-1px;
+  inline-size:clamp(4.5rem,12vw,8rem);
+  block-size:1px;
+  background:var(--pathways-gold);
+  opacity:.8;
+}
+#tracks .academic-pathways-kicker{
+  display:inline-flex!important;
+  align-items:center;
+  gap:.7rem;
+  margin-bottom:1rem!important;
+  color:var(--pathways-gold-ink)!important;
+  font-size:.875rem!important;
+  font-weight:700!important;
+  line-height:1.4!important;
+  letter-spacing:.01em!important;
+  text-transform:none!important;
+}
+#tracks .academic-pathways-kicker::before{
+  content:"";
+  inline-size:1.7rem;
+  block-size:1px;
+  background:currentColor;
+  opacity:.58;
+}
+#tracks .academic-pathways-heading > h2{
+  max-width:15ch;
+  margin:0!important;
+  color:var(--pathways-ink)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:clamp(2.35rem,4.8vw,3.75rem)!important;
+  font-weight:800!important;
+  line-height:1.08!important;
+  letter-spacing:-.03em!important;
+  text-wrap:balance;
+}
+body.route-ar #tracks .academic-pathways-heading > h2{
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  font-weight:700!important;
+  line-height:1.22!important;
+  letter-spacing:0!important;
+}
+
+/* ---------- pathway sequence ---------- */
+#tracks .pathway-stack{
+  position:relative;
+  gap:clamp(5.25rem,9vw,7rem)!important;
+}
+#tracks .academic-pathway{
+  --pathway-accent:var(--pathways-green);
+  --pathway-accent-ink:var(--pathways-green-deep);
+  --pathway-summary-bg:#075340;
+  --pathway-summary-ink:#FFFDF8;
+  --pathway-summary-muted:rgba(255,253,248,.80);
+  --pathway-summary-line:rgba(255,255,255,.16);
+  position:relative;
+  isolation:isolate;
+  align-items:start!important;
+  view-timeline-name:--pathway-reading;
+  view-timeline-axis:block;
+}
+#tracks .academic-pathway:nth-child(2){
+  --pathway-accent:var(--pathways-gold);
+  --pathway-accent-ink:var(--pathways-gold-ink);
+  --pathway-summary-bg:#F7EBC4;
+  --pathway-summary-ink:#0A1F44;
+  --pathway-summary-muted:rgba(10,31,68,.73);
+  --pathway-summary-line:rgba(10,31,68,.13);
+}
+#tracks .academic-pathway:nth-child(3){
+  --pathway-accent:#183A63;
+  --pathway-accent-ink:#0A1F44;
+  --pathway-summary-bg:#0A1F44;
+  --pathway-summary-ink:#FFFDF8;
+  --pathway-summary-muted:rgba(255,253,248,.80);
+  --pathway-summary-line:rgba(255,255,255,.14);
+}
+#tracks .academic-pathway + .academic-pathway{
+  padding-top:clamp(5.25rem,9vw,7rem)!important;
+  border-top:1px solid var(--pathways-line)!important;
+}
+
+/* ---------- sticky folio summary ---------- */
+#tracks .pathway-summary.course-dossier-card{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  width:100%;
+  padding:clamp(1.55rem,2.5vw,2.1rem)!important;
+  border:1px solid var(--pathway-summary-line)!important;
+  border-radius:1rem!important;
+  background:var(--pathway-summary-bg)!important;
+  color:var(--pathway-summary-ink)!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  transform:none!important;
+  filter:none!important;
+  cursor:default!important;
+  transition:border-color 220ms cubic-bezier(.2,.8,.2,1),box-shadow 220ms cubic-bezier(.2,.8,.2,1)!important;
+}
+#tracks .pathway-summary.course-dossier-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(360px circle at var(--cc-x,18%) var(--cc-y,12%),rgba(255,255,255,.11),transparent 42%);
+  opacity:.72!important;
+}
+#tracks .academic-pathway:nth-child(2) .pathway-summary.course-dossier-card::before{
+  background:radial-gradient(360px circle at var(--cc-x,18%) var(--cc-y,12%),rgba(255,255,255,.40),transparent 42%);
+}
+#tracks .pathway-summary.course-dossier-card::after{
+  content:"";
+  position:absolute;
+  inset-inline:clamp(1.55rem,2.5vw,2.1rem);
+  inset-block-start:0;
+  block-size:1px;
+  z-index:1;
+  background:linear-gradient(90deg,transparent,var(--pathway-accent),transparent);
+  opacity:.82!important;
+  border:0!important;
+  border-radius:0!important;
+  pointer-events:none;
+}
+#tracks .pathway-summary.course-dossier-card:hover,
+#tracks .academic-pathway.is-course-card-active .pathway-summary.course-dossier-card,
+#tracks .pathway-summary.course-dossier-card:focus-within{
+  transform:none!important;
+  filter:none!important;
+  border-color:color-mix(in srgb,var(--pathway-accent) 38%,var(--pathway-summary-line))!important;
+  box-shadow:0 8px 8px -8px rgba(10,31,68,.22)!important;
+}
+#tracks .pathway-summary .course-dossier-card__inner{
+  position:relative;
+  z-index:2;
+  display:grid;
+  gap:1.15rem!important;
+}
+#tracks .pathway-summary .course-dossier-head{
+  align-items:baseline!important;
+  gap:1rem!important;
+  padding-bottom:1rem;
+  border-bottom:1px solid var(--pathway-summary-line);
+}
+#tracks .pathway-summary .course-dossier-kicker{
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:inherit!important;
+  font-size:.78rem!important;
+  font-weight:700!important;
+  line-height:1.4!important;
+  letter-spacing:.015em!important;
+  opacity:.78;
+}
+#tracks .pathway-summary .course-dossier-kicker::before{
+  inline-size:.48rem!important;
+  block-size:.48rem!important;
+  background:var(--pathway-accent)!important;
+  box-shadow:none!important;
+}
+#tracks .academic-pathway:nth-child(1) .pathway-summary .course-dossier-kicker::before,
+#tracks .academic-pathway:nth-child(3) .pathway-summary .course-dossier-kicker::before{
+  background:#E6C85D!important;
+}
+#tracks .pathway-summary .course-dossier-index{
+  inline-size:auto!important;
+  block-size:auto!important;
+  display:block!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:inherit!important;
+  font-size:.82rem!important;
+  font-weight:800!important;
+  line-height:1!important;
+  letter-spacing:.12em!important;
+  font-variant-numeric:tabular-nums;
+  opacity:.72;
+}
+#tracks .pathway-summary h2{
+  max-width:18ch!important;
+  margin:0!important;
+  color:var(--pathway-summary-ink)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:clamp(1.55rem,2.2vw,2rem)!important;
+  font-weight:800!important;
+  line-height:1.18!important;
+  letter-spacing:-.025em!important;
+  text-wrap:balance;
+}
+body.route-ar #tracks .pathway-summary h2{
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  font-weight:700!important;
+  line-height:1.42!important;
+  letter-spacing:0!important;
+}
+#tracks .pathway-summary p{
+  max-width:33ch!important;
+  margin:0!important;
+  color:var(--pathway-summary-muted)!important;
+  font-size:1rem!important;
+  font-weight:500!important;
+  line-height:1.75!important;
+  text-wrap:pretty;
+}
+body.route-ar #tracks .pathway-summary p{line-height:1.9!important}
+
+/* Repeated pills diluted the academic hierarchy; the manuscript uses title + synopsis + action instead. */
+#tracks .pathway-summary .course-dossier-meta,
+#tracks .pathway-summary .course-dossier-note{display:none!important}
+#tracks .pathway-summary .course-dossier-divider{
+  block-size:1px!important;
+  background:var(--pathway-summary-line)!important;
+  opacity:1!important;
+}
+#tracks .pathway-summary .course-dossier-footer{
+  min-height:1.5rem;
+  justify-content:flex-start!important;
+  gap:.65rem!important;
+}
+#tracks .pathway-summary .course-dossier-status{
+  color:inherit!important;
+  font-size:.78rem!important;
+  font-weight:700!important;
+  line-height:1.35!important;
+  letter-spacing:0!important;
+  opacity:.82;
+}
+#tracks .pathway-summary .course-dossier-status-dot{
+  inline-size:.45rem!important;
+  block-size:.45rem!important;
+  background:currentColor!important;
+  box-shadow:none!important;
+  opacity:.7;
+}
+#tracks .academic-pathway.is-course-card-active .pathway-summary .course-dossier-status-dot{
+  background:var(--pathway-accent)!important;
+  box-shadow:0 0 0 4px color-mix(in srgb,var(--pathway-accent) 18%,transparent)!important;
+  opacity:1;
+}
+#tracks .academic-pathway:nth-child(1).is-course-card-active .pathway-summary .course-dossier-status-dot,
+#tracks .academic-pathway:nth-child(3).is-course-card-active .pathway-summary .course-dossier-status-dot{
+  background:#E6C85D!important;
+  box-shadow:0 0 0 4px rgba(230,200,93,.16)!important;
+}
+
+/* The rail is decorative progress: the content remains complete without it. */
+#tracks .pathway-reading-rail{
+  position:absolute;
+  z-index:3;
+  inset-block:1rem;
+  inset-inline-end:.7rem;
+  inline-size:2px;
+  overflow:hidden;
+  border-radius:999px;
+  background:var(--pathway-summary-line);
+  pointer-events:none;
+}
+#tracks .pathway-reading-rail__fill{
+  display:block;
+  inline-size:100%;
+  block-size:100%;
+  border-radius:inherit;
+  background:var(--pathway-accent);
+  transform:scaleY(.18);
+  transform-origin:top;
+}
+#tracks .academic-pathway:nth-child(1) .pathway-reading-rail__fill,
+#tracks .academic-pathway:nth-child(3) .pathway-reading-rail__fill{background:#E6C85D}
+
+@supports (animation-timeline:view()){
+  #tracks .pathway-reading-rail__fill{
+    animation:pathway-reading-progress linear both;
+    animation-timeline:--pathway-reading;
+    animation-range:entry 12% exit 78%;
+  }
+  @keyframes pathway-reading-progress{
+    from{transform:scaleY(.08)}
+    to{transform:scaleY(1)}
+  }
+}
+
+/* ---------- long-form manuscript ---------- */
+#tracks .academic-doc{
+  position:relative!important;
+  min-width:0;
+  overflow:visible!important;
+  padding:clamp(.25rem,1vw,.8rem) clamp(.15rem,1vw,.75rem)!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  isolation:isolate;
+}
+#tracks .academic-doc::after{display:none!important}
+#tracks .academic-doc::before{
+  content:"";
+  position:absolute;
+  inset-block:.6rem 0;
+  inset-inline-start:1.05rem;
+  inline-size:1px!important;
+  border-radius:0!important;
+  background:linear-gradient(180deg,var(--pathway-accent),rgba(10,31,68,.10) 35%,rgba(10,31,68,.10) 88%,transparent)!important;
+  opacity:.52!important;
+  pointer-events:none;
+}
+body.route-ar #tracks .academic-doc::before{
+  inset-inline-start:auto!important;
+  inset-inline-end:1.05rem!important;
+}
+#tracks .academic-doc > div{
+  max-width:68ch!important;
+  margin-inline:auto;
+  padding-inline-start:3.25rem;
+  counter-reset:pathway-stage;
+}
+body.route-ar #tracks .academic-doc > div{
+  padding-inline-start:0;
+  padding-inline-end:3.25rem;
+}
+#tracks .academic-doc blockquote{
+  position:relative;
+  margin:0 0 clamp(2.25rem,4vw,3rem)!important;
+  padding:0 0 clamp(1.45rem,2.5vw,1.9rem)!important;
+  border:0!important;
+  border-bottom:1px solid var(--pathways-line)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--pathways-ink)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:clamp(1.35rem,2.2vw,1.72rem)!important;
+  font-weight:700!important;
+  line-height:1.5!important;
+  letter-spacing:-.015em!important;
+  text-wrap:balance;
+}
+body.route-ar #tracks .academic-doc blockquote{
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  font-weight:700!important;
+  line-height:1.72!important;
+  letter-spacing:0!important;
+}
+#tracks .academic-doc blockquote::before{display:none!important}
+#tracks .academic-doc h4{
+  position:relative;
+  margin:clamp(2.5rem,5vw,3.75rem) 0 1rem!important;
+  padding:0!important;
+  color:var(--pathway-accent-ink)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:clamp(1.28rem,1.9vw,1.55rem)!important;
+  font-weight:800!important;
+  line-height:1.35!important;
+  letter-spacing:-.018em!important;
+  text-wrap:balance;
+  counter-increment:pathway-stage;
+}
+body.route-ar #tracks .academic-doc h4{
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  font-weight:700!important;
+  line-height:1.55!important;
+  letter-spacing:0!important;
+}
+#tracks .academic-doc h4::before{
+  content:counter(pathway-stage,decimal-leading-zero)!important;
+  position:absolute!important;
+  inset-inline-start:-3.23rem!important;
+  inset-block-start:-.05rem!important;
+  display:grid!important;
+  place-items:center;
+  inline-size:2.1rem!important;
+  block-size:2.1rem!important;
+  border:1px solid color-mix(in srgb,var(--pathway-accent) 42%,#FFFFFF)!important;
+  border-radius:999px!important;
+  background:var(--pathways-paper)!important;
+  color:var(--pathway-accent-ink)!important;
+  box-shadow:0 0 0 6px var(--pathways-paper)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:.7rem!important;
+  font-weight:800!important;
+  line-height:1!important;
+  letter-spacing:.06em!important;
+}
+body.route-ar #tracks .academic-doc h4::before{
+  inset-inline-start:auto!important;
+  inset-inline-end:-3.23rem!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+}
+#tracks .academic-doc p{
+  max-width:68ch!important;
+  margin-bottom:1.35rem!important;
+  color:rgba(10,31,68,.84)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:1rem!important;
+  font-weight:500!important;
+  line-height:1.82!important;
+  letter-spacing:0!important;
+  text-wrap:pretty;
+}
+body.route-ar #tracks .academic-doc p{
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  line-height:1.95!important;
+}
+#tracks .academic-doc ul{
+  display:grid!important;
+  gap:0!important;
+  margin:1.15rem 0 2.25rem!important;
+  padding:0!important;
+  border-top:1px solid var(--pathways-line);
+}
+#tracks .academic-doc li{
+  position:relative;
+  margin:0!important;
+  padding:1rem 0 1rem 1.55rem!important;
+  border:0!important;
+  border-bottom:1px solid var(--pathways-line)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:rgba(10,31,68,.84)!important;
+  font-family:"Manrope",ui-sans-serif,sans-serif!important;
+  font-size:1rem!important;
+  font-weight:500!important;
+  line-height:1.75!important;
+  text-wrap:pretty;
+}
+body.route-ar #tracks .academic-doc li{
+  padding:1rem 1.55rem 1rem 0!important;
+  font-family:"IBM Plex Sans Arabic","Tajawal",ui-sans-serif,sans-serif!important;
+  line-height:1.9!important;
+}
+#tracks .academic-doc li::before{
+  content:""!important;
+  position:absolute!important;
+  inset-inline-start:.1rem!important;
+  inset-block-start:1.63rem!important;
+  inline-size:.42rem!important;
+  block-size:.42rem!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:var(--pathway-accent)!important;
+  box-shadow:none!important;
+}
+body.route-ar #tracks .academic-doc li::before{
+  inset-inline-start:auto!important;
+  inset-inline-end:.1rem!important;
+}
+#tracks .academic-doc strong{
+  color:var(--pathways-ink)!important;
+  font-weight:800!important;
+  background:none!important;
+}
+
+/* ---------- desktop manuscript split ---------- */
+@media (min-width:1180px){
+  #tracks .academic-pathway{
+    grid-template-columns:minmax(17rem,.72fr) minmax(0,1.55fr)!important;
+    column-gap:clamp(3rem,5.8vw,5rem)!important;
+    row-gap:0!important;
+  }
+  #tracks .pathway-summary{
+    grid-column:1!important;
+    position:sticky!important;
+    top:8.75rem!important;
+  }
+  #tracks .academic-doc{
+    grid-column:2!important;
+  }
+}
+
+/* Mid-size routes remain full-width by design so long Russian/Uzbek/French titles do not collide. */
+@media (min-width:768px) and (max-width:1179px){
+  #tracks .academic-pathway{
+    grid-template-columns:1fr!important;
+    gap:2.5rem!important;
+  }
+  #tracks .pathway-summary{
+    position:relative!important;
+    top:auto!important;
+    max-width:46rem;
+  }
+  #tracks .pathway-summary h2{max-width:28ch!important}
+  #tracks .pathway-summary p{max-width:54ch!important}
+}
+
+/* ---------- compact reading ---------- */
+@media (max-width:767px){
+  #tracks .academic-pathways-heading{
+    padding-bottom:1.35rem;
+  }
+  #tracks .academic-pathways-heading > h2{
+    font-size:clamp(2.05rem,10vw,2.75rem)!important;
+    max-width:12ch;
+  }
+  #tracks .pathway-stack{gap:4.75rem!important}
+  #tracks .academic-pathway{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:2.25rem!important;
+  }
+  #tracks .academic-pathway + .academic-pathway{
+    padding-top:4.75rem!important;
+  }
+  #tracks .pathway-summary.course-dossier-card{
+    position:relative!important;
+    top:auto!important;
+    padding:1.35rem!important;
+    border-radius:.875rem!important;
+  }
+  #tracks .pathway-summary .course-dossier-card__inner{gap:1rem!important}
+  #tracks .pathway-summary h2{
+    max-width:24ch!important;
+    font-size:1.5rem!important;
+  }
+  #tracks .pathway-summary p{max-width:100%!important}
+  #tracks .pathway-reading-rail{inset-inline-end:.5rem}
+  #tracks .academic-doc{
+    padding:0!important;
+  }
+  #tracks .academic-doc::before{display:none!important}
+  #tracks .academic-doc > div,
+  body.route-ar #tracks .academic-doc > div{
+    max-width:100%!important;
+    padding-inline:0!important;
+  }
+  #tracks .academic-doc blockquote{
+    font-size:1.25rem!important;
+    margin-bottom:2rem!important;
+  }
+  #tracks .academic-doc h4,
+  body.route-ar #tracks .academic-doc h4{
+    margin-top:2.6rem!important;
+    padding-inline-start:2.75rem!important;
+  }
+  body.route-ar #tracks .academic-doc h4{
+    padding-inline-start:0!important;
+    padding-inline-end:2.75rem!important;
+  }
+  #tracks .academic-doc h4::before,
+  body.route-ar #tracks .academic-doc h4::before{
+    inset-inline-start:0!important;
+    inset-inline-end:auto!important;
+    inset-block-start:-.22rem!important;
+    inline-size:1.95rem!important;
+    block-size:1.95rem!important;
+    box-shadow:none!important;
+    background:#F7F5EC!important;
+  }
+  body.route-ar #tracks .academic-doc h4::before{
+    inset-inline-start:auto!important;
+    inset-inline-end:0!important;
+  }
+  #tracks .academic-doc li{padding-block:.9rem!important}
+}
+
+@media (forced-colors:active){
+  #tracks .pathway-summary.course-dossier-card,
+  #tracks .academic-doc blockquote,
+  #tracks .academic-doc ul,
+  #tracks .academic-doc li{
+    border-color:CanvasText!important;
+  }
+  #tracks .pathway-reading-rail{background:CanvasText!important}
+  #tracks .pathway-reading-rail__fill{background:Highlight!important}
+  #tracks .academic-doc h4::before{border-color:CanvasText!important;color:CanvasText!important;background:Canvas!important}
+}
+
+@media (prefers-reduced-motion:reduce){
+  #tracks .pathway-summary.course-dossier-card,
+  #tracks .pathway-summary .course-dossier-status-dot{
+    transition:none!important;
+  }
+  #tracks .pathway-reading-rail__fill{
+    animation:none!important;
+    transform:scaleY(1)!important;
+  }
+}

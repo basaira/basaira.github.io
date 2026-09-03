@@ -1,46 +1,25 @@
+import { firebaseConfig } from "./firebase-config.js";
+import { focusInvalidField, safeStorage, createSubmissionToken, clearSubmissionToken, sanitizeAttributionMap } from "./harden-v1.js";
 // ==========================================
 // Firebase imports
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   initializeFirestore,
-  collection,
-  addDoc,
+  setDoc,
   serverTimestamp,
   getDoc,
   doc,
-  setDoc,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // ==========================================
 // Firebase setup — basair-academy-4a1d0
 // ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyDBpTIOynPST6NwkDas-F_zwjFz7zA39TQ",
-  authDomain: "basair-academy-4a1d0.firebaseapp.com",
-  projectId: "basair-academy-4a1d0",
-  storageBucket: "basair-academy-4a1d0.firebasestorage.app",
-  messagingSenderId: "407058207953",
-  appId: "1:407058207953:web:133ea372ea0ba304b1a1f0",
-  measurementId: "G-3M16BKNG4P"
-};
-
 const firebaseApp = initializeApp(firebaseConfig);
 const db = initializeFirestore(firebaseApp, {
   experimentalForceLongPolling: true
 });
-const auth = getAuth(firebaseApp);
-const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: "select_account" });
 
 // ==========================================
 // Splash screen safety
@@ -48,7 +27,12 @@ googleProvider.setCustomParameters({ prompt: "select_account" });
 let splashReleased = false;
 
 function hideSplash(delay) {
-  const wait = typeof delay === "number" ? delay : 1200;
+  const wait = typeof delay === "number" ? delay : 420;
+
+  if (window.BasairBoot && typeof window.BasairBoot.ready === "function") {
+    window.setTimeout(function () { window.BasairBoot.ready(); }, Math.max(0, wait));
+    return;
+  }
 
   window.setTimeout(function () {
     const splash = document.getElementById("splash-screen");
@@ -66,28 +50,52 @@ function hideSplash(delay) {
       if (currentSplash) {
         currentSplash.style.setProperty("display", "none", "important");
       }
-    }, 900);
+    }, 360);
   }, wait);
 }
 
-window.addEventListener("load", function () {
-  hideSplash(5200);
-}, { once: true });
+/*
+ * Preserve the historical fallback timers, but activate them only when the
+ * authoritative inline BasairBoot controller is genuinely unavailable.
+ */
+if (!window.BasairBoot || typeof window.BasairBoot.ready !== "function") {
+  window.addEventListener("load", function () {
+    hideSplash(420);
+  }, { once: true });
 
-window.setTimeout(function () {
-  hideSplash(0);
-}, 12000);
+  window.setTimeout(function () {
+    hideSplash(0);
+  }, 2500);
+}
 
 // ==========================================
 // Language system
 // ==========================================
-const supportedLanguages = ["ar", "en", "fr", "ru"];
+const supportedLanguages = ["ar", "en", "fr", "ru", "uz"];
+const DEFAULT_LANGUAGE = "en";
+
+const languageMetadata = Object.freeze({
+  ar: { name: "العربية", code: "AR", dir: "rtl" },
+  en: { name: "English", code: "EN", dir: "ltr" },
+  fr: { name: "Français", code: "FR", dir: "ltr" },
+  ru: { name: "Русский", code: "RU", dir: "ltr" },
+  uz: { name: "O‘zbekcha", code: "UZ", dir: "ltr" }
+});
+
+const accessibilityLabels = Object.freeze({
+  ar: { language: "اللغة", openMenu: "إظهار القائمة", closeMenu: "إغلاق القائمة", mobileNavigation: "القائمة المحمولة", previousTestimonial: "الرأي السابق", nextTestimonial: "الرأي التالي" },
+  en: { language: "Language", openMenu: "Open menu", closeMenu: "Close menu", mobileNavigation: "Mobile navigation", previousTestimonial: "Previous testimonial", nextTestimonial: "Next testimonial" },
+  fr: { language: "Langue", openMenu: "Ouvrir le menu", closeMenu: "Fermer le menu", mobileNavigation: "Navigation mobile", previousTestimonial: "Témoignage précédent", nextTestimonial: "Témoignage suivant" },
+  ru: { language: "Язык", openMenu: "Открыть меню", closeMenu: "Закрыть меню", mobileNavigation: "Мобильная навигация", previousTestimonial: "Предыдущий отзыв", nextTestimonial: "Следующий отзыв" },
+  uz: { language: "Til", openMenu: "Menyuni ochish", closeMenu: "Menyuni yopish", mobileNavigation: "Mobil navigatsiya", previousTestimonial: "Oldingi fikr", nextTestimonial: "Keyingi fikr" }
+});
 
 const pageTitles = {
   ar: "أكاديمية بصائر | نور يهدي، وعلم يبني",
-  en: "Basair Academy | Guided by Light",
-  fr: "Académie Bassaïr | Lumière qui guide",
-  ru: "Академия Басаир | Свет, который ведет"
+  en: "Basair Academy | A Guiding Light, Building Knowledge",
+  fr: "Académie Bassaïr | Une lumière qui guide, un savoir qui bâtit",
+  ru: "Академия Басаир | Свет направляет, знание созидает",
+  uz: "Basair Academy | Yo‘l ko‘rsatuvchi nur, bunyod etuvchi ilm"
 };
 
 const trackTranslations = {
@@ -114,11 +122,58 @@ const trackTranslations = {
     { value: "Quran and Tajweed", text: "Заучивание Корана и таджвид" },
     { value: "Arabic from Scratch", text: "Арабский язык с нуля" },
     { value: "Specialization", text: "Лингвистическая специализация" }
+  ],
+  uz: [
+    { value: "", text: "-- Yo‘nalishni tanlang --" },
+    { value: "Quran and Tajweed", text: "Qur’on va tajvid" },
+    { value: "Arabic from Scratch", text: "Arab tili noldan" },
+    { value: "Specialization", text: "Arab tili fanlari bo‘yicha ixtisoslashuv" }
   ]
 };
 
 function getSafeLang(lang) {
-  return supportedLanguages.includes(lang) ? lang : "ar";
+  return supportedLanguages.includes(lang) ? lang : "en";
+}
+
+function getInitialLanguage() {
+  // The public site always opens in English. A visitor can switch language
+  // instantly for the current page without old localStorage values changing
+  // the default on a later visit.
+  return DEFAULT_LANGUAGE;
+}
+
+function updateLanguageControls(lang) {
+  const meta = languageMetadata[lang] || languageMetadata.en;
+  const labels = accessibilityLabels[lang] || accessibilityLabels.en;
+  const desktopName = document.getElementById("desktop-language-name");
+  const desktopCode = document.getElementById("desktop-language-code");
+  const mobileCode = document.getElementById("mobile-language-code");
+  const desktopButton = document.getElementById("lang-btn");
+  const mobileButton = document.getElementById("mobile-lang-btn");
+  const mobileMenuButton = document.getElementById("mobile-menu-btn");
+  const mobileMenu = document.getElementById("mobile-menu");
+  const mobileMenuClose = document.getElementById("mobile-menu-close");
+  const previousTestimonial = document.getElementById("slider-prev-btn");
+  const nextTestimonial = document.getElementById("slider-next-btn");
+  if (desktopName) desktopName.textContent = meta.name;
+  if (desktopCode) desktopCode.textContent = meta.code;
+  if (mobileCode) mobileCode.textContent = meta.code;
+  if (desktopButton) desktopButton.setAttribute("aria-label", labels.language + " — " + meta.name);
+  if (mobileButton) mobileButton.setAttribute("aria-label", labels.language + " — " + meta.name);
+  if (mobileMenuButton) {
+    const isOpen = mobileMenuButton.getAttribute("aria-expanded") === "true";
+    mobileMenuButton.setAttribute("aria-label", isOpen ? labels.closeMenu : labels.openMenu);
+  }
+  if (mobileMenu) mobileMenu.setAttribute("aria-label", labels.mobileNavigation);
+  if (mobileMenuClose) mobileMenuClose.setAttribute("aria-label", labels.closeMenu);
+  if (previousTestimonial) previousTestimonial.setAttribute("aria-label", labels.previousTestimonial);
+  if (nextTestimonial) nextTestimonial.setAttribute("aria-label", labels.nextTestimonial);
+  document.querySelectorAll("[data-lang]").forEach(function (element) {
+    const isActive = element.getAttribute("data-lang") === lang;
+    element.classList.toggle("is-active", isActive);
+    if (isActive) element.setAttribute("aria-current", "true");
+    else element.removeAttribute("aria-current");
+  });
 }
 
 function updateDynamicTrackSelect(lang) {
@@ -126,7 +181,7 @@ function updateDynamicTrackSelect(lang) {
   if (!select) return;
 
   select.textContent = "";
-  const options = trackTranslations[lang] || trackTranslations.ar;
+  const options = trackTranslations[lang] || trackTranslations.en;
 
   options.forEach(function (item) {
     const option = document.createElement("option");
@@ -142,29 +197,75 @@ function updateDynamicTrackSelect(lang) {
   });
 }
 
-function setLang(lang) {
-  const safeLang = getSafeLang(lang);
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+function canUseViewTransitions() {
+  return typeof document.startViewTransition === "function" && !prefersReducedMotion();
+}
+
+function applyLanguageState(safeLang) {
   const root = document.getElementById("html-root");
   const body = document.getElementById("body-root");
 
   if (root) {
     root.lang = safeLang;
-    root.dir = safeLang === "ar" ? "rtl" : "ltr";
+    root.dir = (languageMetadata[safeLang] || languageMetadata.en).dir;
   }
 
   if (body) {
-    body.className = "route-" + safeLang + " relative";
+    Array.from(body.classList).forEach(function (className) {
+      if (className.startsWith("route-")) body.classList.remove(className);
+    });
+    body.classList.add("route-" + safeLang, "relative");
   }
 
   const title = document.getElementById("page-title");
   if (title) {
-    title.textContent = pageTitles[safeLang] || pageTitles.ar;
+    title.textContent = pageTitles[safeLang] || pageTitles.en;
   }
 
-  localStorage.setItem("academy_lang", safeLang);
   updateDynamicTrackSelect(safeLang);
+  updateLanguageControls(safeLang);
   closeDropdown();
+  closeMobileLangMenu();
   closeMobileMenu();
+}
+
+let activeLanguageTransition = null;
+
+function setLang(lang) {
+  const safeLang = getSafeLang(lang);
+  const root = document.getElementById("html-root");
+  const currentLang = getSafeLang(root?.lang || DEFAULT_LANGUAGE);
+
+  if (currentLang === safeLang) {
+    closeDropdown();
+    closeMobileLangMenu();
+    return;
+  }
+
+  if (!canUseViewTransitions() || !document.body?.classList.contains("motion-entered")) {
+    applyLanguageState(safeLang);
+    return;
+  }
+
+  // Rapid language changes remain interruptible instead of queueing transitions.
+  if (activeLanguageTransition && typeof activeLanguageTransition.skipTransition === "function") {
+    activeLanguageTransition.skipTransition();
+  }
+
+  document.documentElement.classList.add("basair-language-transition");
+  const transition = document.startViewTransition(function () {
+    applyLanguageState(safeLang);
+  });
+  activeLanguageTransition = transition;
+
+  transition.finished.finally(function () {
+    if (activeLanguageTransition === transition) activeLanguageTransition = null;
+    document.documentElement.classList.remove("basair-language-transition");
+  });
 }
 
 // ==========================================
@@ -187,10 +288,47 @@ function closeDropdown() {
   if (btn) btn.setAttribute("aria-expanded", "false");
 }
 
+function toggleMobileLangMenu() {
+  const dropdown = document.getElementById("mobileLangDropdown");
+  const btn = document.getElementById("mobile-lang-btn");
+  if (!dropdown || !btn) return;
+  const nextOpen = !dropdown.classList.contains("active");
+  closeDropdown();
+  closeMobileMenu();
+  dropdown.classList.toggle("active", nextOpen);
+  btn.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+}
+
+function closeMobileLangMenu() {
+  const dropdown = document.getElementById("mobileLangDropdown");
+  const btn = document.getElementById("mobile-lang-btn");
+  if (dropdown) dropdown.classList.remove("active");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+function syncMobileMenuAccessibility(isOpen) {
+  const menu = document.getElementById("mobile-menu");
+  const btn = document.getElementById("mobile-menu-btn");
+  const closeButton = document.getElementById("mobile-menu-close");
+  const lang = getSafeLang(document.getElementById("html-root")?.lang || DEFAULT_LANGUAGE);
+  const labels = accessibilityLabels[lang] || accessibilityLabels.en;
+
+  if (menu) {
+    menu.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    if (isOpen) menu.removeAttribute("inert");
+    else menu.setAttribute("inert", "");
+  }
+  if (btn) {
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    btn.setAttribute("aria-label", isOpen ? labels.closeMenu : labels.openMenu);
+  }
+  if (closeButton) closeButton.setAttribute("aria-label", labels.closeMenu);
+}
+
 function toggleMobileMenu() {
   const menu = document.getElementById("mobile-menu");
   const backdrop = document.getElementById("mobile-backdrop");
-  const btn = document.getElementById("mobile-menu-btn");
+  const closeButton = document.getElementById("mobile-menu-close");
   if (!menu) return;
 
   if (menu.classList.contains("active")) {
@@ -198,31 +336,44 @@ function toggleMobileMenu() {
     return;
   }
 
+  closeMobileLangMenu();
   menu.classList.add("active");
   if (backdrop) backdrop.classList.add("active");
-  if (btn) btn.setAttribute("aria-expanded", "true");
+  syncMobileMenuAccessibility(true);
   document.body.style.overflow = "hidden";
+  window.requestAnimationFrame(function () {
+    if (closeButton) closeButton.focus({ preventScroll: true });
+  });
 }
 
 function closeMobileMenu() {
   const menu = document.getElementById("mobile-menu");
   const backdrop = document.getElementById("mobile-backdrop");
   const btn = document.getElementById("mobile-menu-btn");
+  const focusWasInside = Boolean(menu && document.activeElement && menu.contains(document.activeElement));
 
   if (menu) menu.classList.remove("active");
   if (backdrop) backdrop.classList.remove("active");
-  if (btn) btn.setAttribute("aria-expanded", "false");
+  syncMobileMenuAccessibility(false);
   document.body.style.overflow = "";
+
+  if (focusWasInside && btn && window.innerWidth < 1024) {
+    window.requestAnimationFrame(function () {
+      btn.focus({ preventScroll: true });
+    });
+  }
 }
 
 window.setLang = setLang;
 window.toggleLangMenu = toggleLangMenu;
 window.closeDropdown = closeDropdown;
+window.toggleMobileLangMenu = toggleMobileLangMenu;
+window.closeMobileLangMenu = closeMobileLangMenu;
 window.toggleMobileMenu = toggleMobileMenu;
 window.closeMobileMenu = closeMobileMenu;
 window.hidePasswordModal = function () {};
 window.showPasswordModal = function () {
-  window.showAdminPanel();
+  window.location.href = "./admin.html";
 };
 
 // ==========================================
@@ -249,67 +400,123 @@ function initGlobalClicks() {
     if (!target.closest("#lang-btn") && !target.closest("#langDropdown")) {
       closeDropdown();
     }
+    if (!target.closest("#mobile-lang-btn") && !target.closest("#mobileLangDropdown")) {
+      closeMobileLangMenu();
+    }
   });
 
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       closeDropdown();
+      closeMobileLangMenu();
       closeMobileMenu();
-      closeAdminPanel();
     }
   });
 
   window.addEventListener("resize", function () {
-    if (window.innerWidth >= 1024) closeMobileMenu();
+    if (window.innerWidth >= 1024) { closeMobileMenu(); closeMobileLangMenu(); }
+  });
+}
+
+function initMotionLifecycle() {
+  const testimonials = document.getElementById("testimonials");
+  if (!testimonials) return;
+
+  function syncPausedState(isVisible) {
+    const shouldPause = document.hidden || !isVisible;
+    testimonials.classList.toggle("is-motion-paused", shouldPause);
+  }
+
+  let isVisible = false;
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.target !== testimonials) return;
+        isVisible = entry.isIntersecting;
+        syncPausedState(isVisible);
+      });
+    }, { rootMargin: "120px 0px", threshold: 0.01 });
+    observer.observe(testimonials);
+  } else {
+    isVisible = true;
+    syncPausedState(true);
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    syncPausedState(isVisible);
   });
 }
 
 function initScrollEffects() {
+  const nav = document.getElementById("navbar");
+  const sections = Array.from(document.querySelectorAll("main > section[id]"));
+  const navLinks = Array.from(document.querySelectorAll(".nav-link[href^='#']"));
+  if (!nav && !navLinks.length) return;
+
+  let offsets = [];
   let ticking = false;
+  let resizeRaf = 0;
+  let activeId = "";
+  let scrolledState = null;
 
-  function run() {
-    const nav = document.getElementById("navbar");
+  function measureSections() {
+    offsets = sections.map(function (section) {
+      return { id: section.id, top: section.offsetTop };
+    }).sort(function (a, b) { return a.top - b.top; });
+  }
 
-    if (nav) {
-      if (window.scrollY > 20) {
-        nav.classList.add("shadow-sm", "border-[#D4AF37]/20");
-        nav.classList.remove("border-transparent");
-      } else {
-        nav.classList.add("border-transparent");
-        nav.classList.remove("shadow-sm", "border-[#D4AF37]/20");
-      }
-    }
-
-    const sections = document.querySelectorAll("section");
-    const navLinks = document.querySelectorAll(".nav-link");
-    let current = "";
-
-    sections.forEach(function (section) {
-      if (window.scrollY >= section.offsetTop - 100) {
-        current = section.getAttribute("id") || "";
-      }
-    });
-
+  function setActive(id) {
+    if (id === activeId) return;
+    activeId = id;
     navLinks.forEach(function (link) {
-      link.classList.remove("active-section");
-      const href = link.getAttribute("href") || "";
-
-      if (current && href.indexOf(current) !== -1) {
-        link.classList.add("active-section");
-      }
+      link.classList.toggle("active-section", link.getAttribute("href") === "#" + id);
     });
   }
 
-  window.addEventListener("scroll", function () {
+  function run() {
+    ticking = false;
+    const y = Math.max(0, window.scrollY || 0);
+    const nextScrolled = y > 20;
+
+    if (nav && nextScrolled !== scrolledState) {
+      scrolledState = nextScrolled;
+      nav.classList.toggle("topbar-scrolled", nextScrolled);
+      nav.classList.toggle("shadow-sm", nextScrolled);
+      nav.classList.toggle("border-[#D4AF37]/20", nextScrolled);
+      nav.classList.toggle("border-transparent", !nextScrolled);
+    }
+
+    if (offsets.length) {
+      const probe = y + Math.min(140, Math.max(88, window.innerHeight * .12));
+      let nextId = offsets[0].id;
+      for (let i = 0; i < offsets.length; i += 1) {
+        if (probe >= offsets[i].top) nextId = offsets[i].id;
+        else break;
+      }
+      setActive(nextId);
+    }
+  }
+
+  function requestRun() {
     if (ticking) return;
-
     ticking = true;
-    window.requestAnimationFrame(function () {
-      run();
-      ticking = false;
-    });
-  });
+    window.requestAnimationFrame(run);
+  }
 
+  function requestMeasure() {
+    if (resizeRaf) window.cancelAnimationFrame(resizeRaf);
+    resizeRaf = window.requestAnimationFrame(function () {
+      resizeRaf = 0;
+      measureSections();
+      requestRun();
+    });
+  }
+
+  measureSections();
+  window.addEventListener("scroll", requestRun, { passive: true });
+  window.addEventListener("resize", requestMeasure, { passive: true });
+  window.addEventListener("orientationchange", requestMeasure, { passive: true });
+  window.addEventListener("load", requestMeasure, { once: true });
   run();
 }
 
@@ -347,21 +554,99 @@ function initVideoFilter() {
   applyVideoFilter(active ? active.getAttribute("data-filter") || "all" : "all");
 }
 
-function applyVideoFilter(filterValue) {
+function updateVideoGridLayout(filterValue) {
+  const grid = document.getElementById("video-grid");
+  if (!grid) return;
+
+  const visibleCards = Array.from(grid.querySelectorAll(".video-card")).filter(function (card) {
+    const category = card.getAttribute("data-category") || "all";
+    return filterValue === "all" || category === filterValue;
+  });
+
+  grid.classList.remove("video-grid--single", "video-grid--double", "video-grid--multi");
+  if (visibleCards.length === 1) grid.classList.add("video-grid--single");
+  else if (visibleCards.length === 2) grid.classList.add("video-grid--double");
+  else if (visibleCards.length > 2) grid.classList.add("video-grid--multi");
+
+  grid.dataset.visibleCount = String(visibleCards.length);
+}
+
+const videoFilterTimers = new WeakMap();
+let activeVideoFilterTransition = null;
+
+function applyVideoFilterImmediate(filterValue) {
+  updateVideoGridLayout(filterValue);
   document.querySelectorAll(".video-card").forEach(function (card) {
     const category = card.getAttribute("data-category") || "all";
-
-    if (filterValue === "all" || category === filterValue) {
-      card.style.display = "block";
-      window.setTimeout(function () {
-        card.style.opacity = "1";
-      }, 50);
-    } else {
-      card.style.opacity = "0";
-      window.setTimeout(function () {
-        card.style.display = "none";
-      }, 300);
+    const shouldShow = filterValue === "all" || category === filterValue;
+    const pendingTimer = videoFilterTimers.get(card);
+    if (pendingTimer) {
+      window.clearTimeout(pendingTimer);
+      videoFilterTimers.delete(card);
     }
+    card.style.display = shouldShow ? "block" : "none";
+    card.style.opacity = shouldShow ? "1" : "0";
+    card.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+  });
+}
+
+function applyVideoFilter(filterValue) {
+  const grid = document.getElementById("video-grid");
+  const canMorphGrid = Boolean(
+    grid &&
+    canUseViewTransitions() &&
+    document.body?.classList.contains("motion-entered")
+  );
+
+  if (canMorphGrid) {
+    if (activeVideoFilterTransition && typeof activeVideoFilterTransition.skipTransition === "function") {
+      activeVideoFilterTransition.skipTransition();
+    }
+
+    grid.style.viewTransitionName = "basair-video-grid";
+    document.documentElement.classList.add("basair-filter-transition");
+    const transition = document.startViewTransition(function () {
+      applyVideoFilterImmediate(filterValue);
+    });
+    activeVideoFilterTransition = transition;
+
+    transition.finished.finally(function () {
+      if (activeVideoFilterTransition === transition) activeVideoFilterTransition = null;
+      grid.style.viewTransitionName = "";
+      document.documentElement.classList.remove("basair-filter-transition");
+    });
+    return;
+  }
+
+  updateVideoGridLayout(filterValue);
+  const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const exitDuration = reducedMotion ? 0 : 150;
+
+  document.querySelectorAll(".video-card").forEach(function (card) {
+    const category = card.getAttribute("data-category") || "all";
+    const shouldShow = filterValue === "all" || category === filterValue;
+    const pendingTimer = videoFilterTimers.get(card);
+    if (pendingTimer) {
+      window.clearTimeout(pendingTimer);
+      videoFilterTimers.delete(card);
+    }
+
+    if (shouldShow) {
+      card.style.display = "block";
+      card.setAttribute("aria-hidden", "false");
+      window.requestAnimationFrame(function () {
+        card.style.opacity = "1";
+      });
+      return;
+    }
+
+    card.style.opacity = "0";
+    card.setAttribute("aria-hidden", "true");
+    const timer = window.setTimeout(function () {
+      card.style.display = "none";
+      videoFilterTimers.delete(card);
+    }, exitDuration);
+    videoFilterTimers.set(card, timer);
   });
 }
 
@@ -376,84 +661,102 @@ function isSafeHttpsUrl(url) {
   }
 }
 
+function getYouTubeIdFromUrl(rawUrl) {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) return null;
+
+  try {
+    const url = new URL(rawUrl.trim());
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    let videoId = null;
+
+    if (hostname === "youtu.be") {
+      videoId = url.pathname.split("/").filter(Boolean)[0] || null;
+    } else if (["youtube.com", "m.youtube.com", "music.youtube.com"].includes(hostname)) {
+      if (url.pathname === "/watch") videoId = url.searchParams.get("v");
+      else {
+        const match = url.pathname.match(/^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/);
+        if (match) videoId = match[1];
+      }
+    }
+
+    return videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function derivePosterFromVideoUrl(rawUrl) {
+  const youtubeId = getYouTubeIdFromUrl(rawUrl);
+  if (youtubeId) {
+    return "https://i.ytimg.com/vi/" + encodeURIComponent(youtubeId) + "/hqdefault.jpg";
+  }
+
+  try {
+    const url = new URL(String(rawUrl || "").trim());
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "res.cloudinary.com" && /\/video\/upload\//.test(url.pathname)) {
+      let pathname = url.pathname.replace("/video/upload/", "/video/upload/so_0,q_auto,f_jpg/");
+      pathname = pathname.replace(/\.(mp4|webm|mov|m4v|ogg)$/i, ".jpg");
+      return url.origin + pathname + url.search;
+    }
+  } catch (error) {
+    // Fall through to the local brand placeholder.
+  }
+
+  return "logo.png";
+}
+
 function normalizeVideo(video) {
   if (!video || typeof video !== "object") return null;
 
   const title = typeof video.title === "string" ? video.title.trim() : "";
   const category = typeof video.category === "string" ? video.category.trim() : "all";
-  const imageUrl = typeof video.imageUrl === "string" ? video.imageUrl.trim() : "";
+  const posterUrlRaw = typeof video.posterUrl === "string"
+    ? video.posterUrl.trim()
+    : (typeof video.imageUrl === "string" ? video.imageUrl.trim() : "");
   const videoUrl = typeof video.videoUrl === "string" ? video.videoUrl.trim() : "";
+  const published = video.published !== false;
 
-  if (!title || title.length > 120) return null;
+  if (!title || title.length > 120 || !published || !isSafeHttpsUrl(videoUrl)) return null;
 
   const allowedCategories = ["all", "quran", "arabic", "islamic", "tajweed", "grammar", "specialization"];
-  const fallbackImage = "https://images.unsplash.com/photo-1609599006353-e629aaab31ce?q=80&w=1000";
+  const derivedPoster = derivePosterFromVideoUrl(videoUrl);
 
   return {
     title: title,
     category: allowedCategories.includes(category) ? category : "all",
-    imageUrl: isSafeHttpsUrl(imageUrl) ? imageUrl : fallbackImage,
-    videoUrl: isSafeHttpsUrl(videoUrl) ? videoUrl : "#"
+    posterUrl: isSafeHttpsUrl(posterUrlRaw) ? posterUrlRaw : derivedPoster,
+    fallbackPosterUrl: derivedPoster,
+    videoUrl: videoUrl,
+    published: true
   };
 }
+
 // ==========================================
 // Embedded Video Player
-// YouTube playback inside Basair
+// Supports YouTube and direct HTTPS media (MP4/WebM/Ogg).
+// The media file remains outside Firebase; Firestore stores metadata only.
 // ==========================================
 
 const videoPlayer = (function () {
   let modal = null;
   let frame = null;
+  let nativeVideo = null;
   let titleElement = null;
   let closeButton = null;
   let lastFocusedElement = null;
+  let activeSourceMedia = null;
+  let inertSiblings = [];
+  let activeModalTransition = null;
+  let modalOperation = 0;
+  let modalState = "closed";
 
   function getYouTubeVideoId(rawUrl) {
-    if (typeof rawUrl !== "string" || !rawUrl.trim()) return null;
-
-    try {
-      const url = new URL(rawUrl.trim());
-      const hostname = url.hostname
-        .toLowerCase()
-        .replace(/^www\./, "");
-
-      let videoId = null;
-
-      if (hostname === "youtu.be") {
-        videoId = url.pathname.split("/").filter(Boolean)[0] || null;
-      }
-
-      if (
-        hostname === "youtube.com" ||
-        hostname === "m.youtube.com" ||
-        hostname === "music.youtube.com"
-      ) {
-        if (url.pathname === "/watch") {
-          videoId = url.searchParams.get("v");
-        } else {
-          const match = url.pathname.match(
-            /^\/(?:embed|shorts|live)\/([A-Za-z0-9_-]{11})/
-          );
-
-          if (match) {
-            videoId = match[1];
-          }
-        }
-      }
-
-      if (!videoId) return null;
-
-      return /^[A-Za-z0-9_-]{11}$/.test(videoId)
-        ? videoId
-        : null;
-    } catch (error) {
-      return null;
-    }
+    return getYouTubeIdFromUrl(rawUrl);
   }
 
   function getEmbedUrl(rawUrl) {
     const videoId = getYouTubeVideoId(rawUrl);
-
     if (!videoId) return null;
 
     const params = new URLSearchParams({
@@ -462,12 +765,7 @@ const videoPlayer = (function () {
       rel: "0"
     });
 
-    return (
-      "https://www.youtube-nocookie.com/embed/" +
-      encodeURIComponent(videoId) +
-      "?" +
-      params.toString()
-    );
+    return "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId) + "?" + params.toString();
   }
 
   function ensureModal() {
@@ -479,45 +777,16 @@ const videoPlayer = (function () {
     modal.setAttribute("aria-hidden", "true");
 
     modal.innerHTML = `
-      <div
-        class="video-player-modal__backdrop"
-        data-video-close
-        aria-hidden="true"
-      ></div>
-
-      <div
-        class="video-player-modal__dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="video-player-title"
-      >
+      <div class="video-player-modal__backdrop" data-video-close aria-hidden="true"></div>
+      <div class="video-player-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="video-player-title">
         <div class="video-player-modal__header">
-          <h3
-            id="video-player-title"
-            class="video-player-modal__title"
-          ></h3>
-
-          <button
-            type="button"
-            class="video-player-modal__close"
-            data-video-close
-            aria-label="إغلاق الفيديو"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                d="M6 6L18 18M18 6L6 18"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
+          <h3 id="video-player-title" class="video-player-modal__title"></h3>
+          <button type="button" class="video-player-modal__close" data-video-close aria-label="إغلاق الفيديو">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M6 6L18 18M18 6L6 18" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
         </div>
-
         <div class="video-player-modal__stage">
           <iframe
             class="video-player-modal__frame"
@@ -527,6 +796,13 @@ const videoPlayer = (function () {
             referrerpolicy="strict-origin-when-cross-origin"
             allowfullscreen
           ></iframe>
+          <video
+            class="video-player-modal__native"
+            controls
+            playsinline
+            preload="metadata"
+            controlslist="nodownload"
+          ></video>
         </div>
       </div>
     `;
@@ -534,123 +810,270 @@ const videoPlayer = (function () {
     document.body.appendChild(modal);
 
     frame = modal.querySelector(".video-player-modal__frame");
+    nativeVideo = modal.querySelector(".video-player-modal__native");
     titleElement = modal.querySelector(".video-player-modal__title");
     closeButton = modal.querySelector(".video-player-modal__close");
 
     modal.addEventListener("click", function (event) {
-      if (event.target.closest("[data-video-close]")) {
-        close();
-      }
+      if (event.target.closest("[data-video-close]")) close();
     });
 
     document.addEventListener("keydown", function (event) {
-      if (
-        event.key === "Escape" &&
-        modal &&
-        modal.classList.contains("is-open")
-      ) {
+      if (!modal || !modal.classList.contains("is-open")) return;
+      if (event.key === "Escape") {
         close();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusables = [closeButton, frame && !frame.hidden ? frame : null, nativeVideo && !nativeVideo.hidden ? nativeVideo : null]
+        .filter(function (element) { return element instanceof HTMLElement; });
+      if (!focusables.length) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     });
   }
 
-  function open(video) {
-    ensureModal();
+  function setBackgroundInert(active) {
+    if (!document.body || !modal) return;
 
-    const embedUrl = getEmbedUrl(video.videoUrl);
-
-    if (!embedUrl || !frame || !titleElement) {
-      console.warn("Unsupported or invalid YouTube video URL.");
+    if (active) {
+      inertSiblings = Array.from(document.body.children).filter(function (element) {
+        return element instanceof HTMLElement &&
+          element !== modal &&
+          !["SCRIPT", "STYLE"].includes(element.tagName) &&
+          !element.inert;
+      });
+      inertSiblings.forEach(function (element) { element.inert = true; });
       return;
     }
 
-    lastFocusedElement =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+    inertSiblings.forEach(function (element) {
+      if (element && element.isConnected) element.inert = false;
+    });
+    inertSiblings = [];
+  }
 
+  function resetMedia() {
+    if (frame) {
+      frame.src = "";
+      frame.hidden = true;
+    }
+
+    if (nativeVideo) {
+      nativeVideo.pause();
+      nativeVideo.removeAttribute("src");
+      nativeVideo.removeAttribute("poster");
+      nativeVideo.hidden = true;
+      nativeVideo.load();
+    }
+  }
+
+  function populateAndShow(video) {
+    resetMedia();
     titleElement.textContent = video.title || "فيديو";
 
-    frame.src = embedUrl;
+    const embedUrl = getEmbedUrl(video.videoUrl);
+    if (embedUrl && frame) {
+      frame.hidden = false;
+      frame.src = embedUrl;
+    } else if (nativeVideo) {
+      nativeVideo.hidden = false;
+      nativeVideo.src = video.videoUrl;
+      if (isSafeHttpsUrl(video.posterUrl)) nativeVideo.poster = video.posterUrl;
+      nativeVideo.load();
+      const playAttempt = nativeVideo.play();
+      if (playAttempt && typeof playAttempt.catch === "function") {
+        playAttempt.catch(function () {
+          // Controls remain available if autoplay is blocked by the browser.
+        });
+      }
+    }
 
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
-
     document.body.classList.add("video-player-open");
+    setBackgroundInert(true);
+  }
 
+  function focusCloseButton() {
     window.requestAnimationFrame(function () {
-      if (closeButton) closeButton.focus();
+      if (closeButton) closeButton.focus({ preventScroll: true });
     });
   }
 
-  function close() {
-    if (!modal || !frame) return;
+  function open(video, sourceMedia) {
+    ensureModal();
+    if (!video || !isSafeHttpsUrl(video.videoUrl) || !titleElement || modalState !== "closed") return;
 
-    modal.classList.remove("is-open");
-    modal.setAttribute("aria-hidden", "true");
-
-    /*
-     * إزالة src مهمة:
-     * توقف الفيديو والصوت فعليًا عند إغلاق المشغل.
-     */
-    frame.src = "";
-
-    document.body.classList.remove("video-player-open");
-
-    if (lastFocusedElement) {
-      lastFocusedElement.focus();
+    const operation = ++modalOperation;
+    modalState = "opening";
+    if (activeModalTransition && typeof activeModalTransition.skipTransition === "function") {
+      activeModalTransition.skipTransition();
     }
 
-    lastFocusedElement = null;
+    lastFocusedElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    activeSourceMedia = sourceMedia instanceof HTMLElement ? sourceMedia : null;
+
+    const stage = modal.querySelector(".video-player-modal__stage");
+    const sourceCanMorph = Boolean(activeSourceMedia && activeSourceMedia.isConnected && activeSourceMedia.getClientRects().length);
+
+    if (canUseViewTransitions() && stage && sourceCanMorph) {
+      activeSourceMedia.style.viewTransitionName = "basair-video-media";
+      document.documentElement.classList.add("basair-video-transition");
+      const transition = document.startViewTransition(function () {
+        activeSourceMedia.style.viewTransitionName = "none";
+        populateAndShow(video);
+        stage.style.viewTransitionName = "basair-video-media";
+      });
+      activeModalTransition = transition;
+
+      transition.finished.finally(function () {
+        if (stage) stage.style.viewTransitionName = "";
+        if (activeSourceMedia) activeSourceMedia.style.viewTransitionName = "";
+        document.documentElement.classList.remove("basair-video-transition");
+        if (activeModalTransition === transition) activeModalTransition = null;
+        if (operation !== modalOperation) return;
+        modalState = "open";
+        focusCloseButton();
+      });
+      return;
+    }
+
+    populateAndShow(video);
+    modalState = "open";
+    focusCloseButton();
   }
 
-  return {
-    open: open,
-    close: close
-  };
+  function close() {
+    if (!modal || modalState === "closed" || modalState === "closing") return;
+
+    const operation = ++modalOperation;
+    modalState = "closing";
+    if (activeModalTransition && typeof activeModalTransition.skipTransition === "function") {
+      activeModalTransition.skipTransition();
+    }
+
+    const stage = modal.querySelector(".video-player-modal__stage");
+    const returnMedia = activeSourceMedia && activeSourceMedia.isConnected && activeSourceMedia.getClientRects().length
+      ? activeSourceMedia
+      : null;
+    const restoreFocus = lastFocusedElement;
+
+    function hideAndReset() {
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      resetMedia();
+      document.body.classList.remove("video-player-open");
+      setBackgroundInert(false);
+    }
+
+    function finishClose() {
+      if (stage) stage.style.viewTransitionName = "";
+      if (returnMedia) returnMedia.style.viewTransitionName = "";
+      document.documentElement.classList.remove("basair-video-transition");
+      activeSourceMedia = null;
+      lastFocusedElement = null;
+      if (operation !== modalOperation) return;
+      modalState = "closed";
+      if (restoreFocus && restoreFocus.isConnected) restoreFocus.focus({ preventScroll: true });
+    }
+
+    if (canUseViewTransitions() && stage && returnMedia) {
+      stage.style.viewTransitionName = "basair-video-media";
+      document.documentElement.classList.add("basair-video-transition");
+      const transition = document.startViewTransition(function () {
+        stage.style.viewTransitionName = "none";
+        hideAndReset();
+        returnMedia.style.viewTransitionName = "basair-video-media";
+      });
+      activeModalTransition = transition;
+      transition.finished.finally(function () {
+        if (activeModalTransition === transition) activeModalTransition = null;
+        finishClose();
+      });
+      return;
+    }
+
+    hideAndReset();
+    finishClose();
+  }
+
+  return { open: open, close: close };
 })();
+
 function createVideoCard(video) {
   const card = document.createElement("article");
   card.className = "video-card group cursor-pointer animate-fade-in-up dynamic-video";
   card.setAttribute("data-category", video.category);
-  card.addEventListener("click", function (event) {
-  if (event.target.closest("button")) return;
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", "تشغيل الفيديو: " + video.title);
 
-  videoPlayer.open(video);
-});
+  function openVideo(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    videoPlayer.open(video, imageWrapper);
+  }
+
+  card.addEventListener("click", function (event) {
+    if (event.target.closest("button")) return;
+    openVideo(event);
+  });
+
+  card.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" || event.key === " ") openVideo(event);
+  });
 
   const imageWrapper = document.createElement("div");
-  imageWrapper.className = "relative w-full h-56 rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg";
+  imageWrapper.className = "video-card__media relative w-full rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg";
 
   const overlay = document.createElement("div");
-  overlay.className = "absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10";
+  overlay.className = "video-card__overlay absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-all z-10";
 
   const img = document.createElement("img");
-  img.src = video.imageUrl;
+  img.src = video.posterUrl;
   img.alt = video.title;
   img.loading = "lazy";
-  img.className = "w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700";
+  img.decoding = "async";
+  img.className = "video-card__poster w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700";
+  img.addEventListener("error", function () {
+    const fallback = video.fallbackPosterUrl || derivePosterFromVideoUrl(video.videoUrl);
+    const fallbackAbsolute = fallback ? new URL(fallback, window.location.href).href : "";
+
+    if (img.dataset.fallbackStage !== "derived" && fallbackAbsolute && img.src !== fallbackAbsolute) {
+      img.dataset.fallbackStage = "derived";
+      img.src = fallback;
+      return;
+    }
+
+    if (img.dataset.fallbackStage !== "brand") {
+      img.dataset.fallbackStage = "brand";
+      img.src = "logo.png";
+      img.classList.add("video-card__poster--brand");
+    }
+  });
 
   const playLayer = document.createElement("div");
   playLayer.className = "absolute inset-0 flex items-center justify-center z-20";
 
   const playCircle = document.createElement("button");
-playCircle.type = "button";
-
-playCircle.setAttribute(
-  "aria-label",
-  "تشغيل الفيديو داخل الموقع: " + video.title
-);
-
-playCircle.className =
-  "w-16 h-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 group-hover:bg-[#D4AF37]/90 transition-all";
-
-playCircle.addEventListener("click", function (event) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  videoPlayer.open(video);
-});
+  playCircle.type = "button";
+  playCircle.setAttribute("aria-label", "تشغيل الفيديو داخل الموقع: " + video.title);
+  playCircle.className = "video-card__play rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:bg-[#D4AF37]/90 transition-all";
+  playCircle.addEventListener("click", openVideo);
 
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "w-6 h-6 text-white translate-x-0.5");
@@ -660,7 +1083,6 @@ playCircle.addEventListener("click", function (event) {
 
   const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
   path.setAttribute("d", "M5.536 21.886a1.004 1.004 0 001.033-.064l13-9a1 1 0 000-1.644l-13-9A1 1 0 005 3v18a1 1 0 00.536.886z");
-
   svg.appendChild(path);
   playCircle.appendChild(svg);
   playLayer.appendChild(playCircle);
@@ -669,17 +1091,31 @@ playCircle.addEventListener("click", function (event) {
   imageWrapper.appendChild(playLayer);
 
   const title = document.createElement("h3");
-  title.className = "text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors";
+  title.className = "video-card__title text-xl font-bold text-white mb-2 group-hover:text-[#D4AF37] transition-colors";
   title.textContent = video.title;
 
   const desc = document.createElement("p");
-  desc.className = "text-white/60 text-sm font-medium";
-  desc.textContent = "فيديو مضاف حديثًا.";
+  desc.className = "video-card__meta text-white/60 text-sm font-medium";
+  const activeLang = getSafeLang(document.documentElement.lang || DEFAULT_LANGUAGE);
+  const sourceLabel = getYouTubeSourceLabel(video.videoUrl, activeLang);
+  desc.textContent = sourceLabel;
 
   card.appendChild(imageWrapper);
   card.appendChild(title);
   card.appendChild(desc);
   return card;
+}
+
+function getYouTubeSourceLabel(url, lang) {
+  const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(String(url || ""));
+  const labels = {
+    ar: isYouTube ? "مشاهدة داخل بصائر عبر YouTube" : "فيديو مستضاف خارجيًا",
+    en: isYouTube ? "Watch in Basair via YouTube" : "Externally hosted video",
+    fr: isYouTube ? "Voir dans Bassaïr via YouTube" : "Vidéo hébergée à l’extérieur",
+    ru: isYouTube ? "Смотреть в Басаир через YouTube" : "Видео на внешнем хостинге",
+    uz: isYouTube ? "Basair ichida YouTube orqali ko‘rish" : "Tashqi xostingdagi video"
+  };
+  return labels[lang] || labels.en;
 }
 
 // ==========================================
@@ -760,14 +1196,113 @@ function initSlider() {
 }
 
 // ==========================================
-// Enrollment form
+// Marketing attribution & funnel tracking
+// ==========================================
+function sanitizeMarketingValue(value, maxLength) {
+  return String(value || "").trim().slice(0, maxLength || 300);
+}
+
+function captureMarketingAttribution() {
+  const params = new URLSearchParams(window.location.search);
+  const keys = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "fbclid", "ttclid"];
+  const current = {
+    landingPath: window.location.pathname,
+    referrer: sanitizeMarketingValue(document.referrer, 500),
+    capturedAt: new Date().toISOString()
+  };
+
+  keys.forEach(function (key) {
+    const value = params.get(key);
+    if (value) current[key] = sanitizeMarketingValue(value, 200);
+  });
+
+  try {
+    const firstKey = "basair_first_touch_attribution";
+    if (!localStorage.getItem(firstKey)) {
+      localStorage.setItem(firstKey, JSON.stringify(current));
+    }
+    localStorage.setItem("basair_last_touch_attribution", JSON.stringify(current));
+    let storedFirst = {};
+    try { storedFirst = JSON.parse(localStorage.getItem(firstKey) || "{}"); } catch (_) {}
+    return { firstTouch: sanitizeAttributionMap(storedFirst), lastTouch: sanitizeAttributionMap(current) };
+  } catch (error) {
+    return { firstTouch: sanitizeAttributionMap(current), lastTouch: sanitizeAttributionMap(current) };
+  }
+}
+
+const marketingAttribution = captureMarketingAttribution();
+
+function trackMarketingEvent(name, extra) {
+  const payload = Object.assign({
+    event: name,
+    route: window.location.pathname,
+    language: getSafeLang(document.documentElement.lang || DEFAULT_LANGUAGE)
+  }, extra || {});
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(payload);
+
+  if (typeof window.gtag === "function") {
+    window.gtag("event", name, payload);
+  }
+
+  if (typeof window.fbq === "function") {
+    if (name === "assessment_submit_success") window.fbq("track", "CompleteRegistration", payload);
+    else if (name === "assessment_start") window.fbq("track", "Lead", payload);
+    else window.fbq("trackCustom", name, payload);
+  }
+}
+
+function initMarketingTracking() {
+  trackMarketingEvent("academy_page_view", {
+    utm_source: marketingAttribution.lastTouch.utm_source || "",
+    utm_campaign: marketingAttribution.lastTouch.utm_campaign || ""
+  });
+
+  document.querySelectorAll('a[href="#contact"], a[href="#conversion-paths"], a[href*="/en/"], a[href*="/ru/"], a[href*="/uz/"]').forEach(function (link) {
+    link.addEventListener("click", function () {
+      trackMarketingEvent("conversion_cta_click", { href: link.getAttribute("href") || "" });
+    });
+  });
+}
+
+// ==========================================
+// Enrollment / free assessment form
 // ==========================================
 function initEnrollmentForm() {
   const form = document.getElementById("enrollment-form");
   if (!form) return;
 
+  form.addEventListener("input", function () {
+    const successMsg = document.getElementById("success-message");
+    const errorMsg = document.getElementById("error-message");
+    const recovery = document.getElementById("assessment-recovery");
+    if (successMsg && successMsg.dataset.delightState === "received") {
+      successMsg.classList.add("hidden");
+      successMsg.removeAttribute("data-delight-state");
+    }
+    if (errorMsg && errorMsg.dataset.delightState === "recovery") {
+      errorMsg.classList.add("hidden");
+      errorMsg.removeAttribute("data-delight-state");
+    }
+    if (recovery) recovery.remove();
+    form.removeAttribute("data-delight-state");
+    if (form.dataset.nativeState === "success" || form.dataset.nativeState === "error") {
+      delete form.dataset.nativeState;
+    }
+  }, { passive: true });
+
+  let assessmentSubmissionInFlight = false;
+
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
+    if (assessmentSubmissionInFlight) return;
+    const honeypot = form.elements.namedItem("website");
+    if (honeypot && String(honeypot.value || "").trim()) {
+      // Quietly ignore basic bot submissions. Backend protections remain authoritative.
+      form.reset();
+      return;
+    }
 
     const submitBtn = document.getElementById("submit-btn");
     const btnText = document.getElementById("btn-text");
@@ -781,23 +1316,160 @@ function initEnrollmentForm() {
     function unlock() {
       submitBtn.disabled = false;
       submitBtn.classList.remove("opacity-70", "cursor-not-allowed");
+      submitBtn.removeAttribute("aria-busy");
+      form.removeAttribute("aria-busy");
+      if (form.dataset.nativeState === "submitting") delete form.dataset.nativeState;
       btnText.classList.remove("hidden");
       btnSpinner.classList.add("hidden");
     }
 
-    const lastSubmissionTime = localStorage.getItem("basair_last_submission");
+    const activeLang = getSafeLang(document.documentElement.lang || DEFAULT_LANGUAGE);
+    const messages = {
+      ar: {
+        recent: "عذرًا، لقد أرسلت طلب تقييم مؤخرًا. يرجى المحاولة لاحقًا.",
+        track: "يرجى اختيار المسار الأكاديمي أولًا.",
+        name: "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.",
+        phone: "يرجى إدخال رقم واتساب أو هاتف صحيح.",
+        country: "يرجى إدخال البلد إدخالًا صحيحًا.",
+        email: "يرجى إدخال بريد إلكتروني صحيح أو تركه فارغًا.",
+        message: "الرسالة طويلة جدًا. يرجى اختصارها.",
+        server: "تعذر إرسال طلب التقييم الآن. تحقق من اتصالك ثم حاول مرة أخرى.",
+        offline: "لا يوجد اتصال بالإنترنت الآن. بياناتك باقية في النموذج؛ أعد الإرسال بعد عودة الاتصال.",
+        uncertain: "تعذر تأكيد نتيجة الإرسال. قد يكون الطلب وصل بالفعل؛ تجنب الإرسال المتكرر ويمكنك المتابعة مباشرة أدناه.",
+        recoveryLead: "يمكنك المتابعة مباشرة دون إعادة إدخال البيانات:",
+        whatsapp: "المتابعة عبر WhatsApp",
+        telegram: "المتابعة عبر Telegram"
+      },
+      en: {
+        recent: "You recently sent an assessment request. Please try again later.",
+        track: "Please choose an academic track first.",
+        name: "Please enter your full name correctly.",
+        phone: "Please enter a valid WhatsApp or phone number.",
+        country: "Please enter your country.",
+        email: "Please enter a valid email address or leave it blank.",
+        message: "Your message is too long. Please shorten it.",
+        server: "We could not send your assessment request. Check your connection and try again.",
+        offline: "You are offline. Your data is still in the form; submit again when the connection returns.",
+        uncertain: "We could not confirm the submission result. It may already have been received; avoid repeated submissions and use direct follow-up below.",
+        recoveryLead: "You can continue directly without re-entering your details:",
+        whatsapp: "Continue on WhatsApp",
+        telegram: "Continue on Telegram"
+      },
+      fr: {
+        recent: "Vous avez récemment envoyé une demande d’évaluation. Veuillez réessayer plus tard.",
+        track: "Veuillez d’abord choisir un parcours académique.",
+        name: "Veuillez saisir correctement votre nom complet.",
+        phone: "Veuillez saisir un numéro WhatsApp ou de téléphone valide.",
+        country: "Veuillez saisir votre pays.",
+        email: "Veuillez saisir une adresse e-mail valide ou laisser ce champ vide.",
+        message: "Votre message est trop long. Veuillez le raccourcir.",
+        server: "Impossible d’envoyer votre demande d’évaluation. Vérifiez votre connexion et réessayez.",
+        offline: "Vous êtes hors ligne. Vos données restent dans le formulaire ; réessayez lorsque la connexion revient.",
+        uncertain: "Impossible de confirmer le résultat de l’envoi. La demande a peut-être déjà été reçue ; évitez les envois répétés et utilisez le suivi direct ci-dessous.",
+        recoveryLead: "Vous pouvez poursuivre directement sans ressaisir vos informations :",
+        whatsapp: "Continuer sur WhatsApp",
+        telegram: "Continuer sur Telegram"
+      },
+      ru: {
+        recent: "Вы недавно уже отправляли заявку на диагностику. Пожалуйста, попробуйте позже.",
+        track: "Сначала выберите учебное направление.",
+        name: "Пожалуйста, правильно укажите полное имя.",
+        phone: "Укажите действительный номер WhatsApp или телефона.",
+        country: "Пожалуйста, укажите страну.",
+        email: "Укажите корректный e-mail или оставьте поле пустым.",
+        message: "Сообщение слишком длинное. Пожалуйста, сократите его.",
+        server: "Не удалось отправить заявку на диагностику. Проверьте соединение и попробуйте снова.",
+        offline: "Нет подключения к Интернету. Данные остаются в форме; отправьте снова после восстановления связи.",
+        uncertain: "Не удалось подтвердить результат отправки. Заявка могла уже поступить; не отправляйте её многократно и воспользуйтесь прямой связью ниже.",
+        recoveryLead: "Можно продолжить напрямую, не вводя данные повторно:",
+        whatsapp: "Продолжить в WhatsApp",
+        telegram: "Продолжить в Telegram"
+      },
+      uz: {
+        recent: "Siz yaqinda baholash so‘rovini yuborgansiz. Iltimos, keyinroq qayta urinib ko‘ring.",
+        track: "Avval akademik yo‘nalishni tanlang.",
+        name: "Iltimos, to‘liq ismingizni to‘g‘ri kiriting.",
+        phone: "Iltimos, haqiqiy WhatsApp yoki telefon raqamini kiriting.",
+        country: "Iltimos, mamlakatingizni kiriting.",
+        email: "To‘g‘ri elektron pochta manzilini kiriting yoki maydonni bo‘sh qoldiring.",
+        message: "Izoh juda uzun. Iltimos, uni qisqartiring.",
+        server: "Baholash so‘rovini yuborib bo‘lmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring.",
+        offline: "Internet aloqasi yo‘q. Ma’lumotlaringiz formada qoladi; aloqa qaytgach yana yuboring.",
+        uncertain: "Yuborish natijasini tasdiqlab bo‘lmadi. So‘rov yetib borgan bo‘lishi mumkin; qayta-qayta yubormang va quyidagi aloqa yo‘lidan foydalaning.",
+        recoveryLead: "Ma’lumotlarni qayta kiritmasdan bevosita davom etishingiz mumkin:",
+        whatsapp: "WhatsApp orqali davom etish",
+        telegram: "Telegram orqali davom etish"
+      }
+    };
+    const formMessage = messages[activeLang] || messages.en;
+
+    function currentContactHref(channel, fallback) {
+      const existing = document.querySelector(`[data-contact-channel="${channel}"]`);
+      return existing instanceof HTMLAnchorElement ? existing.href : fallback;
+    }
+
+    function hideRecovery() {
+      const recovery = document.getElementById("assessment-recovery");
+      if (recovery) recovery.remove();
+      form.removeAttribute("data-delight-state");
+    }
+
+    function showRecovery() {
+      hideRecovery();
+      const recovery = document.createElement("div");
+      recovery.id = "assessment-recovery";
+      recovery.className = "assessment-recovery";
+      recovery.setAttribute("aria-label", formMessage.recoveryLead);
+
+      const lead = document.createElement("p");
+      lead.className = "assessment-recovery__lead";
+      lead.textContent = formMessage.recoveryLead;
+      recovery.appendChild(lead);
+
+      const actions = document.createElement("div");
+      actions.className = "assessment-recovery__actions";
+      [
+        ["whatsapp", formMessage.whatsapp, "https://wa.me/201070441115"],
+        ["telegram", formMessage.telegram, "https://t.me/BasairAcademy0"]
+      ].forEach(function ([channel, label, fallback]) {
+        const anchor = document.createElement("a");
+        anchor.className = "assessment-recovery__link assessment-recovery__link--" + channel;
+        anchor.href = currentContactHref(channel, fallback);
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.dataset.contactChannel = channel;
+        anchor.textContent = label;
+        anchor.addEventListener("click", function () {
+          trackMarketingEvent("assessment_recovery_click", { channel: channel });
+        });
+        actions.appendChild(anchor);
+      });
+      recovery.appendChild(actions);
+      errorMsg.insertAdjacentElement("afterend", recovery);
+      form.dataset.delightState = "recovery";
+    }
+
+    const lastSubmissionTime = safeStorage(window.localStorage, "get", "basair_last_submission");
     const currentTime = Date.now();
     const cooldown = 60 * 60 * 1000;
 
     if (lastSubmissionTime && currentTime - Number.parseInt(lastSubmissionTime, 10) < cooldown) {
-      errorText.textContent = "عذرًا، لقد أرسلت طلبًا مؤخرًا. يرجى المحاولة لاحقًا.";
+      errorText.textContent = formMessage.recent;
       errorMsg.classList.remove("hidden");
+      errorMsg.dataset.delightState = "recovery";
       successMsg.classList.add("hidden");
+      showRecovery();
       return;
     }
 
+    hideRecovery();
+    errorMsg.removeAttribute("data-delight-state");
+    successMsg.removeAttribute("data-delight-state");
     submitBtn.disabled = true;
     submitBtn.classList.add("opacity-70", "cursor-not-allowed");
+    submitBtn.setAttribute("aria-busy", "true");
+    form.setAttribute("aria-busy", "true");
+    form.dataset.nativeState = "submitting";
     btnText.classList.add("hidden");
     btnSpinner.classList.remove("hidden");
     successMsg.classList.add("hidden");
@@ -808,35 +1480,66 @@ function initEnrollmentForm() {
     const phone = String(formData.get("phone") || "").trim();
     const track = String(formData.get("track") || "").trim();
     const message = String(formData.get("message") || "").trim();
+    const ageGroup = sanitizeMarketingValue(formData.get("ageGroup"), 60);
+    const country = sanitizeMarketingValue(formData.get("country"), 90);
+    const email = sanitizeMarketingValue(formData.get("email"), 120);
+    const preferredTime = sanitizeMarketingValue(formData.get("preferredTime"), 120);
 
     if (!track) {
-      errorText.textContent = "يرجى اختيار المسار الأكاديمي أولًا.";
+      errorText.textContent = formMessage.track;
       errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "track");
       unlock();
       return;
     }
 
     if (fullName.length < 3 || fullName.length > 80) {
-      errorText.textContent = "يرجى إدخال الاسم كاملًا إدخالًا صحيحًا.";
+      errorText.textContent = formMessage.name;
       errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "fullName");
       unlock();
       return;
     }
 
-    if (phone.length < 6 || phone.length > 30) {
-      errorText.textContent = "يرجى إدخال رقم هاتف صحيح.";
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (phone.length < 6 || phone.length > 30 || phoneDigits.length < 6 || phoneDigits.length > 15 || !/^[+\d().\-\s]+$/.test(phone)) {
+      errorText.textContent = formMessage.phone;
       errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "phone");
+      unlock();
+      return;
+    }
+
+    if (country.length < 2 || country.length > 90) {
+      errorText.textContent = formMessage.country;
+      errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "country");
+      unlock();
+      return;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errorText.textContent = formMessage.email;
+      errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "email");
       unlock();
       return;
     }
 
     if (message.length > 1000) {
-      errorText.textContent = "الرسالة طويلة جدًا. يرجى اختصارها.";
+      errorText.textContent = formMessage.message;
       errorMsg.classList.remove("hidden");
+      focusInvalidField(form, "message");
       unlock();
       return;
     }
 
+    if (navigator.onLine === false) {
+      errorText.textContent = formMessage.offline; errorMsg.classList.remove("hidden"); form.dataset.nativeState = "error"; showRecovery(); unlock(); return;
+    }
+
+    assessmentSubmissionInFlight = true;
+    let submissionToken = null;
     try {
       const timeoutPromise = new Promise(function (_, reject) {
         window.setTimeout(function () {
@@ -844,32 +1547,84 @@ function initEnrollmentForm() {
         }, 15000);
       });
 
-      const writePromise = addDoc(collection(db, "enrollment_requests"), {
+      trackMarketingEvent("assessment_start", { track: track });
+
+      const leadPayload = {
+        requestType: "free_assessment",
         fullName: fullName,
         phone: phone,
+        email: email || null,
+        ageGroup: ageGroup || null,
+        country: country,
+        preferredTime: preferredTime || null,
         track: track,
-        message: message || "لا يوجد",
+        message: message || null,
+        language: document.documentElement.lang || DEFAULT_LANGUAGE,
+        pagePath: window.location.pathname,
+        firstTouchAttribution: marketingAttribution.firstTouch,
+        lastTouchAttribution: marketingAttribution.lastTouch,
         submissionDate: serverTimestamp(),
         status: "new"
-      });
+      };
 
-      await Promise.race([writePromise, timeoutPromise]);
-      localStorage.setItem("basair_last_submission", String(currentTime));
+      const fingerprint = JSON.stringify([fullName, phone, email || "", country, track, message || ""]);
+      submissionToken = createSubmissionToken("main-assessment", fingerprint);
+      const leadRef = doc(db, "assessment_requests", submissionToken.id);
+      const saveLead = async function () { await setDoc(leadRef, leadPayload); return leadRef; };
+
+      await Promise.race([saveLead(), timeoutPromise]);
+      clearSubmissionToken(submissionToken.storageKey);
+      safeStorage(window.localStorage, "set", "basair_last_submission", String(currentTime));
       form.reset();
       successMsg.classList.remove("hidden");
-
-      window.setTimeout(function () {
-        successMsg.classList.add("hidden");
-      }, 8000);
+      successMsg.dataset.delightState = "received";
+      form.dataset.delightState = "received";
+      form.dataset.nativeState = "success";
+      trackMarketingEvent("assessment_submit_success", { track: track });
     } catch (error) {
-      console.error("Enrollment Error:", error);
-      errorText.textContent = "فشل الاتصال بالخادم. يرجى المحاولة لاحقًا.";
+      console.error("Assessment Error:", error);
+      trackMarketingEvent("assessment_submit_error", { track: track, reason: error && error.message ? error.message : "unknown" });
+      const code = error && error.code ? String(error.code) : "";
+      const messageText = error && error.message ? String(error.message) : "";
+      const uncertain = messageText === "NETWORK_TIMEOUT" || (code === "permission-denied" && submissionToken && submissionToken.reused);
+      errorText.textContent = navigator.onLine === false ? formMessage.offline : uncertain ? formMessage.uncertain : formMessage.server;
       errorMsg.classList.remove("hidden");
+      errorMsg.dataset.delightState = "recovery";
       successMsg.classList.add("hidden");
+      form.dataset.nativeState = "error";
+      showRecovery();
     } finally {
+      assessmentSubmissionInFlight = false;
       unlock();
     }
   });
+}
+
+// ==========================================
+// Polished action feedback (keeps existing visual identity)
+// ==========================================
+function enhancePrimaryActions() {
+  const selectors = [
+    'a[href="#contact"]',
+    'a[href="#conversion-paths"]',
+    'a[href="#video-library"]',
+    'a[href^="https://wa.me/"]',
+    'a[href^="https://t.me/"]',
+    '#submit-btn',
+    '.filter-btn',
+    '#lang-btn',
+    '#mobile-lang-btn',
+    '#mobile-menu-btn'
+  ];
+  document.querySelectorAll(selectors.join(",")).forEach(function (el) {
+    el.classList.add("basair-action");
+  });
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", enhancePrimaryActions, { once: true });
+} else {
+  enhancePrimaryActions();
 }
 
 // ==========================================
@@ -887,9 +1642,15 @@ const adminContentRef = doc(db, "site_content", "public");
 let adminContentCache = { videos: [], texts: {} };
 
 function normalizeAdminContent(data) {
-  const videos = Array.isArray(data && data.videos) ? data.videos : [];
-  const texts = data && data.texts && typeof data.texts === "object" ? data.texts : {};
-  return { videos: videos, texts: texts };
+  const rawVideos = Array.isArray(data && data.videos) ? data.videos : [];
+  const videos = rawVideos.slice(0, 250);
+  const rawTexts = data && data.texts && typeof data.texts === "object" && !Array.isArray(data.texts) ? data.texts : {};
+  const texts = {};
+  Object.entries(rawTexts).slice(0, 5000).forEach(function ([id, value]) {
+    if (typeof id === "string" && id.length <= 160 && typeof value === "string") texts[id] = value.slice(0, 12000);
+  });
+  const settings = data && data.settings && typeof data.settings === "object" && !Array.isArray(data.settings) ? data.settings : {};
+  return { videos: videos, texts: texts, settings: settings };
 }
 
 // ==========================================
@@ -899,11 +1660,34 @@ function normalizeAdminContent(data) {
 
 let dynamicContentUnsubscribe = null;
 
+function applyPublicContactSettings(settings) {
+  const safe = settings && typeof settings === "object" ? settings : {};
+  const whatsapp = String(safe.whatsappNumber || "").replace(/\D/g, "");
+  const telegram = String(safe.telegramUsername || "").trim().replace(/^@+/, "");
+
+  if (whatsapp.length >= 8 && whatsapp.length <= 15) {
+    document.querySelectorAll('[data-contact-channel="whatsapp"]').forEach(function (anchor) {
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      let query = "";
+      try { query = new URL(anchor.href, window.location.href).search || ""; } catch (_) {}
+      anchor.href = "https://wa.me/" + whatsapp + query;
+    });
+  }
+
+  if (/^[A-Za-z0-9_]{5,32}$/.test(telegram)) {
+    document.querySelectorAll('[data-contact-channel="telegram"]').forEach(function (anchor) {
+      if (anchor instanceof HTMLAnchorElement) anchor.href = "https://t.me/" + telegram;
+    });
+  }
+}
+
 function renderDynamicContent(data) {
   const safeData =
     data && typeof data === "object"
       ? data
       : {};
+
+  applyPublicContactSettings(safeData.settings);
 
   // ------------------------------
   // Dynamic texts
@@ -912,7 +1696,7 @@ function renderDynamicContent(data) {
     safeData.texts &&
     typeof safeData.texts === "object"
   ) {
-    Object.entries(safeData.texts).forEach(function ([id, value]) {
+    Object.entries(safeData.texts).slice(0, 5000).forEach(function ([id, value]) {
       if (
         typeof id !== "string" ||
         typeof value !== "string"
@@ -928,14 +1712,8 @@ function renderDynamicContent(data) {
       document
         .querySelectorAll(selector)
         .forEach(function (element) {
-          // FAQ remains static
-          if (
-            element.closest &&
-            element.closest("#faq")
-          ) {
-            return;
-          }
-
+          // Content is rendered as plain text only. This deliberately avoids
+          // innerHTML so an admin text override cannot become an XSS payload.
           element.textContent = value;
         });
     });
@@ -1021,7 +1799,7 @@ function startDynamicContentSubscription() {
       }
 
       renderDynamicContent(
-        snapshot.data()
+        normalizeAdminContent(snapshot.data())
       );
     },
 
@@ -1038,6 +1816,13 @@ function startDynamicContentSubscription() {
  * Retained as a compatibility function
  * for existing admin-related calls in app.js.
  */
+window.addEventListener("pagehide", function () {
+  if (dynamicContentUnsubscribe) {
+    dynamicContentUnsubscribe();
+    dynamicContentUnsubscribe = null;
+  }
+}, { once: true });
+
 async function loadDynamicContent() {
   try {
     const snapshot =
@@ -1066,433 +1851,19 @@ async function loadDynamicContent() {
     
 
 // ==========================================
-// Secure Admin Panel
-// ==========================================
-let adminUser = null;
-let adminAllowed = false;
-
-function byId(id) {
-  return document.getElementById(id);
-}
-
-function setAdminMessage(message, type) {
-  const status = byId("admin-status");
-  if (!status) return;
-
-  status.textContent = message || "";
-  status.classList.remove("hidden", "text-red-200", "text-green-200", "text-yellow-200");
-
-  if (!message) {
-    status.classList.add("hidden");
-    return;
-  }
-
-  if (type === "success") status.classList.add("text-green-200");
-  else if (type === "warning") status.classList.add("text-yellow-200");
-  else status.classList.add("text-red-200");
-}
-
-function openAdminPanel() {
-  const modal = byId("admin-modal");
-  if (!modal) return;
-
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-}
-
-function closeAdminPanel() {
-  const modal = byId("admin-modal");
-  if (!modal) return;
-
-  modal.classList.add("hidden");
-  modal.classList.remove("flex");
-  setAdminMessage("", "");
-}
-
-window.showAdminPanel = openAdminPanel;
-window.hideAdminPanel = closeAdminPanel;
-
-async function checkAdminRole(user) {
-  if (!user) return false;
-
-  try {
-    const roleRef = doc(db, "admin_roles", user.uid);
-    const roleSnap = await getDoc(roleRef);
-    return roleSnap.exists() && roleSnap.data().active === true;
-  } catch (error) {
-    console.error("Admin role check failed:", error);
-    return false;
-  }
-}
-
-function renderAdminAuthState() {
-  const loginPanel = byId("admin-login-panel");
-  const workspace = byId("admin-workspace");
-  const logoutBtn = byId("admin-logout-btn");
-  const emailLabel = byId("admin-current-email");
-
-  if (emailLabel) {
-    emailLabel.textContent = adminUser ? adminUser.email || "Admin" : "";
-  }
-
-  if (!adminUser || !adminAllowed) {
-    if (loginPanel) loginPanel.classList.remove("hidden");
-    if (workspace) workspace.classList.add("hidden");
-    if (logoutBtn) logoutBtn.classList.add("hidden");
-    return;
-  }
-
-  if (loginPanel) loginPanel.classList.add("hidden");
-  if (workspace) workspace.classList.remove("hidden");
-  if (logoutBtn) logoutBtn.classList.remove("hidden");
-}
-
-async function refreshAdminContent() {
-  const list = byId("admin-video-list");
-  if (list) list.textContent = "";
-
-  const snap = await getDoc(adminContentRef);
-  adminContentCache = normalizeAdminContent(snap.exists() ? snap.data() : {});
-
-  renderAdminVideoList();
-  renderAdminTextList();
-}
-
-function renderAdminVideoList() {
-  const list = byId("admin-video-list");
-  if (!list) return;
-
-  list.textContent = "";
-
-  if (!adminContentCache.videos.length) {
-    const empty = document.createElement("p");
-    empty.className = "text-white/60 text-sm";
-    empty.textContent = "لا توجد فيديوهات محفوظة بعد.";
-    list.appendChild(empty);
-    return;
-  }
-
-  adminContentCache.videos.forEach(function (video, index) {
-    const item = document.createElement("div");
-    item.className = "rounded-2xl border border-white/10 bg-white/5 p-4 flex flex-col md:flex-row md:items-center gap-3";
-
-    const info = document.createElement("div");
-    info.className = "flex-1 min-w-0";
-
-    const title = document.createElement("p");
-    title.className = "font-bold text-white truncate";
-    title.textContent = typeof video.title === "string" ? video.title : "بدون عنوان";
-
-    const meta = document.createElement("p");
-    meta.className = "text-xs text-white/50 mt-1";
-    meta.textContent = "التصنيف: " + (video.category || "all");
-
-    const actions = document.createElement("div");
-    actions.className = "flex gap-2 shrink-0";
-
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "px-3 py-2 rounded-xl bg-[#D4AF37] text-[#0A1F44] text-sm font-black";
-    editBtn.textContent = "تعديل";
-    editBtn.addEventListener("click", function () {
-      fillAdminVideoForm(index);
-    });
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "px-3 py-2 rounded-xl bg-red-500/80 text-white text-sm font-black";
-    deleteBtn.textContent = "حذف";
-    deleteBtn.addEventListener("click", function () {
-      deleteAdminVideo(index);
-    });
-
-    info.appendChild(title);
-    info.appendChild(meta);
-    actions.appendChild(editBtn);
-    actions.appendChild(deleteBtn);
-    item.appendChild(info);
-    item.appendChild(actions);
-    list.appendChild(item);
-  });
-}
-
-function fillAdminVideoForm(index) {
-  const video = adminContentCache.videos[index];
-  if (!video) return;
-
-  byId("admin-video-index").value = String(index);
-  byId("admin-video-title").value = video.title || "";
-  byId("admin-video-category").value = video.category || "all";
-  byId("admin-video-image").value = video.imageUrl || "";
-  byId("admin-video-url").value = video.videoUrl || "";
-  setAdminMessage("أنت الآن تعدّل فيديو محفوظًا. بعد التعديل اضغط حفظ الفيديو.", "warning");
-}
-
-function resetAdminVideoForm() {
-  const form = byId("admin-video-form");
-  if (form) form.reset();
-
-  const index = byId("admin-video-index");
-  if (index) index.value = "";
-
-  setAdminMessage("", "");
-}
-
-function validateHttpsUrl(url, fieldName) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") throw new Error("URL_NOT_HTTPS");
-    return parsed.href;
-  } catch (error) {
-    throw new Error(fieldName + " يجب أن يكون رابطًا صحيحًا يبدأ بـ https://");
-  }
-}
-
-async function saveAdminVideo(event) {
-  event.preventDefault();
-
-  if (!adminUser || !adminAllowed) {
-    setAdminMessage("ليست لديك صلاحية الإدارة.", "error");
-    return;
-  }
-
-  const indexInput = byId("admin-video-index");
-  const titleInput = byId("admin-video-title");
-  const categoryInput = byId("admin-video-category");
-  const imageInput = byId("admin-video-image");
-  const urlInput = byId("admin-video-url");
-
-  try {
-    const title = String(titleInput.value || "").trim();
-    const category = String(categoryInput.value || "all").trim();
-    const imageUrl = validateHttpsUrl(String(imageInput.value || "").trim(), "رابط الصورة");
-    const videoUrl = validateHttpsUrl(String(urlInput.value || "").trim(), "رابط الفيديو");
-
-    if (title.length < 2 || title.length > 120) {
-      throw new Error("عنوان الفيديو يجب أن يكون بين حرفين و120 حرفًا.");
-    }
-
-    const allowed = ["all", "quran", "arabic", "islamic", "tajweed", "grammar", "specialization"];
-    if (!allowed.includes(category)) {
-      throw new Error("تصنيف الفيديو غير صحيح.");
-    }
-
-    const snap = await getDoc(adminContentRef);
-    const current = normalizeAdminContent(snap.exists() ? snap.data() : {});
-    const videos = current.videos.slice();
-
-    const videoData = {
-      title: title,
-      category: category,
-      imageUrl: imageUrl,
-      videoUrl: videoUrl,
-      updatedAt: new Date().toISOString()
-    };
-
-    const editIndex = indexInput && indexInput.value !== "" ? Number.parseInt(indexInput.value, 10) : -1;
-
-    if (Number.isInteger(editIndex) && editIndex >= 0 && editIndex < videos.length) {
-      videos[editIndex] = Object.assign({}, videos[editIndex], videoData);
-    } else {
-      videos.push(Object.assign({ createdAt: new Date().toISOString() }, videoData));
-    }
-
-    await setDoc(adminContentRef, { videos: videos }, { merge: true });
-    resetAdminVideoForm();
-    await refreshAdminContent();
-    await loadDynamicContent();
-    setAdminMessage("تم حفظ الفيديو بنجاح.", "success");
-  } catch (error) {
-    console.error("Save video failed:", error);
-    setAdminMessage(error.message || "فشل حفظ الفيديو.", "error");
-  }
-}
-
-async function deleteAdminVideo(index) {
-  if (!adminUser || !adminAllowed) return;
-  if (!window.confirm("هل تريد حذف هذا الفيديو؟")) return;
-
-  try {
-    const snap = await getDoc(adminContentRef);
-    const current = normalizeAdminContent(snap.exists() ? snap.data() : {});
-    const videos = current.videos.slice();
-    videos.splice(index, 1);
-
-    await setDoc(adminContentRef, { videos: videos }, { merge: true });
-    await refreshAdminContent();
-    await loadDynamicContent();
-    setAdminMessage("تم حذف الفيديو.", "success");
-  } catch (error) {
-    console.error("Delete video failed:", error);
-    setAdminMessage("فشل حذف الفيديو. تأكد من الصلاحيات.", "error");
-  }
-}
-
-function renderAdminTextList() {
-  const list = byId("admin-text-list");
-  if (!list) return;
-
-  list.textContent = "";
-
-  const entries = Object.entries(adminContentCache.texts || {});
-  if (!entries.length) {
-    const empty = document.createElement("p");
-    empty.className = "text-white/60 text-sm";
-    empty.textContent = "لا توجد نصوص ديناميكية محفوظة بعد.";
-    list.appendChild(empty);
-    return;
-  }
-
-  entries.forEach(function ([key, value]) {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "w-full text-start rounded-xl border border-white/10 bg-white/5 p-3 hover:bg-white/10";
-    row.textContent = key + " — " + String(value).slice(0, 70);
-
-    row.addEventListener("click", function () {
-      byId("admin-text-id").value = key;
-      byId("admin-text-value").value = String(value);
-    });
-
-    list.appendChild(row);
-  });
-}
-
-async function saveAdminText(event) {
-  event.preventDefault();
-
-  if (!adminUser || !adminAllowed) {
-    setAdminMessage("ليست لديك صلاحية الإدارة.", "error");
-    return;
-  }
-
-  const id = String(byId("admin-text-id").value || "").trim();
-  const value = String(byId("admin-text-value").value || "").trim();
-
-  if (!id || id.length > 120) {
-    setAdminMessage("معرّف النص غير صحيح.", "error");
-    return;
-  }
-
-  if (value.length > 2000) {
-    setAdminMessage("النص طويل جدًا.", "error");
-    return;
-  }
-
-  try {
-    const snap = await getDoc(adminContentRef);
-    const current = normalizeAdminContent(snap.exists() ? snap.data() : {});
-    const texts = Object.assign({}, current.texts || {});
-    texts[id] = value;
-
-    await setDoc(adminContentRef, { texts: texts }, { merge: true });
-    await refreshAdminContent();
-    await loadDynamicContent();
-    setAdminMessage("تم حفظ النص بنجاح.", "success");
-  } catch (error) {
-    console.error("Save text failed:", error);
-    setAdminMessage("فشل حفظ النص. تأكد من الصلاحيات.", "error");
-  }
-}
-
-function initAdminPanel() {
-  const modal = byId("admin-modal");
-  if (!modal) return;
-
-  const closeBtn = byId("admin-close-btn");
-  const googleLoginBtn = byId("admin-google-login-btn");
-  const logoutBtn = byId("admin-logout-btn");
-  const videoForm = byId("admin-video-form");
-  const resetVideoBtn = byId("admin-reset-video-form");
-  const refreshBtn = byId("admin-refresh-content");
-  const textForm = byId("admin-text-form");
-
-  if (closeBtn) closeBtn.addEventListener("click", closeAdminPanel);
-  if (resetVideoBtn) resetVideoBtn.addEventListener("click", resetAdminVideoForm);
-  if (videoForm) videoForm.addEventListener("submit", saveAdminVideo);
-  if (textForm) textForm.addEventListener("submit", saveAdminText);
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener("click", function () {
-      refreshAdminContent().then(function () {
-        setAdminMessage("تم تحديث بيانات لوحة الإدارة.", "success");
-      }).catch(function (error) {
-        console.error(error);
-        setAdminMessage("فشل تحديث البيانات.", "error");
-      });
-    });
-  }
-
-  if (googleLoginBtn) {
-    googleLoginBtn.addEventListener("click", async function () {
-      try {
-        setAdminMessage("جار تسجيل الدخول بحساب Google...", "warning");
-
-        const result = await signInWithPopup(auth, googleProvider);
-
-        console.log("Google sign-in success:", result.user);
-
-        setAdminMessage(
-          "تم تسجيل الدخول بحساب: " + (result.user.email || "Google"),
-          "success"
-        );
-      } catch (error) {
-        console.error("Google popup sign-in failed:", error);
-
-        const errorCode = error && error.code ? error.code : "no-code";
-        const errorMessage = error && error.message ? error.message : "لا توجد رسالة تفصيلية";
-
-        setAdminMessage(
-          "فشل تسجيل الدخول: " + errorCode + " — " + errorMessage,
-          "error"
-        );
-      }
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", async function () {
-      await signOut(auth);
-      setAdminMessage("تم تسجيل الخروج.", "success");
-    });
-  }
-
-  onAuthStateChanged(auth, async function (user) {
-    adminUser = user;
-    adminAllowed = false;
-
-    if (!user) {
-      renderAdminAuthState();
-      return;
-    }
-
-    setAdminMessage("جار التحقق من صلاحية الإدارة...", "warning");
-    adminAllowed = await checkAdminRole(user);
-    renderAdminAuthState();
-
-    if (!adminAllowed) {
-      setAdminMessage("هذا الحساب سجّل دخوله، لكنه ليس حساب مدير. انسخ UID من Authentication > Users ثم أنشئ admin_roles/UID بقيمة active = true.", "error");
-      return;
-    }
-
-    await refreshAdminContent();
-    setAdminMessage("تم فتح لوحة الإدارة الآمنة.", "success");
-  });
-}
-
-// ==========================================
 // Bootstrap
 // ==========================================
 document.addEventListener("DOMContentLoaded", function () {
   try {
-    setLang(localStorage.getItem("academy_lang") || "ar");
+    setLang(getInitialLanguage());
     initLanguageButtons();
     initGlobalClicks();
     initScrollEffects();
+    initMotionLifecycle();
     initVideoFilter();
     initSlider();
     initEnrollmentForm();
-    initAdminPanel();
+    initMarketingTracking();
 
     /*
      * Firestore realtime subscription must not block first paint.

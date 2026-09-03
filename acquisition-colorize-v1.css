@@ -1,0 +1,76 @@
+/* Basair Acquisition — Impeccable Colorize v1
+   Same brand world as the academy: ivory field, emerald action, gold academic accent. */
+:root{
+  --quranic:#00563f;
+  --quranic-deep:#044637;
+  --gold:#d4af37;
+  --gold-ink:#8a6d14;
+  --ivory:#fdfcf3;
+  --navy:#0a1f44;
+  --ink:#12382f;
+  --muted:#526860;
+  --line:rgba(18,56,47,.12);
+  --surface:#fffdf8;
+  --shadow:0 24px 70px rgba(7,59,49,.10);
+}
+body{background:var(--ivory);color:var(--ink)}
+.site-header{background:rgba(253,252,243,.94);border-bottom-color:rgba(18,56,47,.09)}
+.brand-copy strong{color:var(--ink)}
+.header-nav a{color:rgba(18,56,47,.78)}
+.header-nav a:hover{color:var(--quranic)}
+.eyebrow{background:rgba(255,253,248,.84);border-color:rgba(212,175,55,.34);color:var(--gold-ink)}
+.btn-primary{background:linear-gradient(135deg,#0B755A,#00563F);box-shadow:0 13px 30px rgba(0,86,63,.24),inset 0 1px 0 rgba(255,255,255,.14)}
+.btn-primary:hover{background:linear-gradient(135deg,#0A664F,#044637)}
+.btn-gold{background:linear-gradient(135deg,#E6CC68,#D4AF37);color:#17352D}
+.btn-ghost{background:rgba(255,253,248,.82);border-color:var(--line);color:var(--ink)}
+.btn-ghost:hover{background:#fffdf8;border-color:rgba(0,86,63,.22);box-shadow:0 12px 28px rgba(7,59,49,.10)}
+.btn-dark{background:linear-gradient(135deg,#0A4B3D,#073B31);color:#fff;box-shadow:0 13px 30px rgba(7,59,49,.22)}
+.hero{
+  background:
+    radial-gradient(circle at 8% 14%,rgba(0,86,63,.10),transparent 25rem),
+    radial-gradient(circle at 90% 18%,rgba(212,175,55,.16),transparent 23rem),
+    linear-gradient(135deg,#FDFCF3 0%,#FFF8E8 50%,#EFF7F2 100%)!important;
+}
+.hero h1{color:var(--navy)}
+.hero h1 em{color:var(--quranic)}
+.hero-copy{color:#425E55}
+.check{background:rgba(0,86,63,.10);color:var(--quranic)}
+.status-pill{background:rgba(0,86,63,.09);color:var(--quranic)}
+.floating-note{background:linear-gradient(145deg,#073B31,#062A24);box-shadow:0 16px 35px rgba(7,59,49,.26)}
+.trust-strip{background:#FFFDF8;border-block-color:var(--line)}
+.trust-item strong{color:var(--ink)}
+.section-white{background:#FFFDF8}
+.section-soft{background:#F1F7F3}
+.section-dark{
+  background:
+    radial-gradient(circle at 90% 0%,rgba(212,175,55,.10),transparent 24rem),
+    linear-gradient(155deg,#073B31 0%,#062A24 55%,#071F1B 100%);
+  color:#fff;
+}
+.section h2{color:var(--navy)}
+.section-dark h2{color:#fff}
+.section-head p{color:#536A62}
+.section-dark .section-head p{color:rgba(246,248,242,.72)}
+.card,.method-item,.teacher-card,details.faq{background:#FFFDF8;border-color:var(--line);box-shadow:0 7px 24px rgba(7,59,49,.035)}
+.card-icon{background:rgba(0,86,63,.09);color:var(--quranic)}
+.card h3,.method-item h3,.teacher-card h3,.proof-meta strong{color:var(--ink)}
+.lesson-demo{background:linear-gradient(145deg,#0A4B3D 0%,#073B31 62%,#062A24 100%);box-shadow:var(--shadow)}
+.demo-step.active{color:#17352D;background:#D4AF37;border-color:#D4AF37}
+.arabic-meaning{color:#F2DA79}
+.proof-card blockquote{color:#38534C}
+.avatar{background:rgba(212,175,55,.13);color:var(--gold-ink)}
+.outcome,.credential-list span{background:rgba(0,86,63,.07);color:var(--quranic)}
+.teacher-mark{background:#F6F1DD}
+.teacher-card p{color:#526860}
+.form-card{background:#FFFDF8;color:var(--ink);box-shadow:0 30px 80px rgba(3,33,27,.20)}
+.form-card h3{color:var(--ink)}
+.field label{color:#38534C}
+.field input,.field select,.field textarea{background:#FCFCF7;color:var(--ink);border-color:rgba(18,56,47,.15)}
+.field input:focus,.field select:focus,.field textarea:focus{background:#fff;border-color:rgba(0,86,63,.58);box-shadow:0 0 0 4px rgba(0,86,63,.09)}
+.form-status.success{color:#075D47;background:#EAF8F2;border-color:#BCE6D9}
+.form-status.error{color:#8F2730;background:#FFF0F1;border-color:#F1C9CC}
+.cta-panel{background:linear-gradient(120deg,#F6F0D8,#FFFDF8 55%,#E7F3ED);border-color:rgba(212,175,55,.22)}
+.cta-panel h2{color:var(--ink)}
+.site-footer{background:linear-gradient(180deg,#082C25,#061C18);color:rgba(246,248,242,.72)}
+::selection{background:#DCEEE6;color:#073B31}
+@media(prefers-contrast:more){.section-dark,.site-footer{background:#06261F}.card,.method-item,.teacher-card,details.faq{border-color:rgba(18,56,47,.22)}}

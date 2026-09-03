@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-26T22:40:00+03:00",
+  "title": "Design System: Basair Academy",
+  "extensions": {
+    "colorMeta": {
+      "quranic-green": {
+        "role": "primary",
+        "displayName": "Quranic Green",
+        "canonical": "#00563F",
+        "tonalRamp": [
+          "#E7F3EF",
+          "#B8DBCF",
+          "#73B7A1",
+          "#2F876F",
+          "#00563F",
+          "#044637",
+          "#073B31"
+        ]
+      },
+      "scholarly-navy": {
+        "role": "structural-text",
+        "displayName": "Scholarly Navy",
+        "canonical": "#0A1F44",
+        "tonalRamp": [
+          "#EDF1F7",
+          "#C4CFDE",
+          "#8093AD",
+          "#3A5477",
+          "#0A1F44"
+        ]
+      },
+      "heritage-gold": {
+        "role": "accent",
+        "displayName": "Heritage Gold",
+        "canonical": "#D4AF37",
+        "textOnLight": "#8A6D14",
+        "tonalRamp": [
+          "#FFF9E7",
+          "#F4E6AF",
+          "#E8CF73",
+          "#D4AF37",
+          "#8A6D14"
+        ]
+      },
+      "manuscript-ivory": {
+        "role": "background",
+        "displayName": "Manuscript Ivory",
+        "canonical": "#FDFCF3",
+        "tonalRamp": [
+          "#FFFFFF",
+          "#FFFDF8",
+          "#FDFCF3",
+          "#FBF6E5",
+          "#F1F7F3"
+        ]
+      },
+      "operational-evergreen": {
+        "role": "admin-dark",
+        "displayName": "Operational Evergreen",
+        "canonical": "#071713",
+        "tonalRamp": [
+          "#E7F3EE",
+          "#B5C6BF",
+          "#3F695E",
+          "#12362D",
+          "#0B2620",
+          "#071713"
+        ]
+      }
+    },
+    "elevation": {
+      "public-flat": {
+        "description": "Flat by default; border and whitespace establish grouping."
+      },
+      "public-interactive": {
+        "description": "Border/shadow/color response only; no positional hover lift after layout stabilization."
+      },
+      "admin-panel": {
+        "description": "Translucent navy panel over Admin Night with restrained blur and subtle border."
+      }
+    },
+    "motion": {
+      "thesis": "Illuminated manuscript reveal on the Academy hero; measurable progress animates on acquisition dashboards; admin motion is operational and fast.",
+      "feedback": "140ms",
+      "state": "220ms",
+      "overlay": "340ms",
+      "focal": "680ms",
+      "exit": "180ms",
+      "easeOut": "cubic-bezier(.16,1,.3,1)",
+      "easeState": "cubic-bezier(.2,.8,.2,1)",
+      "rules": [
+        "No bounce or elastic easing.",
+        "No long page-load choreography.",
+        "Pause nonessential loops offscreen or while the document is hidden.",
+        "Progressive enhancement: content remains visible if JavaScript fails.",
+        "Reduced motion removes spatial movement while preserving meaningful state feedback."
+      ]
+    },
+    "breakpoints": {
+      "phone": "520px",
+      "small": "620px",
+      "mobile": "720px",
+      "tablet": "768px",
+      "compactDesktop": "980px",
+      "desktopNavSwitch": "1023px",
+      "wide": "1120px",
+      "adminCollapse": "900px",
+      "acquisitionStack": "1000px",
+      "trackDesktopSplit": "1180px"
+    },
+    "narrative": {
+      "northStar": "The Illuminated Study Hall — Emerald Manuscript",
+      "rules": [
+        "Public surfaces are ivory-first; green owns primary action and deliberate dark brand regions.",
+        "Scholarly navy is structural/text color, not the default atmospheric dark surface.",
+        "Gold is accent/focus; use #8A6D14 when gold-family text is required on light backgrounds.",
+        "Admin uses the operational evergreen dark variant with green-first actions.",
+        "Typography creates hierarchy before extra borders or cards.",
+        "Exactly one localized academic track CTA is visible per active route.",
+        "Visual hiding must be matched by correct interaction semantics.",
+        "Layout follows the reading/task path; responsive changes structure before localized content collides."
+      ],
+      "dos": [
+        "Use Manrope for Latin-script UI.",
+        "Use IBM Plex Sans Arabic with Tajawal fallback for Arabic-heavy UI.",
+        "Preserve RTL/LTR parity and reduced-motion behavior.",
+        "Keep track CTAs ivory, green, and gold.",
+        "Use evergreen rather than navy for deliberate dark public regions."
+      ],
+      "donts": [
+        "Do not silently reintroduce Inter.",
+        "Do not use navy as the protected track CTA background.",
+        "Do not use raw heritage gold for ordinary-size text on ivory.",
+        "Do not invent purple/blue AI gradients or gradient text.",
+        "Do not solve hierarchy by nesting additional cards."
+      ]
+    },
+    "layout": {
+      "publicWide": "84rem",
+      "publicContent": "72rem",
+      "publicReading": "68ch",
+      "publicGutter": "clamp(1rem, 3vw, 2rem)",
+      "assessment": "64rem",
+      "acquisitionWide": "74rem",
+      "adminShell": "96rem",
+      "sectionRhythm": "clamp(4.75rem, 7.5vw, 7rem)",
+      "primaryPath": [
+        "Hero",
+        "Concise Guide",
+        "Initial Assessment",
+        "Institutional Context",
+        "Academic Tracks",
+        "Media + Testimonials",
+        "FAQ"
+      ]
+    },
+    "colorStrategy": {
+      "name": "Illuminated Emerald Manuscript",
+      "temperature": "warm scholarly",
+      "dominantRelationship": "warm ivory versus deep evergreen",
+      "contrastRange": "high",
+      "dosage": "restrained; strongest color owns action, contact, media, evidence, and admin operation",
+      "publicDark": "#073B31",
+      "adminCanvas": "#071713",
+      "adminSurface": "#0B2620",
+      "goldTextOnLight": "#8A6D14"
+    },
+    "delight": {
+      "thesis": "Quiet Academic Seal — earned actions feel acknowledged, trustworthy, and clearly advanced to the next step.",
+      "moments": [
+        "Assessment success: persistent emerald/gold confirmation with no fake delay.",
+        "Assessment recovery: direct WhatsApp/Telegram continuation when submission fails or is rate-limited.",
+        "Acquisition follow-up: useful next-step guidance after success and recovery.",
+        "Admin certainty: compact status seal, aria-live feedback, copy confirmation, and calm empty-state mark."
+      ],
+      "rules": [
+        "No confetti, mascots, sound, or forced celebration.",
+        "Routine clicks do not earn a flourish.",
+        "Recovery always leads with the problem and an actionable next path.",
+        "Delight must not delay the primary task or add external dependencies.",
+        "Reduced-motion, keyboard, touch, screen reader, RTL/LTR, and localization paths remain intact."
+      ]
+    },
+    "overdrive": {
+      "direction": "Precision Native Overdrive (1 + 3)",
+      "thesis": "Extraordinary continuity and operational certainty with protected geometry.",
+      "geometryContract": "Interaction layers do not own width, height, padding, margin, gap, grid tracks, font-size, or line-height.",
+      "enhancements": [
+        "Fine-pointer hero illumination retained without scroll-cinematic depth.",
+        "Gold reading-progress edge uses CSS scroll timeline with JS fallback only.",
+        "Interruptible View Transition language continuity.",
+        "Interruptible video shared-element morph with inert background and focus return.",
+        "Video filter grid transitions with stale-transition cancellation.",
+        "Assessment and acquisition aria-busy network states.",
+        "Admin semantic keyboard tabs with View Transition panels.",
+        "Admin rAF-coalesced search rendering and rollback-safe optimistic request status."
+      ],
+      "retired": [
+        "Folio separators and their IntersectionObserver runtime.",
+        "Scroll-cinematic manuscript depth.",
+        "Positional hover lift on key public/admin controls."
+      ],
+      "browserRules": [
+        "Progressive enhancement only; feature-test advanced APIs.",
+        "Repeated transitions are interruptible.",
+        "Reduced motion removes spatial enhancement but keeps state feedback.",
+        "No WebGL, particles, sound, or new animation dependencies.",
+        "Protected track CTA stylesheet remains last."
+      ]
+    },
+    "hardening": {
+      "textOverflow": "min-inline-size:0 + overflow-wrap:anywhere for user/CMS text",
+      "mobileForms": "16px control floor; HTML maxlength/minlength aligned with Firestore rules",
+      "network": "localized offline live status; preserve input; explicit uncertain timeout state",
+      "idempotency": "session-scoped deterministic assessment document IDs for retry races",
+      "storage": "safe browser storage access; allowlisted attribution maps",
+      "remoteData": "bounded text/video normalization; realtime unsubscribe on pagehide",
+      "admin": "1000-request per-collection safety cap; 250-video cap; HTTPS URL validation; clipboard fallback",
+      "accessibility": "aria-invalid focus recovery; forced-colors visible focus/status states",
+      "verification": "npm run verify:harden"
+    },
+    "finalPolish": {
+      "direction": "Unified Finish Pass",
+      "thesis": "Make every accumulated layer feel authored as one system: quieter elevation, calmer highlights, consistent focus, and no new geometry.",
+      "scope": [
+        "Public academy homepage",
+        "Acquisition pages (EN/RU/UZ)",
+        "Admin console"
+      ],
+      "rules": [
+        "No new positional hover lift in the final polish layer.",
+        "Protected track CTA remains owned by track-buttons-v6.css and loads last.",
+        "Final polish must not alter Firebase, routing, CMS identifiers, or submission behavior.",
+        "Prefer border, shadow, opacity, and focus refinement over new decorative layers.",
+        "Retain forced-colors and reduced-motion support on every surface family."
+      ],
+      "files": [
+        "final-polish-v3.css",
+        "acquisition-final-polish-v3.css",
+        "admin-final-polish-v3.css"
+      ],
+      "verification": "npm run verify:final-polish"
+    }
+  }
+}

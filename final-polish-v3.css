@@ -1,0 +1,240 @@
+/* Basair Academy — Impeccable Final Polish v3
+   Purpose: unify the accumulated visual system without redesigning geometry.
+   This layer intentionally loads BEFORE track-buttons-v6.css. */
+:root{
+  --fp-ink:#0a1f44;
+  --fp-green:#075b46;
+  --fp-gold:#c6a23a;
+  --fp-ivory:#fffdf7;
+  --fp-paper:#fffefb;
+  --fp-line:rgba(10,31,68,.095);
+  --fp-line-soft:rgba(10,31,68,.065);
+  --fp-shadow-1:0 10px 28px -24px rgba(10,31,68,.28);
+  --fp-shadow-2:0 18px 44px -34px rgba(10,31,68,.32);
+  --fp-shadow-dark:0 20px 46px -34px rgba(0,0,0,.55);
+  --fp-ease:cubic-bezier(.2,.8,.2,1);
+}
+
+/* ---------- global finish ---------- */
+html{scroll-padding-top:7rem}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(198,162,58,.23);color:var(--fp-ink)}
+:is(a,button,input,select,textarea,summary):focus-visible{
+  outline:3px solid rgba(198,162,58,.34)!important;
+  outline-offset:3px!important;
+}
+:is(a,button){-webkit-tap-highlight-color:transparent}
+
+/* Keep motion restrained: polish should not feel floaty. */
+:is(.premium-action,#submit-btn,#video-filters .filter-btn,#contact a[data-contact-channel],#lang-btn,#mobile-lang-btn,#mobile-menu-btn,#slider-prev-btn,#slider-next-btn,#video-grid .video-card,#testimonials .slider-track>*,#quick-guide .domain-card,#quick-guide .outcome-panel):hover{
+  transform:none!important;
+}
+:is(.premium-action,#submit-btn,#video-filters .filter-btn,#contact a[data-contact-channel],#lang-btn,#mobile-lang-btn,#mobile-menu-btn,#slider-prev-btn,#slider-next-btn):active{
+  transform:translateY(0)!important;
+}
+
+/* ---------- top bar refinement ---------- */
+#navbar .topbar-command-surface,
+#navbar>div>div{
+  transition:border-color .22s ease,background-color .22s ease,box-shadow .22s ease,backdrop-filter .22s ease!important;
+}
+#navbar .nav-link{
+  text-underline-offset:.24em;
+}
+#navbar .nav-link:focus-visible{
+  border-radius:.7rem;
+  background:rgba(255,255,255,.52);
+}
+#navbar .language-menu,
+#navbar #language-menu,
+#navbar #mobile-language-menu{
+  border-color:rgba(10,31,68,.09)!important;
+  box-shadow:0 24px 58px -38px rgba(10,31,68,.36)!important;
+}
+
+/* ---------- welcome / hero ---------- */
+#home::before{opacity:.6}
+#home .hero-title{letter-spacing:-.028em}
+#home .hero-title__line{filter:none!important}
+#home .hero-title__line--accent{
+  text-shadow:0 12px 32px rgba(198,162,58,.08);
+}
+#home .inline-flex.items-center.gap-2,
+#home .inline-flex.items-center.gap-2.md\:gap-3{
+  box-shadow:var(--fp-shadow-1)!important;
+  border-color:rgba(198,162,58,.22)!important;
+}
+
+/* ---------- guide and explanatory surfaces ---------- */
+#quick-guide .outcome-ledger,
+#quick-guide .learning-evidence,
+#quick-guide .domain-card,
+#quick-guide .outcome-panel{
+  border-color:var(--fp-line-soft)!important;
+  box-shadow:var(--fp-shadow-1)!important;
+}
+#quick-guide .domain-card:hover,
+#quick-guide .outcome-panel:hover{
+  box-shadow:var(--fp-shadow-2)!important;
+}
+#quick-guide :is(h2,h3,h4){text-wrap:balance}
+#quick-guide :is(p,li){text-wrap:pretty}
+
+/* ---------- registration ---------- */
+#contact>div>div.mt-16{
+  border-color:rgba(198,162,58,.18)!important;
+  box-shadow:0 24px 62px -38px rgba(0,0,0,.48)!important;
+}
+#contact .form-overdrive-panel{
+  box-shadow:0 16px 38px -32px rgba(0,0,0,.48)!important;
+}
+#contact .overdrive-field{
+  box-shadow:none!important;
+}
+#contact .overdrive-field:focus-within,
+#contact .overdrive-field.is-focused{
+  box-shadow:0 12px 28px -24px rgba(198,162,58,.38)!important;
+}
+#contact #submit-btn{
+  box-shadow:0 18px 40px -28px rgba(198,162,58,.48)!important;
+}
+#contact #submit-btn:hover{
+  box-shadow:0 22px 48px -30px rgba(198,162,58,.56)!important;
+}
+
+/* ---------- faculty ---------- */
+#about>div>div:last-child{
+  border-color:var(--fp-line-soft)!important;
+  box-shadow:var(--fp-shadow-1)!important;
+}
+#about strong{color:#063f32}
+
+/* ---------- course section ---------- */
+#tracks article>div:first-child.course-dossier-card{
+  box-shadow:0 20px 48px -32px rgba(10,31,68,.42)!important;
+}
+#tracks article>div:first-child.course-dossier-card:hover,
+#tracks article.is-course-card-active>div:first-child.course-dossier-card,
+#tracks article>div:first-child.course-dossier-card:focus-visible{
+  transform:none!important;
+  box-shadow:0 24px 52px -32px rgba(10,31,68,.44),0 8px 20px -18px rgba(198,162,58,.24)!important;
+}
+#tracks .course-dossier-card::before{opacity:.72!important}
+#tracks .course-dossier-card::after{opacity:.72}
+#tracks .academic-doc{
+  border-color:var(--fp-line-soft)!important;
+  box-shadow:0 20px 50px -38px rgba(10,31,68,.26)!important;
+}
+#tracks .academic-doc::after{opacity:.42}
+#tracks .academic-doc blockquote{
+  box-shadow:none!important;
+}
+#tracks .academic-doc :is(p,li){text-wrap:pretty}
+#tracks .academic-doc :is(h3,h4,blockquote){text-wrap:balance}
+
+/* ---------- video ---------- */
+#video-grid .video-card{
+  border-color:rgba(255,255,255,.085)!important;
+  box-shadow:0 18px 46px -36px rgba(0,0,0,.82)!important;
+}
+#video-grid .video-card:hover{
+  border-color:rgba(198,162,58,.24)!important;
+  box-shadow:0 22px 52px -36px rgba(0,0,0,.86)!important;
+}
+#video-grid .video-card::after{opacity:.42}
+#video-grid .video-card__media{
+  box-shadow:0 12px 30px -24px rgba(0,0,0,.62)!important;
+}
+#video-filters .filter-btn{
+  box-shadow:none!important;
+}
+#video-filters .filter-btn:hover,
+#video-filters .filter-btn.active{
+  box-shadow:0 10px 24px -20px rgba(198,162,58,.34)!important;
+}
+
+/* ---------- testimonials ---------- */
+#testimonials .slider-track>*{
+  border-color:var(--fp-line-soft)!important;
+  box-shadow:0 16px 40px -34px rgba(10,31,68,.24)!important;
+}
+#testimonials .slider-track>*:hover{
+  box-shadow:0 20px 44px -34px rgba(10,31,68,.30)!important;
+}
+#testimonials blockquote{text-wrap:pretty}
+
+/* ---------- FAQ ---------- */
+#faq details{
+  border-color:var(--fp-line-soft)!important;
+  box-shadow:none!important;
+  transition:border-color .2s ease,background-color .2s ease,box-shadow .2s ease!important;
+}
+#faq details:hover{
+  border-color:rgba(198,162,58,.20)!important;
+  box-shadow:var(--fp-shadow-1)!important;
+}
+#faq details[open]{
+  border-color:rgba(7,91,70,.18)!important;
+  background:#fffefa!important;
+  box-shadow:var(--fp-shadow-1)!important;
+}
+#faq summary{transition:color .18s ease}
+#faq details[open] summary{color:var(--fp-green)!important}
+
+/* ---------- buttons not owned by track-buttons-v6 ---------- */
+.premium-action,
+#submit-btn,
+#contact a[data-contact-channel],
+#slider-prev-btn,
+#slider-next-btn{
+  box-shadow:var(--fp-shadow-1)!important;
+}
+.premium-action:hover,
+#contact a[data-contact-channel]:hover,
+#slider-prev-btn:hover,
+#slider-next-btn:hover{
+  box-shadow:var(--fp-shadow-2)!important;
+}
+.premium-action::before,
+#submit-btn::before,
+#contact a[data-contact-channel]::before{
+  opacity:.38!important;
+}
+
+/* ---------- mobile drawer ---------- */
+#mobile-menu{
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+#mobile-menu .nav-link,
+#mobile-menu a[href^="#"]{
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease!important;
+}
+
+@media(max-width:820px){
+  #home::before{opacity:.38}
+  #tracks article>div:first-child.course-dossier-card:hover,
+  #tracks article.is-course-card-active>div:first-child.course-dossier-card{
+    transform:none!important;
+  }
+  #video-grid .video-card:hover,
+  #testimonials .slider-track>*:hover,
+  #quick-guide .domain-card:hover,
+  #quick-guide .outcome-panel:hover{
+    transform:none!important;
+  }
+}
+
+@media(forced-colors:active){
+  :is(a,button,input,select,textarea,summary):focus-visible{outline:2px solid Highlight!important}
+  #faq details,#tracks .academic-doc{border:1px solid CanvasText!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important}
+  :is(#navbar *,#home *,#quick-guide *,#contact *,#tracks *,#video-library *,#testimonials *,#faq *){
+    transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+  }
+}

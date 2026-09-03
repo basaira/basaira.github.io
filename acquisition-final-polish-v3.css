@@ -1,0 +1,76 @@
+/* Basair acquisition pages — final polish, intentionally conservative. */
+:root{
+  --afp-ink:#0a1f44;
+  --afp-green:#075b46;
+  --afp-gold:#c6a23a;
+  --afp-line:rgba(10,31,68,.085);
+  --afp-shadow:0 14px 36px -30px rgba(10,31,68,.28);
+  --afp-shadow-strong:0 20px 48px -34px rgba(10,31,68,.34);
+}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(198,162,58,.23);color:var(--afp-ink)}
+:is(a,button,input,select,textarea,summary):focus-visible{
+  outline:3px solid rgba(198,162,58,.34)!important;
+  outline-offset:3px!important;
+}
+.site-header{
+  border-bottom-color:rgba(10,31,68,.065)!important;
+  box-shadow:0 12px 28px -28px rgba(10,31,68,.22)!important;
+}
+.brand img{filter:drop-shadow(0 8px 18px rgba(10,31,68,.07))}
+.btn{
+  transform:none!important;
+  box-shadow:var(--afp-shadow)!important;
+}
+.btn:hover{
+  transform:none!important;
+  box-shadow:var(--afp-shadow-strong)!important;
+}
+.btn:active{transform:translateY(0)!important}
+.btn::before,.btn::after{opacity:.38!important}
+.hero::before{opacity:.58}
+.hero h1,.section h2,.cta-panel h2{text-wrap:balance}
+.hero-copy,.section-head p,.card p,.teacher-card p,.assessment-copy p,details.faq p{text-wrap:pretty}
+.dashboard,
+.card,
+.teacher-card,
+.lesson-demo,
+.form-card,
+.cta-panel{
+  border-color:var(--afp-line)!important;
+  box-shadow:var(--afp-shadow)!important;
+}
+.card:hover{
+  transform:none!important;
+  box-shadow:var(--afp-shadow-strong)!important;
+}
+.dashboard::after,.card::after{opacity:.42!important}
+.status-pill{box-shadow:none!important}
+.form-card{box-shadow:0 20px 52px -34px rgba(0,0,0,.34)!important}
+.form-overdrive-panel{box-shadow:var(--afp-shadow)!important}
+.overdrive-field{box-shadow:none!important}
+.overdrive-field:focus-within,
+.overdrive-field.is-focused{box-shadow:0 10px 24px -22px rgba(198,162,58,.38)!important}
+.form-card .btn-wide{box-shadow:0 16px 36px -26px rgba(198,162,58,.42)!important}
+.form-card .btn-wide:hover{box-shadow:0 20px 42px -28px rgba(198,162,58,.50)!important}
+details.faq{
+  border-color:var(--afp-line)!important;
+  box-shadow:none!important;
+  transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease!important;
+}
+details.faq:hover,details.faq[open]{
+  border-color:rgba(198,162,58,.18)!important;
+  box-shadow:var(--afp-shadow)!important;
+}
+details.faq[open]{background:#fffefa!important}
+.cta-panel{background:linear-gradient(120deg,#f7f3e2,#fffefa 55%,#edf5f1)!important}
+@media(max-width:760px){
+  .btn:hover,.card:hover{transform:none!important}
+  .hero::before{opacity:.4}
+}
+@media(forced-colors:active){
+  :is(a,button,input,select,textarea,summary):focus-visible{outline:2px solid Highlight!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}

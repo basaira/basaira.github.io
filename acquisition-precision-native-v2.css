@@ -1,0 +1,16 @@
+/* Basair acquisition pages — Precision Native Overdrive v2. Interaction only. */
+:root { --pn-acq-ease:cubic-bezier(.16,1,.3,1); }
+:is(a,button,input,select,textarea) {
+  transition-property: color,background-color,border-color,box-shadow,opacity,filter !important;
+  transition-duration: 180ms !important;
+  transition-timing-function: var(--pn-acq-ease) !important;
+}
+:is(a,button):is(:hover,:active) { transform:none !important; }
+:is(a,button,input,select,textarea):focus-visible {
+  outline:3px solid rgba(212,175,55,.58) !important;
+  outline-offset:3px !important;
+}
+form[aria-busy="true"], [aria-busy="true"] { cursor:progress; }
+@media(prefers-reduced-motion:reduce){
+  :is(a,button,input,select,textarea){transition-duration:.01ms!important;animation:none!important;transform:none!important}
+}

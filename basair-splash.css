@@ -1,16 +1,48 @@
-/* Basair splash screen — dedicated override layer */
+/* Basair splash screen — polished welcome layer */
 #splash-screen.basair-splash {
+  position: fixed !important;
+  inset: 0;
+  z-index: 9999;
   display: grid !important;
   place-items: center;
+  overflow: hidden;
+  isolation: isolate;
   pointer-events: auto;
   opacity: 1;
   visibility: visible;
   filter: none;
-  animation: basair-splash-hold-release 7.15s cubic-bezier(.16, 1, .3, 1) forwards !important;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(212,175,55,.22), transparent 22rem),
+    radial-gradient(circle at 84% 24%, rgba(8,117,92,.18), transparent 24rem),
+    linear-gradient(180deg, rgba(255,254,249,.98), rgba(247,244,234,.98));
+  animation: basair-splash-hold-release 6.9s cubic-bezier(.16,1,.3,1) forwards !important;
   transition:
-    opacity 0.95s cubic-bezier(.16, 1, .3, 1),
-    visibility 0.95s cubic-bezier(.16, 1, .3, 1),
-    filter 0.95s cubic-bezier(.16, 1, .3, 1);
+    opacity .95s cubic-bezier(.16,1,.3,1),
+    visibility .95s cubic-bezier(.16,1,.3,1),
+    filter .95s cubic-bezier(.16,1,.3,1);
+}
+#splash-screen.basair-splash::before,
+#splash-screen.basair-splash::after{
+  content:"";
+  position:absolute;
+  inset:auto;
+  pointer-events:none;
+}
+#splash-screen.basair-splash::before{
+  width:min(72vw,42rem);
+  height:min(72vw,42rem);
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,.92) 0%, rgba(255,255,255,.62) 32%, rgba(255,255,255,0) 74%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.4) inset;
+  filter:blur(1px);
+}
+#splash-screen.basair-splash::after{
+  inset:0;
+  background-image:
+    linear-gradient(rgba(7,29,61,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7,29,61,.028) 1px, transparent 1px);
+  background-size:44px 44px;
+  mask-image:linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
 }
 
 #splash-screen.basair-splash.splash-hidden {
@@ -22,8 +54,36 @@
 }
 
 .basair-splash__content {
-  gap: 1.5rem !important;
+  position:relative;
+  display:grid;
+  justify-items:center;
+  gap:1.35rem !important;
+  padding:clamp(1.5rem,4vw,2.4rem) clamp(1.4rem,3vw,2rem);
+  min-width:min(100% - 2rem, 28rem);
+  border-radius:2rem;
+  border:1px solid rgba(212,175,55,.18);
+  background:linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.46));
+  box-shadow:0 30px 80px -48px rgba(7,29,61,.28), 0 1px 0 rgba(255,255,255,.9) inset;
+  backdrop-filter:blur(16px);
   transform: translateZ(0);
+}
+.basair-splash__content::before{
+  content:"";
+  position:absolute;
+  inset:auto -3.5rem -3.5rem auto;
+  width:11rem;
+  height:11rem;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(212,175,55,.18), transparent 70%);
+  pointer-events:none;
+}
+.basair-splash__content::after{
+  content:"";
+  position:absolute;
+  inset:1rem;
+  border-radius:1.45rem;
+  border:1px solid rgba(255,255,255,.4);
+  pointer-events:none;
 }
 
 .basair-splash__logo {
@@ -35,14 +95,25 @@
 }
 
 .basair-splash__loader {
-  width: 176px !important;
-  height: 4px !important;
+  position:relative;
+  width: 190px !important;
+  height: 7px !important;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(7,29,61,.08);
   transform: translateZ(0);
+  box-shadow:0 1px 0 rgba(255,255,255,.8) inset;
 }
 
 .basair-splash__loader span {
-  animation: basair-loader-slide-smooth 1.12s linear infinite !important;
+  display:block;
+  width:45%;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg, #d4af37, #0b8a6c 80%);
+  animation: basair-loader-slide-smooth 1.18s linear infinite !important;
   will-change: transform;
+  box-shadow:0 0 24px rgba(11,138,108,.22);
 }
 
 @keyframes basair-loader-slide-smooth {
@@ -51,7 +122,7 @@
 }
 
 @keyframes basair-splash-hold-release {
-  0%, 86% {
+  0%, 84% {
     opacity: 1;
     visibility: visible;
     filter: none;
@@ -67,11 +138,76 @@
 }
 
 @media (max-width: 640px) {
+  .basair-splash__content{
+    gap:1.15rem!important;
+    padding:1.25rem 1rem;
+    border-radius:1.45rem;
+  }
   .basair-splash__logo {
     width: clamp(215px, 68vw, 315px) !important;
   }
 
   .basair-splash__loader {
     width: 154px !important;
+  }
+}
+
+
+/* 2026-08-30 surgical logic correction — preserve the splash, fix only its terminal state. */
+#splash-screen.basair-splash.splash-hidden{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  filter:blur(6px)!important;
+}
+#splash-screen.basair-splash.splash-hidden .basair-splash__content{
+  transform:translateY(-4px) scale(.992)!important;
+}
+.basair-splash__logo{
+  width:clamp(128px,13vw,182px)!important;
+}
+@media(max-width:640px){
+  .basair-splash__logo{width:clamp(112px,36vw,158px)!important}
+}
+
+
+/* 2026-08-31 welcome lifecycle fix — JS owns release timing; visual design is unchanged. */
+#splash-screen.basair-splash{
+  animation:none!important;
+}
+#splash-screen.basair-splash.splash-hidden{
+  display:grid!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Impeccable loader polish — visual only; lifecycle remains owned by BasairBoot. */
+#splash-screen .basair-splash__loader{
+  width:clamp(9.5rem,16vw,11.25rem)!important;
+  height:5px!important;
+  margin-inline:auto!important;
+  border-radius:999px!important;
+  background:rgba(10,31,68,.075)!important;
+  border:1px solid rgba(10,31,68,.035)!important;
+  box-shadow:inset 0 1px 1px rgba(10,31,68,.035),0 1px 0 rgba(255,255,255,.8)!important;
+}
+#splash-screen .basair-splash__loader span{
+  width:38%!important;
+  height:100%!important;
+  border-radius:inherit!important;
+  background:linear-gradient(90deg,#0B765B 0%,#0B8A6C 100%)!important;
+  box-shadow:0 0 14px rgba(11,138,108,.18)!important;
+  animation:basair-loader-slide-refined 1.22s cubic-bezier(.45,0,.55,1) infinite!important;
+}
+@keyframes basair-loader-slide-refined{
+  0%{transform:translate3d(-115%,0,0)}
+  100%{transform:translate3d(310%,0,0)}
+}
+@media(prefers-reduced-motion:reduce){
+  #splash-screen .basair-splash__loader span{
+    width:100%!important;
+    animation:none!important;
+    opacity:.72;
   }
 }

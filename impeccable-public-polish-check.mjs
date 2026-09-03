@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+const html=fs.readFileSync('index.html','utf8');
+const css=fs.readFileSync('public-ui-fixes-v1.css','utf8');
+const splash=fs.readFileSync('basair-splash.css','utf8');
+const links=[...html.matchAll(/<link[^>]+href="([^"]+\.css[^"]*)"[^>]*rel="stylesheet"/g)].map(m=>m[1]);
+const ok=(v,m)=>{if(!v)throw new Error(m);console.log('✓ '+m)};
+ok(css.includes('html body .homepage-chapter-marker{\n  display:none!important;'),'chapter/page markers are fully hidden');
+ok(css.includes('#tracks article > div.pathway-summary.course-dossier-card :is(h2'),'pathway headings receive high-specificity contrast repair');
+ok(css.includes('padding:0!important'),'legacy number padding is neutralized');
+ok(css.includes('.course-dossier-head,') && css.includes('display:none!important'),'empty dossier header row is removed');
+ok(css.includes('#enrollment-form .form-overdrive-progress-track'),'legacy public readiness/loading strip is suppressed');
+ok(css.includes('#splash-screen .basair-splash__loader span'),'welcome loader is visually refined');
+ok(links.at(-1)==='track-buttons-v6.css?v=20260830-surgical2','protected track CTA stylesheet remains last');
+ok((html.match(/data-content-id=/g)||[]).length===1066,'all homepage CMS bindings remain intact');
+console.log('IMPECCABLE PUBLIC POLISH CHECK PASSED');

@@ -1,0 +1,179 @@
+/* Basair Academy — Impeccable Colorize v1
+   Strategy: Illuminated Emerald Manuscript.
+   Warm ivory is the reading field; Quranic green owns action and major dark regions;
+   heritage gold signals focus and scholarship; navy is structural, not atmospheric. */
+:root{
+  --basair-canvas:#FDFCF3;
+  --basair-paper:#FFFDF8;
+  --basair-paper-green:#F1F7F3;
+  --basair-paper-gold:#FBF6E5;
+  --basair-ink:#12382F;
+  --basair-ink-soft:#38534C;
+  --basair-navy:#0A1F44;
+  --basair-green:#00563F;
+  --basair-green-hover:#044637;
+  --basair-green-deep:#073B31;
+  --basair-green-night:#071F1B;
+  --basair-green-bright:#0B7A5D;
+  --basair-gold:#D4AF37;
+  --basair-gold-ink:#8A6D14;
+  --basair-gold-soft:#F4E6AF;
+  --basair-line:rgba(18,56,47,.12);
+  --basair-line-gold:rgba(212,175,55,.24);
+  --basair-white:#FFFFFF;
+  --basair-danger:#A63D49;
+  --basair-success:#075D47;
+}
+
+html{background:var(--basair-canvas)}
+body{background:var(--basair-canvas);color:var(--basair-navy)}
+
+/* Navigation — quiet ivory, green selection, gold focus. */
+#navbar,.glass-nav{
+  background:linear-gradient(180deg,rgba(253,252,243,.985),rgba(255,253,248,.94))!important;
+  border-bottom-color:rgba(18,56,47,.10)!important;
+  box-shadow:0 18px 44px -38px rgba(7,59,49,.42)!important;
+}
+#navbar .nav-link{color:rgba(10,31,68,.76)}
+#navbar .nav-link:hover,#navbar .nav-link.active-section{color:var(--basair-green)!important}
+#navbar a[href="#contact"]{background:var(--basair-green)!important;color:#fff!important}
+#navbar a[href="#contact"]:hover{background:var(--basair-green-hover)!important;color:#fff!important}
+#navbar :focus-visible,.mobile-menu :focus-visible{
+  outline:3px solid rgba(212,175,55,.52)!important;
+  outline-offset:3px!important;
+}
+
+/* Hero — warmer manuscript field, no blue atmospheric wash. */
+#home{
+  background:
+    radial-gradient(circle at 50% 15%,rgba(212,175,55,.18),transparent 24rem),
+    radial-gradient(circle at 10% 74%,rgba(0,86,63,.13),transparent 28rem),
+    radial-gradient(circle at 90% 72%,rgba(212,175,55,.08),transparent 24rem),
+    linear-gradient(135deg,#FDFCF3 0%,#FFF8E8 48%,#EFF7F2 100%)!important;
+}
+#home::before{background:radial-gradient(circle,rgba(212,175,55,.18),transparent 62%),radial-gradient(circle,rgba(255,255,255,.76),transparent 70%)!important}
+#home::after{background:radial-gradient(circle,rgba(0,86,63,.17),transparent 62%),radial-gradient(circle,rgba(212,175,55,.07),transparent 70%)!important}
+#home .hero-title{color:var(--basair-navy)!important}
+#home .hero-title__line--accent{color:var(--basair-gold-ink)!important;-webkit-text-fill-color:var(--basair-gold-ink)!important}
+#home p.lang-ar,#home p.lang-en,#home p.lang-fr,#home p.lang-ru,#home p.lang-uz{color:rgba(18,56,47,.82)!important}
+#home > div > a{
+  background:linear-gradient(135deg,#0B755A 0%,#00563F 56%,#044637 100%)!important;
+  border-color:rgba(212,175,55,.28)!important;
+  box-shadow:0 22px 54px -24px rgba(0,86,63,.64),inset 0 1px 0 rgba(255,255,255,.18)!important;
+}
+#home > div > a::before{background:linear-gradient(135deg,#044637 0%,#00563F 58%,#0B755A 100%)!important}
+
+/* Quick guide — keep editorial whites, tint structural rules toward green. */
+#quick-guide.basair-guide--learning{
+  background:
+    radial-gradient(circle at 10% 8%,rgba(212,175,55,.10),transparent 27rem),
+    radial-gradient(circle at 88% 84%,rgba(0,86,63,.09),transparent 30rem),
+    linear-gradient(180deg,#FFFDF8 0%,#F7F7EE 100%)!important;
+}
+#quick-guide .basair-guide__eyebrow{color:var(--basair-gold-ink)!important;border-color:rgba(212,175,55,.34)!important;background:rgba(255,253,248,.88)!important}
+#quick-guide .learning-outcomes__heading .section-kicker{color:var(--basair-gold-ink)!important}
+#quick-guide .outcome-ledger{background:rgba(255,253,248,.86)!important;border-color:var(--basair-line)!important}
+#quick-guide .outcome-panel--sciences::after{background:var(--basair-green-deep)!important}
+#quick-guide .learning-evidence{
+  background:
+    radial-gradient(circle at 92% 8%,rgba(212,175,55,.10),transparent 19rem),
+    linear-gradient(145deg,#073B31 0%,#062A24 54%,#071F1B 100%)!important;
+  border:1px solid rgba(244,230,175,.12)!important;
+}
+
+/* Contact — primary conversion region belongs to brand green. */
+#contact{
+  background:
+    radial-gradient(circle at 80% 0%,rgba(212,175,55,.16),transparent 28rem),
+    radial-gradient(circle at 8% 88%,rgba(11,122,93,.34),transparent 26rem),
+    linear-gradient(160deg,#073B31 0%,#062C25 55%,#071F1B 100%)!important;
+  border-top-color:rgba(212,175,55,.42)!important;
+}
+#contact>div>div{
+  background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.045))!important;
+  border-color:rgba(244,230,175,.16)!important;
+  box-shadow:0 42px 90px -62px rgba(0,0,0,.72)!important;
+}
+#contact a,#contact button{--tw-ring-color:rgba(212,175,55,.46)}
+
+/* Editorial light sections alternate warm / green tint instead of white / white. */
+#about{
+  background:
+    radial-gradient(circle at 78% 20%,rgba(212,175,55,.11),transparent 22rem),
+    radial-gradient(circle at 18% 85%,rgba(0,86,63,.075),transparent 24rem),
+    linear-gradient(180deg,#FFFDF8 0%,#FDFCF3 100%)!important;
+  border-block-color:rgba(18,56,47,.08)!important;
+}
+#about > div > div{border-color:rgba(212,175,55,.20)!important;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(251,246,229,.52))!important}
+#tracks{
+  background:
+    radial-gradient(circle at 96% 6%,rgba(0,86,63,.08),transparent 25rem),
+    linear-gradient(180deg,#F2F8F4 0%,#F9FAF4 52%,#FFFDF8 100%)!important;
+  border-top-color:rgba(0,86,63,.10)!important;
+}
+#tracks article{border-color:rgba(18,56,47,.12)!important}
+/* Track side cards are intentionally deep emerald: their typography is white.
+   Keeping the surface dark preserves the editorial contrast across all languages. */
+#tracks article > div:first-child{
+  background:
+    radial-gradient(circle at 18% 14%,rgba(212,175,55,.16),transparent 12rem),
+    linear-gradient(155deg,#0B6A52 0%,#07513F 56%,#043B31 100%)!important;
+  border-color:rgba(212,175,55,.20)!important;
+}
+#tracks article > div:first-child :is(h2,h2.lang-ar,h2.lang-en,h2.lang-fr,h2.lang-ru,h2.lang-uz){color:#FFFFFF!important}
+#tracks article > div:first-child :is(p,p.lang-ar,p.lang-en,p.lang-fr,p.lang-ru,p.lang-uz){color:rgba(255,255,255,.82)!important}
+#tracks article > div:first-child > div.absolute{
+  color:#FFFDF5!important;
+  background:linear-gradient(135deg,rgba(212,175,55,.26),rgba(255,255,255,.08))!important;
+  border-color:rgba(244,222,130,.48)!important;
+}
+#tracks .academic-doc{background:rgba(255,253,248,.96)!important}
+
+#testimonials{
+  background:
+    radial-gradient(circle at 8% 10%,rgba(212,175,55,.09),transparent 24rem),
+    radial-gradient(circle at 92% 88%,rgba(0,86,63,.07),transparent 25rem),
+    var(--basair-canvas)!important;
+  border-block-color:rgba(0,86,63,.10)!important;
+}
+#testimonials .slider-track > *{background:rgba(255,253,248,.94)!important;border-color:rgba(18,56,47,.11)!important}
+#faq{background:linear-gradient(180deg,#FFFDF8 0%,#FBF8EC 100%)!important;border-color:rgba(212,175,55,.14)!important}
+#faq details{background:rgba(255,255,255,.78)!important;border-color:rgba(18,56,47,.11)!important}
+
+/* Media region — dark evergreen, not generic navy. */
+#video-library{
+  background:
+    radial-gradient(circle at 88% 8%,rgba(212,175,55,.10),transparent 25rem),
+    linear-gradient(155deg,#082F28 0%,#06261F 52%,#071F1B 100%)!important;
+  border-block-color:rgba(212,175,55,.18)!important;
+}
+#video-library::before{background:radial-gradient(circle at 50% 0%,rgba(212,175,55,.13),transparent 22rem),radial-gradient(circle at 12% 84%,rgba(11,122,93,.28),transparent 24rem)!important}
+#video-library .text-center > span{color:#F0D978!important;background:rgba(212,175,55,.09)!important;border-color:rgba(212,175,55,.22)!important}
+#video-filters{background:rgba(255,255,255,.075)!important;border-color:rgba(244,230,175,.12)!important}
+#video-filters .filter-btn.active,#video-filters .filter-btn.bg-\[\#D4AF37\]{color:#17352D!important;background:linear-gradient(135deg,#E6CC68 0%,#D4AF37 58%,#C69B24 100%)!important}
+#video-grid .video-card{background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.035))!important;border-color:rgba(244,230,175,.11)!important}
+#video-grid .video-card:hover{border-color:rgba(212,175,55,.31)!important;background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.05))!important}
+
+/* Modal follows media world. */
+.video-player-modal__backdrop{background:rgba(3,18,15,.90)!important}
+.video-player-modal__dialog{background:linear-gradient(145deg,#0A342C 0%,#061F1A 100%)!important;border-color:rgba(212,175,55,.22)!important}
+.video-player-modal__close:hover{color:#17352D!important;background:#D4AF37!important}
+
+/* Footer closes in the same deep evergreen family. */
+.site-footer{
+  background:linear-gradient(180deg,#082C25 0%,#061C18 100%)!important;
+  color:rgba(246,248,242,.72)!important;
+  border-top-color:rgba(212,175,55,.16)!important;
+}
+
+/* Global semantic focus/state reinforcement. */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{
+  outline-color:rgba(212,175,55,.62);
+}
+::selection{background:#DCEEE6;color:#073B31}
+
+@media (prefers-contrast:more){
+  #navbar,.glass-nav{background:#FFFDF8!important}
+  #video-library,#contact,.site-footer{background:#06261F!important}
+  #video-filters .filter-btn{color:#fff!important}
+}

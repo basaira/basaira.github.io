@@ -1,0 +1,128 @@
+/* Basair Academy — Precision Native Overdrive v2
+   Interaction-only layer. Deliberately avoids geometry ownership:
+   no width/height/padding/margin/gap/grid/font-size overrides. */
+
+:root {
+  --pn-fast: 140ms;
+  --pn-state: 220ms;
+  --pn-overlay: 330ms;
+  --pn-ease: cubic-bezier(.16,1,.3,1);
+  --pn-focus: rgba(244,222,130,.78);
+}
+
+/* Precision: keep the manuscript light, but retire scroll-cinematic movement. */
+@supports (animation-timeline: scroll()) {
+  #home .overdrive-manuscript {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* No hover should physically move key controls after the layout hotfix. */
+.basair-action,
+#submit-btn,
+#slider-prev-btn,
+#slider-next-btn,
+#mobile-menu-close,
+#navbar .language-trigger,
+.video-card__media,
+.video-card__poster {
+  transition-property: color, background-color, border-color, box-shadow, opacity, filter !important;
+  transition-duration: var(--pn-state) !important;
+  transition-timing-function: var(--pn-ease) !important;
+}
+
+.basair-action:is(:hover,:active),
+#submit-btn:is(:hover,:active),
+#slider-prev-btn:is(:hover,:active),
+#slider-next-btn:is(:hover,:active),
+#mobile-menu-close:is(:hover,:active),
+.video-card:is(:hover,:focus-visible) .video-card__media,
+.video-card:hover .video-card__poster,
+#navbar .group:hover img {
+  transform: none !important;
+}
+
+/* Native-feeling focus: unmistakable, stable, no geometry shift. */
+:is(a,button,input,select,textarea,[role="button"]):focus-visible {
+  outline: 3px solid var(--pn-focus) !important;
+  outline-offset: 3px !important;
+}
+
+/* Filters react as state controls, not floating pills. */
+#video-filters .filter-btn {
+  transition: background-color var(--pn-fast) ease, color var(--pn-fast) ease,
+    border-color var(--pn-fast) ease, box-shadow var(--pn-state) var(--pn-ease) !important;
+  transform: none !important;
+}
+#video-filters .filter-btn:active { transform: none !important; }
+
+/* Assessment state is explicit to AT and visually calm. */
+#enrollment-form[aria-busy="true"] { cursor: progress; }
+#enrollment-form[aria-busy="true"] :is(input,select,textarea) { opacity: .88; }
+#enrollment-form[data-native-state="success"] { box-shadow: 0 0 0 1px rgba(244,222,130,.16) inset; }
+#enrollment-form[data-native-state="error"] { box-shadow: 0 0 0 1px rgba(248,113,113,.15) inset; }
+
+/* Same-document transitions: fast enough to feel native, named elements do the work. */
+@supports (view-transition-name: none) {
+  ::view-transition-group(basair-hero-title) {
+    animation-duration: 280ms !important;
+    animation-timing-function: var(--pn-ease) !important;
+  }
+  ::view-transition-group(basair-language-chip) {
+    animation-duration: 210ms !important;
+    animation-timing-function: var(--pn-ease) !important;
+  }
+  ::view-transition-group(basair-video-media) {
+    animation-duration: var(--pn-overlay) !important;
+    animation-timing-function: var(--pn-ease) !important;
+  }
+  ::view-transition-group(basair-video-grid) {
+    animation-duration: 260ms !important;
+    animation-timing-function: var(--pn-ease) !important;
+  }
+
+  /* Suppress the browser's full-page crossfade: only the named UI changes. */
+  .basair-filter-transition::view-transition-old(root),
+  .basair-filter-transition::view-transition-new(root),
+  .basair-video-transition::view-transition-old(root),
+  .basair-video-transition::view-transition-new(root) {
+    animation: none !important;
+  }
+
+  .basair-filter-transition::view-transition-old(basair-video-grid) {
+    animation: pn-grid-old 140ms ease both;
+  }
+  .basair-filter-transition::view-transition-new(basair-video-grid) {
+    animation: pn-grid-new 260ms var(--pn-ease) both;
+  }
+  @keyframes pn-grid-old { to { opacity: .45; filter: blur(1px); } }
+  @keyframes pn-grid-new { from { opacity: .4; filter: blur(1px); } }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .basair-action,
+  #submit-btn,
+  #slider-prev-btn,
+  #slider-next-btn,
+  #mobile-menu-close,
+  .video-card__media,
+  .video-card__poster { transform: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .basair-action,
+  #submit-btn,
+  #slider-prev-btn,
+  #slider-next-btn,
+  #mobile-menu-close,
+  #navbar .language-trigger,
+  .video-card__media,
+  .video-card__poster,
+  #video-filters .filter-btn {
+    transition-duration: .01ms !important;
+    animation: none !important;
+    transform: none !important;
+  }
+}

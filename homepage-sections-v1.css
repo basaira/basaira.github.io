@@ -1,0 +1,331 @@
+/* Basair Academy — Homepage Sections / Scholarly Editorial Journey
+   Overdrive + Layout + Distill + Polish
+   Scope: public homepage sections after #home only. */
+
+:root{
+  --home-journey-wide:min(1180px, calc(100vw - 2rem));
+  --home-journey-reading:68ch;
+  --home-journey-gutter:clamp(1rem, 3vw, 2rem);
+  --home-journey-section:clamp(5.5rem, 9vw, 8rem);
+  --home-journey-stack:clamp(2.5rem, 5vw, 4.5rem);
+  --home-journey-ink:#0a1f44;
+  --home-journey-green:#075b46;
+  --home-journey-gold:#d4af37;
+  --home-journey-ivory:#fbfaf4;
+  --home-journey-paper:#fffef9;
+  --home-journey-line:rgba(10,31,68,.10);
+}
+
+/* ---------- editorial chapter system ---------- */
+main > section.home-chapter{
+  position:relative;
+  isolation:isolate;
+  scroll-margin-top:7rem;
+  padding-block:var(--home-journey-section)!important;
+}
+main > section.home-chapter > .overdrive-folio-marker{display:none!important}
+.homepage-chapter-marker{
+  position:absolute;
+  inset-block-start:clamp(1.05rem,2vw,1.5rem);
+  inset-inline-start:50%;
+  transform:translateX(-50%);
+  display:flex;
+  align-items:center;
+  gap:.85rem;
+  width:min(13rem,42vw);
+  color:color-mix(in srgb,var(--home-journey-ink) 48%,transparent);
+  pointer-events:none;
+  z-index:3;
+}
+.homepage-chapter-marker::before,
+.homepage-chapter-marker::after{
+  content:"";
+  height:1px;
+  flex:1;
+  background:linear-gradient(90deg,transparent,rgba(212,175,55,.36));
+}
+.homepage-chapter-marker::after{transform:scaleX(-1)}
+.homepage-chapter-marker span{
+  display:grid;
+  place-items:center;
+  min-width:2.15rem;
+  height:2.15rem;
+  border-radius:999px;
+  border:1px solid rgba(212,175,55,.28);
+  background:rgba(255,254,249,.82);
+  color:var(--home-journey-green);
+  font:800 .73rem/1 "Manrope",sans-serif;
+  letter-spacing:.12em;
+  box-shadow:0 12px 30px -24px rgba(10,31,68,.35);
+  backdrop-filter:blur(10px);
+}
+
+/* ---------- alternating scholarly surfaces ---------- */
+#quick-guide.home-chapter,
+#tracks.home-chapter,
+#faq.home-chapter{
+  background:var(--home-journey-paper)!important;
+  border-color:transparent!important;
+}
+#about.home-chapter,
+#testimonials.home-chapter{
+  background:linear-gradient(180deg,#f8f7f1 0%,#fbfaf5 100%)!important;
+  border-color:transparent!important;
+}
+#video-library.home-chapter{
+  background:linear-gradient(180deg,#071b20 0%,#092820 55%,#071d19 100%)!important;
+}
+#contact.home-chapter{
+  background:linear-gradient(180deg,#082a22 0%,#063f31 100%)!important;
+  border-top:0!important;
+}
+#video-library > .absolute{opacity:.26!important;filter:blur(7rem)!important}
+
+/* ---------- shared outer geometry ---------- */
+#quick-guide .basair-guide__shell,
+#about > div,
+#tracks > div,
+#video-library > div.relative,
+#testimonials > div,
+#faq > div,
+#contact > div{
+  width:var(--home-journey-wide)!important;
+  max-width:1180px!important;
+  margin-inline:auto!important;
+  padding-inline:var(--home-journey-gutter)!important;
+}
+
+/* Headings feel like chapter openings, not card labels. */
+#about > div > h2,
+#tracks > div > .text-center,
+#video-library > div.relative > .text-center,
+#testimonials > div > .text-center,
+#faq > div > .text-center,
+#contact > div > h2{
+  text-wrap:balance;
+}
+#tracks > div > .text-center,
+#video-library > div.relative > .text-center,
+#testimonials > div > .text-center{
+  text-align:start!important;
+  margin-bottom:clamp(2.5rem,5vw,4rem)!important;
+  max-width:50rem;
+}
+#tracks > div > .text-center h2,
+#video-library > div.relative > .text-center h2,
+#testimonials > div > .text-center h2{
+  margin-inline:0!important;
+}
+
+/* ---------- QUICK GUIDE — distilled academic orientation ---------- */
+#quick-guide .basair-guide__intro--learning{
+  max-width:54rem;
+  margin-inline:auto;
+  text-align:center;
+  margin-bottom:clamp(3rem,6vw,5rem)!important;
+}
+#quick-guide .learning-compass{
+  gap:0!important;
+  border-block:1px solid var(--home-journey-line);
+  background:transparent!important;
+  box-shadow:none!important;
+}
+#quick-guide .learning-compass > *{
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  border:0!important;
+  border-inline-end:1px solid var(--home-journey-line)!important;
+}
+#quick-guide .learning-compass > *:last-child{border-inline-end:0!important}
+#quick-guide .learning-outcomes,
+#quick-guide .learning-evidence{
+  margin-top:clamp(4rem,7vw,6rem)!important;
+}
+#quick-guide .outcome-panel,
+#quick-guide .domain-card,
+#quick-guide [class*="evidence"] [class*="card"]{
+  box-shadow:none!important;
+  border:1px solid rgba(10,31,68,.09)!important;
+  background:rgba(255,255,255,.55)!important;
+}
+#quick-guide .outcome-panel::after,
+#quick-guide .domain-card::after{display:none!important}
+#quick-guide .basair-guide__actions{
+  margin-top:clamp(3.5rem,6vw,5rem)!important;
+  padding-top:clamp(2rem,4vw,3rem)!important;
+  border-top:1px solid var(--home-journey-line);
+}
+
+/* ---------- FACULTY — editorial split rather than centered card ---------- */
+#about > div{
+  display:grid;
+  grid-template-columns:minmax(12rem,.7fr) minmax(0,1.7fr);
+  gap:clamp(2.5rem,6vw,6rem);
+  align-items:start;
+  text-align:start!important;
+}
+#about > div > h2{
+  margin:0!important;
+  position:sticky;
+  top:9rem;
+  max-width:10ch;
+}
+#about > div > div{
+  margin:0!important;
+  padding:0 0 0 clamp(1.5rem,3vw,3rem)!important;
+  border:0!important;
+  border-inline-start:1px solid rgba(212,175,55,.34)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+body.route-ar #about > div > div{padding:0 clamp(1.5rem,3vw,3rem) 0 0!important}
+#about > div > div > .absolute{display:none!important}
+#about > div > div p{
+  max-width:var(--home-journey-reading);
+  font-size:clamp(1rem,1.3vw,1.14rem)!important;
+  line-height:1.9!important;
+}
+
+/* ---------- TRACKS — keep depth, remove excess framing ---------- */
+#tracks > div > .flex{
+  gap:clamp(5rem,9vw,8rem)!important;
+}
+#tracks article{
+  padding-top:0;
+  border-top:0;
+}
+#tracks article + article{
+  padding-top:clamp(5rem,9vw,8rem);
+  border-top:1px solid rgba(10,31,68,.08);
+}
+#tracks .academic-doc{
+  box-shadow:0 28px 70px -56px rgba(10,31,68,.32)!important;
+  border:1px solid rgba(10,31,68,.07)!important;
+}
+
+/* ---------- VIDEO — academic media shelf ---------- */
+#video-library > div.relative{position:relative!important}
+#video-library .video-filters{
+  justify-content:flex-start!important;
+  margin-bottom:2rem!important;
+  padding-bottom:1.25rem;
+  border-bottom:1px solid rgba(255,255,255,.10);
+}
+#video-library .video-grid{
+  gap:clamp(1rem,2vw,1.5rem)!important;
+}
+#video-library .video-card{
+  border-radius:1.2rem!important;
+  box-shadow:none!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  background:rgba(255,255,255,.045)!important;
+}
+#video-library .video-card::after{display:none!important}
+
+/* ---------- TESTIMONIALS — evidence, not decorative cards ---------- */
+#testimonials > div{max-width:1180px!important}
+#testimonials [data-slider],
+#testimonials .testimonials-slider,
+#testimonials #testimonials-slider{
+  margin-top:0!important;
+}
+#testimonials .slider-track > *{
+  box-shadow:none!important;
+  border:1px solid rgba(7,91,70,.10)!important;
+  background:rgba(255,255,255,.62)!important;
+}
+#testimonials .slider-track > *::after{display:none!important}
+
+/* ---------- FAQ — two-column terminal reading pattern ---------- */
+#faq > div{
+  display:grid;
+  grid-template-columns:minmax(13rem,.72fr) minmax(0,1.55fr);
+  gap:clamp(2.5rem,6vw,6rem);
+  align-items:start;
+}
+#faq > div > .text-center{
+  text-align:start!important;
+  margin:0!important;
+  position:sticky;
+  top:9rem;
+}
+#faq > div > .flex{
+  gap:.6rem!important;
+}
+#faq details{
+  border-radius:0!important;
+  border:0!important;
+  border-bottom:1px solid rgba(10,31,68,.10)!important;
+  box-shadow:none!important;
+  background:transparent!important;
+}
+#faq details:first-child{border-top:1px solid rgba(10,31,68,.10)!important}
+#faq summary{padding:1.25rem .25rem!important}
+#faq details > div{padding:0 .25rem 1.25rem!important}
+
+/* ---------- ASSESSMENT — final conversion chapter ---------- */
+#contact > div{
+  max-width:920px!important;
+}
+#contact > div > h2,
+#contact > div > p{
+  max-width:48rem;
+  margin-inline:auto!important;
+}
+#contact > div > h2{margin-bottom:1rem!important}
+#contact > div > p{margin-bottom:clamp(2.5rem,5vw,4rem)!important}
+#contact .registration-shell{
+  margin-top:0!important;
+  border-radius:1.6rem!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  background:rgba(255,255,255,.055)!important;
+  box-shadow:0 30px 80px -58px rgba(0,0,0,.65)!important;
+}
+
+/* ---------- distill: remove decorative effects that duplicate hierarchy ---------- */
+.home-chapter :is(.animate-pulse){animation:none!important}
+.home-chapter:not(#contact) :is(.shadow-sm,.shadow-md,.shadow-lg){box-shadow:none!important}
+
+/* ---------- responsive editorial fallback ---------- */
+@media (max-width:1023px){
+  #about > div,
+  #faq > div{
+    grid-template-columns:1fr;
+    gap:2rem;
+  }
+  #about > div > h2,
+  #faq > div > .text-center{
+    position:static!important;
+    top:auto!important;
+    max-width:18ch;
+  }
+  #about > div > div{
+    padding:1.75rem 0 0!important;
+    border-inline-start:0!important;
+    border-top:1px solid rgba(212,175,55,.30)!important;
+  }
+  body.route-ar #about > div > div{padding:1.75rem 0 0!important}
+}
+@media (max-width:767px){
+  :root{--home-journey-section:clamp(4.4rem,14vw,5.8rem)}
+  .homepage-chapter-marker{inset-block-start:.8rem;width:min(10rem,46vw)}
+  .homepage-chapter-marker span{min-width:1.9rem;height:1.9rem;font-size:.67rem}
+  #quick-guide .learning-compass{border-block:0!important}
+  #quick-guide .learning-compass > *{
+    border-inline-end:0!important;
+    border-bottom:1px solid var(--home-journey-line)!important;
+  }
+  #quick-guide .learning-compass > *:first-child{border-top:1px solid var(--home-journey-line)!important}
+  #tracks > div > .text-center,
+  #video-library > div.relative > .text-center,
+  #testimonials > div > .text-center{
+    margin-bottom:2.25rem!important;
+  }
+  #contact .registration-shell{border-radius:1.25rem!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .home-chapter *{scroll-behavior:auto!important}
+}

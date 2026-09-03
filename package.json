@@ -1,36 +1,46 @@
 {
-  "name": "react-example",
+  "name": "basair-academy",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3000 --host=0.0.0.0",
+    "dev": "vite --port=3000 --host=localhost",
     "build": "vite build",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "preview": "vite preview --host=localhost",
+    "lint": "tsc --noEmit",
+    "verify": "npm run lint && npm run verify:security && npm run verify:ui && npm run verify:harden && npm run verify:form-polish && npm run verify:course-cards && npm run verify:course-buttons-delight && npm run verify:final-polish && npm run verify:hero && npm run verify:hero-final-v4 && npm run verify:hero-cta && npm run verify:homepage-sections && npm run verify:academic-pathways && npm run verify:welcome && npm run verify:surgical && npm run verify:impeccable-v4 && npm run verify:impeccable-v5 && npm run verify:impeccable-v6-cards && npm run verify:impeccable-v7-nav-video-settings && npm run verify:impeccable-v8-guide && npm run build",
+    "deploy:firestore-rules": "npx firebase-tools@15.28.1 deploy --only firestore:rules --project basair-academy-4a1d0",
+    "verify:security": "node security-check.mjs",
+    "verify:ui": "node ui-regression-check.mjs",
+    "verify:harden": "node harden-check.mjs",
+    "verify:form-polish": "node registration-polish-check.mjs",
+    "verify:course-cards": "node course-cards-overdrive-check.mjs",
+    "verify:course-buttons-delight": "node course-buttons-delight-check.mjs",
+    "verify:final-polish": "node final-polish-check.mjs",
+    "verify:hero": "node hero-section-check.mjs",
+    "verify:hero-final": "node hero-delight-animate-polish-check.mjs",
+    "verify:hero-final-v4": "node hero-delight-animate-polish-v4-check.mjs",
+    "verify:hero-cta": "node hero-cta-overdrive-check.mjs",
+    "verify:homepage-sections": "node homepage-sections-check.mjs",
+    "verify:academic-pathways": "node academic-pathways-check.mjs",
+    "verify:surgical": "node surgical-logic-check.mjs",
+    "verify:welcome": "node welcome-logic-check.mjs",
+    "verify:impeccable-v4": "node impeccable-v4-check.mjs",
+    "verify:impeccable-v5": "node impeccable-v5-check.mjs",
+    "verify:impeccable-v6-cards": "node impeccable-v6-course-cards-check.mjs",
+    "verify:impeccable-v7-nav-video-settings": "node impeccable-v7-nav-video-settings-check.mjs",
+    "verify:impeccable-v8-guide": "node impeccable-v8-quick-guide-check.mjs"
   },
-  "dependencies": {
-    "@google/genai": "^2.4.0",
-    "@tailwindcss/vite": "^4.1.14",
-    "@vitejs/plugin-react": "^5.0.4",
-    "dotenv": "^17.2.3",
-    "express": "^4.21.2",
-    "firebase": "^12.14.0",
-    "lucide-react": "^0.546.0",
-    "motion": "^12.23.24",
-    "react": "^19.0.1",
-    "react-dom": "^19.0.1",
-    "vite": "^6.2.3"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^22.14.0",
-    "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.0",
-    "tailwindcss": "^4.1.14",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "@tailwindcss/vite": "4.3.0",
+    "@types/node": "22.18.3",
+    "tailwindcss": "4.3.0",
+    "typescript": "5.8.3",
+    "vite": "6.4.3"
+  },
+  "overrides": {
+    "nanoid": "3.3.18",
+    "postcss": "8.5.26"
   }
 }

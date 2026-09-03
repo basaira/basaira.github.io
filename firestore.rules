@@ -1,12 +1,154 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /enrollment_requests/{document=**} {
-      allow create: if true; // يسمح للجميع بإرسال طلبات التحاق
-      allow read, update, delete: if false; // يمنع أي شخص من قراءة أو حذف طلبات الآخرين
+    function signedIn() {
+      return request.auth != null;
     }
+
+    function isActiveAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_roles/$(request.auth.uid)).data.active == true;
+    }
+
+    function isOptionalShortString(data, key, maxSize) {
+      return !(key in data)
+        || data[key] == null
+        || (data[key] is string && data[key].size() <= maxSize);
+    }
+
+    function validAttribution(data) {
+      return data is map
+        && data.keys().hasOnly([
+          'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+          'gclid', 'fbclid', 'ttclid', 'landingPath', 'landing_path',
+          'referrer', 'capturedAt', 'captured_at'
+        ])
+        && isOptionalShortString(data, 'utm_source', 200)
+        && isOptionalShortString(data, 'utm_medium', 200)
+        && isOptionalShortString(data, 'utm_campaign', 200)
+        && isOptionalShortString(data, 'utm_content', 200)
+        && isOptionalShortString(data, 'utm_term', 200)
+        && isOptionalShortString(data, 'gclid', 200)
+        && isOptionalShortString(data, 'fbclid', 200)
+        && isOptionalShortString(data, 'ttclid', 200)
+        && isOptionalShortString(data, 'landingPath', 240)
+        && isOptionalShortString(data, 'landing_path', 240)
+        && isOptionalShortString(data, 'referrer', 500)
+        && isOptionalShortString(data, 'capturedAt', 64)
+        && isOptionalShortString(data, 'captured_at', 64);
+    }
+
+    function isOptionalRequestTimestamp(data, key) {
+      return !(key in data) || data[key] == request.time;
+    }
+
+    function hasUsableLeadContact(data) {
+      return (('phone' in data) && data.phone is string && data.phone.size() >= 6 && data.phone.size() <= 30)
+        || (('whatsapp' in data) && data.whatsapp is string && data.whatsapp.size() >= 6 && data.whatsapp.size() <= 30)
+        || (('email' in data) && data.email is string && data.email.size() >= 5 && data.email.size() <= 120);
+    }
+
+    function validAssessmentLead() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'requestType', 'fullName', 'country', 'track', 'firstTouchAttribution',
+          'lastTouchAttribution', 'status'
+        ])
+        && data.keys().hasOnly([
+          'requestType', 'fullName', 'phone', 'whatsapp', 'email',
+          'ageGroup', 'age', 'country', 'preferredTime', 'contactPreference',
+          'track', 'message', 'goal', 'persona', 'locale', 'language',
+          'route', 'pagePath', 'pageTitle', 'firstTouchAttribution',
+          'lastTouchAttribution', 'userAgent', 'submittedAt',
+          'submissionDate', 'status'
+        ])
+        && data.fullName is string
+        && data.fullName.size() >= 2
+        && data.fullName.size() <= 80
+        && data.country is string
+        && data.country.size() >= 2
+        && data.country.size() <= 90
+        && data.track is string
+        && data.track.size() >= 2
+        && data.track.size() <= 100
+        && data.requestType == 'free_assessment'
+        && validAttribution(data.firstTouchAttribution)
+        && validAttribution(data.lastTouchAttribution)
+        && isOptionalRequestTimestamp(data, 'submittedAt')
+        && isOptionalRequestTimestamp(data, 'submissionDate')
+        && data.status == 'new'
+        && hasUsableLeadContact(data)
+        && isOptionalShortString(data, 'phone', 30)
+        && isOptionalShortString(data, 'whatsapp', 30)
+        && isOptionalShortString(data, 'email', 120)
+        && isOptionalShortString(data, 'ageGroup', 60)
+        && isOptionalShortString(data, 'age', 20)
+        && isOptionalShortString(data, 'preferredTime', 120)
+        && isOptionalShortString(data, 'contactPreference', 30)
+        && isOptionalShortString(data, 'message', 1000)
+        && isOptionalShortString(data, 'goal', 1000)
+        && isOptionalShortString(data, 'persona', 80)
+        && isOptionalShortString(data, 'locale', 8)
+        && isOptionalShortString(data, 'language', 8)
+        && isOptionalShortString(data, 'route', 200)
+        && isOptionalShortString(data, 'pagePath', 200)
+        && isOptionalShortString(data, 'pageTitle', 180)
+        && isOptionalShortString(data, 'userAgent', 350);
+    }
+
+    function validAdminRequestStatusUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'handledAt', 'handledBy'
+        ])
+        && request.resource.data.status in ['new', 'contacted', 'pending', 'accepted', 'rejected']
+        && request.resource.data.handledAt == request.time
+        && request.resource.data.handledBy is string
+        && request.resource.data.handledBy.size() <= 180;
+    }
+
+    // Legacy requests are immutable except for an audited status transition by an active admin.
+    match /enrollment_requests/{requestId} {
+      allow create, delete: if false;
+      allow read: if isActiveAdmin();
+      allow update: if isActiveAdmin() && validAdminRequestStatusUpdate();
+    }
+
+    // Dedicated acquisition/assessment funnel. Visitors never need an account.
+    match /assessment_requests/{requestId} {
+      allow create: if validAssessmentLead();
+      allow read: if isActiveAdmin();
+      allow update: if isActiveAdmin() && validAdminRequestStatusUpdate();
+      allow delete: if false;
+    }
+
+    // One public content document. Visitors can read; only active admins can write.
+    match /site_content/public {
+      allow read: if true;
+      allow create, update: if isActiveAdmin();
+      allow delete: if false;
+    }
+
+    // No other site_content documents are exposed by default.
+    match /site_content/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Immutable administrative audit trail. It intentionally stores no lead PII.
+    match /admin_audit/{entryId} {
+      allow read, create: if isActiveAdmin();
+      allow update, delete: if false;
+    }
+
+    // A signed-in user may only read their own admin-role document.
+    match /admin_roles/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // No public settings surface. Add explicit, least-privilege rules if a future feature needs it.
     match /settings/{document=**} {
-      allow read, write: if true; // للسماح بقراءة وإنشاء الباسورد
+      allow read, write: if false;
     }
   }
 }

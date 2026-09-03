@@ -1,0 +1,86 @@
+/* Basair Academy — Impeccable Delight / Hero Section v4
+   Memorable once, quiet thereafter. No looping spectacle. */
+#home .hero-kicker > span:first-child{
+  animation:none!important;
+  transform-origin:center;
+  box-shadow:0 0 0 0 rgba(212,175,55,0);
+}
+body.motion-entered #home .hero-kicker > span:first-child{
+  animation:heroDelightV4Kicker 760ms cubic-bezier(.16,1,.3,1) 320ms 1 both!important;
+}
+@keyframes heroDelightV4Kicker{
+  0%{transform:scale(.78);box-shadow:0 0 0 0 rgba(212,175,55,.30)}
+  52%{transform:scale(1.08);box-shadow:0 0 0 8px rgba(212,175,55,.08)}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,175,55,0)}
+}
+
+/* One academic "ink catch" across the emphasized line. */
+#home .hero-title__line--accent{
+  background-size:185% 100%!important;
+  background-position:18% 50%!important;
+}
+body.motion-entered #home .hero-title__line--accent{
+  animation:heroDelightV4Accent 980ms cubic-bezier(.16,1,.3,1) 470ms 1 both;
+}
+@keyframes heroDelightV4Accent{
+  0%{background-position:8% 50%}
+  58%{background-position:86% 50%}
+  100%{background-position:58% 50%}
+}
+
+/* Seal receives one restrained halo; it never loops. */
+#home .hero-visual-seal::before{
+  content:"";
+  position:absolute;
+  inset:-9px;
+  border-radius:50%;
+  border:1px solid rgba(212,175,55,.20);
+  opacity:.14;
+  transform:scale(1.02);
+  pointer-events:none;
+}
+body.motion-entered #home .hero-visual-seal::before{
+  animation:heroDelightV4Seal 820ms cubic-bezier(.16,1,.3,1) 720ms 1 both;
+}
+@keyframes heroDelightV4Seal{
+  0%{opacity:0;transform:scale(.90)}
+  48%{opacity:.68}
+  100%{opacity:.14;transform:scale(1.08)}
+}
+
+#home .hero-visual-node{overflow:hidden}
+#home .hero-visual-node::after{
+  content:"";
+  position:absolute;
+  inset:-45%;
+  background:linear-gradient(118deg,transparent 36%,rgba(255,255,255,.76) 50%,transparent 64%);
+  transform:translateX(-145%) rotate(7deg);
+  opacity:0;
+  pointer-events:none;
+}
+body.motion-entered #home .hero-visual-node::after{animation:heroDelightV4Node 520ms ease-out 1 both}
+body.motion-entered #home .hero-visual-node--1::after{animation-delay:820ms}
+body.motion-entered #home .hero-visual-node--2::after{animation-delay:900ms}
+body.motion-entered #home .hero-visual-node--3::after{animation-delay:980ms}
+@keyframes heroDelightV4Node{
+  0%{opacity:0;transform:translateX(-145%) rotate(7deg)}
+  28%{opacity:.58}
+  100%{opacity:0;transform:translateX(145%) rotate(7deg)}
+}
+
+#home .hero-primary-cta.is-acknowledged::after{
+  content:"✓"!important;
+  transform:none!important;
+  background:rgba(212,175,55,.20)!important;
+  border-color:rgba(212,175,55,.34)!important;
+}
+#home .hero-primary-cta.is-acknowledged{
+  box-shadow:0 18px 38px -27px rgba(7,91,70,.52),0 0 0 4px rgba(212,175,55,.07)!important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  #home .hero-kicker > span:first-child,
+  #home .hero-title__line--accent,
+  #home .hero-visual-seal::before,
+  #home .hero-visual-node::after{animation:none!important}
+}

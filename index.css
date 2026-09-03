@@ -6,6 +6,6 @@
   --color-ivory: #FDFDF5;
   --color-navy: #0A1F44;
   
-  --font-arabic: "Tajawal", sans-serif;
-  --font-latin: "Inter", sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", "Tajawal", sans-serif;
+  --font-latin: "Manrope", sans-serif;
 }

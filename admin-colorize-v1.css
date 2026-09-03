@@ -1,0 +1,83 @@
+/* Basair Admin — Impeccable Colorize v1
+   Dark operational theme rebuilt around evergreen depth rather than navy dominance. */
+:root{
+  --admin-bg:#071713;
+  --admin-surface:#0B2620;
+  --admin-surface-2:#12362D;
+  --admin-card:rgba(246,247,241,.058);
+  --admin-line:rgba(218,231,220,.12);
+  --admin-text:#F6F7F1;
+  --admin-muted:#B5C6BF;
+  --admin-ivory:#FFFDF5;
+  --admin-green:#0D7A5E;
+  --admin-green-2:#13A178;
+  --admin-gold:#D4AF37;
+  --admin-danger:#D9747D;
+  --admin-info:#7FB8D6;
+}
+html{background:var(--admin-bg)!important}
+body{
+  background:
+    radial-gradient(circle at 14% 0%,rgba(19,161,120,.17),transparent 31rem),
+    radial-gradient(circle at 100% 0%,rgba(212,175,55,.08),transparent 28rem),
+    linear-gradient(180deg,#071713 0%,#081C17 100%)!important;
+}
+.sidebar,.main-card{
+  background:linear-gradient(180deg,rgba(11,38,32,.94),rgba(8,30,25,.94))!important;
+  border-color:var(--admin-line)!important;
+}
+.brand{border-bottom-color:rgba(218,231,220,.11)!important}
+.seal{background:linear-gradient(135deg,#F4DF86,#D4AF37)!important;color:#17352D!important}
+.nav-btn{color:rgba(238,244,240,.72)!important}
+.nav-btn:hover{background:rgba(246,247,241,.06)!important;color:#fff!important}
+.nav-btn.active{
+  background:linear-gradient(135deg,rgba(19,161,120,.16),rgba(246,247,241,.055))!important;
+  border-color:rgba(212,175,55,.25)!important;
+  box-shadow:inset 3px 0 0 rgba(19,161,120,.72),0 14px 28px -24px rgba(0,0,0,.8)!important;
+}
+[dir="rtl"] .nav-btn.active{box-shadow:inset -3px 0 0 rgba(19,161,120,.72),0 14px 28px -24px rgba(0,0,0,.8)!important}
+.badge{background:rgba(212,175,55,.13)!important;color:#F4DE82!important;border-color:rgba(212,175,55,.20)!important}
+.topbar{
+  background:linear-gradient(180deg,rgba(11,38,32,.90),rgba(9,32,27,.84))!important;
+  border-bottom-color:rgba(218,231,220,.10)!important;
+}
+.panel,.stat{background:linear-gradient(180deg,rgba(246,247,241,.064),rgba(246,247,241,.032))!important;border-color:var(--admin-line)!important}
+.stat::after{background:rgba(212,175,55,.46)!important}
+.stat--accent::after{background:rgba(19,161,120,.82)!important}
+input,select,textarea{background:rgba(4,22,18,.66)!important;border-color:rgba(218,231,220,.14)!important;color:#fff!important}
+input::placeholder,textarea::placeholder{color:rgba(213,225,218,.43)!important}
+input:focus,select:focus,textarea:focus{
+  border-color:rgba(212,175,55,.56)!important;
+  box-shadow:0 0 0 3px rgba(212,175,55,.10)!important;
+}
+.btn:not(.secondary):not(.danger):not(.google-btn){
+  background:linear-gradient(135deg,#159A76,#0D7A5E)!important;
+  border-color:rgba(255,255,255,.13)!important;
+  box-shadow:0 14px 30px -24px rgba(19,161,120,.76)!important;
+}
+.btn:not(.secondary):not(.danger):not(.google-btn):hover{background:linear-gradient(135deg,#19A980,#0B6E55)!important}
+.btn.secondary{background:rgba(246,247,241,.07)!important;color:#F2F6F3!important;border-color:rgba(218,231,220,.13)!important}
+.btn.danger{background:rgba(217,116,125,.12)!important;color:#FFC7CC!important;border-color:rgba(217,116,125,.30)!important}
+.status.success{background:rgba(19,161,120,.13)!important;border-color:rgba(19,161,120,.34)!important;color:#C9F5E6!important}
+.status.error{background:rgba(217,116,125,.12)!important;border-color:rgba(217,116,125,.28)!important;color:#FFD0D4!important}
+.status.warning{background:rgba(212,175,55,.10)!important;border-color:rgba(212,175,55,.25)!important;color:#F4DE82!important}
+.item{background:rgba(5,28,23,.58)!important;border-color:rgba(218,231,220,.10)!important}
+button.item:hover,.item:hover{background:rgba(17,55,46,.72)!important;border-color:rgba(212,175,55,.25)!important}
+.pill{background:rgba(19,161,120,.11)!important;border-color:rgba(19,161,120,.23)!important;color:#9EE7D1!important}
+.original-preview{background:rgba(212,175,55,.045)!important;border-color:rgba(212,175,55,.24)!important}
+.console-security-chip{background:rgba(246,247,241,.06)!important;border-color:rgba(218,231,220,.13)!important;color:#E6EFEA!important}
+.console-security-dot,.integrity-checklist li>span{background:linear-gradient(#22BD8E,#0D7A5E)!important;box-shadow:0 0 0 4px rgba(34,189,142,.12)!important}
+.overview-intro{background:linear-gradient(135deg,rgba(19,161,120,.09),rgba(246,247,241,.035))!important}
+.overview-mark span{background:linear-gradient(#22BD8E,#0D7A5E)!important}
+.overview-mark span:nth-child(3){background:linear-gradient(#F2D976,#D4AF37)!important}
+.console-capabilities-panel::before{background:radial-gradient(circle,rgba(19,161,120,.16),transparent 70%)!important}
+.console-integrity-panel::before{background:radial-gradient(circle,rgba(212,175,55,.13),transparent 70%)!important}
+.capability-item,.integrity-meta-card,.editor-meta-card{background:rgba(246,247,241,.04)!important;border-color:rgba(218,231,220,.10)!important}
+.capability-item>b{background:rgba(19,161,120,.12)!important;border-color:rgba(19,161,120,.25)!important;color:#A8EBD7!important}
+.google-btn{background:#FFFDF8!important;color:#12382F!important;border-color:#FFFDF8!important}
+::selection{background:#285E50;color:#fff}
+@media(prefers-contrast:more){
+  .sidebar,.main-card,.topbar{background:#0B2620!important}
+  .panel,.stat,.item{border-color:rgba(255,255,255,.23)!important}
+  .admin-muted,.hint,.muted,.auth-help{color:#D8E1DC!important}
+}

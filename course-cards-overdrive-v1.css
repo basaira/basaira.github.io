@@ -1,0 +1,229 @@
+:root{
+  --course-od-gold:#d4af37;
+  --course-od-ink:#0a1f44;
+  --course-od-cream:#fdfbf4;
+}
+
+#tracks article{
+  position:relative;
+}
+
+#tracks .course-dossier-card{
+  position:relative;
+  isolation:isolate;
+  border:1px solid rgba(255,255,255,.12);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  transform:translateZ(0);
+  transition:transform .28s ease, box-shadow .28s ease, border-color .28s ease, filter .28s ease;
+  cursor:default;
+  outline:none;
+}
+#tracks .course-dossier-card[data-dossier-tone="emerald"]{
+  background:linear-gradient(180deg, rgba(0,86,63,.96), rgba(1,73,54,.98));
+  border-color:rgba(212,175,55,.16);
+}
+#tracks .course-dossier-card[data-dossier-tone="gold"]{
+  background:linear-gradient(180deg, rgba(212,175,55,.98), rgba(191,151,35,.98));
+  border-color:rgba(10,31,68,.09);
+}
+#tracks .course-dossier-card[data-dossier-tone="navy"]{
+  background:linear-gradient(180deg, rgba(10,31,68,.98), rgba(9,25,55,.98));
+  border-color:rgba(212,175,55,.14);
+}
+#tracks .course-dossier-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(520px circle at var(--cc-x, 12%) var(--cc-y, 8%), rgba(255,255,255,.14), transparent 34%),
+    linear-gradient(135deg, rgba(255,255,255,.07), transparent 38%, transparent 62%, rgba(255,255,255,.04));
+  opacity:.88;
+  z-index:0;
+  pointer-events:none;
+}
+#tracks .course-dossier-card::after{
+  content:"";
+  position:absolute;
+  inset:1px;
+  border-radius:inherit;
+  border:1px solid rgba(255,255,255,.05);
+  background:linear-gradient(180deg, rgba(255,255,255,.025), transparent 16%, transparent 84%, rgba(255,255,255,.03));
+  pointer-events:none;
+  z-index:0;
+}
+#tracks .course-dossier-card:hover,
+#tracks article.is-course-card-active .course-dossier-card,
+#tracks .course-dossier-card:focus-visible{
+  transform:translateY(-3px);
+  box-shadow:0 28px 55px -28px rgba(10,31,68,.38), 0 10px 22px -16px rgba(212,175,55,.22);
+  border-color:rgba(212,175,55,.3);
+  filter:saturate(1.03);
+}
+#tracks .course-dossier-card__inner{
+  position:relative;
+  z-index:1;
+  display:grid;
+  gap:1rem;
+}
+#tracks .course-dossier-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+#tracks .course-dossier-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:.55rem;
+  min-height:2rem;
+  padding:.45rem .82rem;
+  border-radius:999px;
+  font-size:.75rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  color:inherit;
+}
+#tracks .course-dossier-kicker::before{
+  content:"";
+  inline-size:.56rem;
+  block-size:.56rem;
+  border-radius:999px;
+  background:var(--course-od-gold);
+  box-shadow:0 0 0 6px rgba(212,175,55,.14);
+}
+#tracks .course-dossier-index{
+  inline-size:3rem;
+  block-size:3rem;
+  display:grid;
+  place-items:center;
+  border-radius:1rem;
+  flex:0 0 auto;
+  font-size:1rem;
+  font-weight:950;
+  letter-spacing:.16em;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 18px 30px -24px rgba(0,0,0,.25);
+}
+#tracks .course-dossier-card[data-dossier-tone="gold"] .course-dossier-kicker,
+#tracks .course-dossier-card[data-dossier-tone="gold"] .course-dossier-index{
+  background:rgba(255,255,255,.18);
+  border-color:rgba(10,31,68,.09);
+}
+#tracks .course-dossier-card[data-dossier-tone="gold"] .course-dossier-kicker::before{
+  box-shadow:0 0 0 6px rgba(10,31,68,.08);
+}
+#tracks .course-dossier-card h2{
+  margin-bottom:0!important;
+  max-width:14ch;
+  letter-spacing:-.02em;
+}
+#tracks .course-dossier-card p{
+  margin-bottom:0!important;
+  font-weight:600!important;
+  line-height:1.75!important;
+  max-width:34ch;
+}
+#tracks .course-dossier-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.55rem;
+}
+#tracks .course-dossier-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:.45rem;
+  min-height:2rem;
+  padding:.42rem .78rem;
+  border-radius:999px;
+  font-size:.76rem;
+  font-weight:800;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+  color:inherit;
+}
+#tracks .course-dossier-chip::before{
+  content:"";
+  inline-size:.34rem;
+  block-size:.34rem;
+  border-radius:999px;
+  background:currentColor;
+  opacity:.86;
+}
+#tracks .course-dossier-card[data-dossier-tone="gold"] .course-dossier-chip{
+  background:rgba(255,255,255,.18);
+  border-color:rgba(10,31,68,.08);
+}
+#tracks .course-dossier-divider{
+  block-size:1px;
+  inline-size:100%;
+  background:linear-gradient(90deg, rgba(212,175,55,.46), rgba(255,255,255,.14) 58%, transparent);
+  opacity:.88;
+}
+#tracks .course-dossier-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+#tracks .course-dossier-status{
+  display:inline-flex;
+  align-items:center;
+  gap:.58rem;
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.01em;
+}
+#tracks .course-dossier-status-dot{
+  inline-size:.6rem;
+  block-size:.6rem;
+  border-radius:999px;
+  background:rgba(255,255,255,.62);
+  box-shadow:0 0 0 6px rgba(255,255,255,.08);
+  transition:background-color .24s ease, box-shadow .24s ease;
+}
+#tracks article.is-course-card-active .course-dossier-status-dot{
+  background:var(--course-od-gold);
+  box-shadow:0 0 0 6px rgba(212,175,55,.16);
+}
+#tracks .course-dossier-note{
+  font-size:.76rem;
+  font-weight:800;
+  opacity:.8;
+}
+#tracks .course-dossier-card .track-detail-cta-v6{
+  margin-top:.2rem!important;
+}
+#tracks .course-dossier-card .track-detail-cta-v6:hover,
+#tracks article.is-course-card-active .course-dossier-card .track-detail-cta-v6{
+  filter:saturate(1.04);
+}
+#tracks .course-dossier-card:focus-visible{
+  box-shadow:0 0 0 3px rgba(212,175,55,.22), 0 28px 55px -28px rgba(10,31,68,.38);
+}
+
+@media (max-width: 1023px){
+  #tracks .course-dossier-card{
+    position:relative!important;
+    top:auto!important;
+  }
+}
+@media (max-width: 767px){
+  #tracks .course-dossier-card__inner{gap:.9rem}
+  #tracks .course-dossier-head{align-items:center}
+  #tracks .course-dossier-index{inline-size:2.7rem;block-size:2.7rem;border-radius:.9rem;font-size:.92rem}
+  #tracks .course-dossier-kicker,
+  #tracks .course-dossier-chip{font-size:.72rem}
+  #tracks .course-dossier-footer{align-items:flex-start}
+  #tracks .course-dossier-note{width:100%}
+}
+@media (prefers-reduced-motion: reduce){
+  #tracks .course-dossier-card,
+  #tracks .course-dossier-status-dot{
+    transition:none!important;
+  }
+}

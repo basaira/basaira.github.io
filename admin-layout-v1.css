@@ -1,0 +1,190 @@
+/* Basair Admin — Impeccable Layout v1
+   Operational geometry only; visual identity and application logic are untouched. */
+
+:root {
+  --admin-layout-gutter: clamp(.75rem, 2vw, 1.25rem);
+  --admin-layout-gap: clamp(.75rem, 1.4vw, 1.1rem);
+  --admin-layout-content-gap: clamp(.9rem, 1.6vw, 1.35rem);
+  --admin-layout-shell: 96rem;
+}
+
+.shell {
+  width: min(calc(100% - (2 * var(--admin-layout-gutter))), var(--admin-layout-shell)) !important;
+  grid-template-columns: minmax(14.5rem, 17rem) minmax(0, 1fr) !important;
+  gap: var(--admin-layout-gap) !important;
+  margin: var(--admin-layout-gutter) auto !important;
+  align-items: start !important;
+}
+
+.sidebar {
+  top: var(--admin-layout-gutter) !important;
+  max-height: calc(100dvh - (2 * var(--admin-layout-gutter))) !important;
+  min-width: 0;
+}
+
+.main-card {
+  min-width: 0;
+  overflow: clip !important;
+}
+
+.topbar {
+  padding: clamp(.9rem, 1.6vw, 1.2rem) clamp(1rem, 2vw, 1.5rem) !important;
+  gap: 1rem !important;
+}
+
+.content {
+  padding: clamp(.85rem, 1.8vw, 1.35rem) !important;
+}
+
+.content > section + section,
+.content > .panel + .panel,
+.content > [data-view] > .panel + .panel {
+  margin-top: var(--admin-layout-content-gap);
+}
+
+.grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: var(--admin-layout-content-gap) !important;
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: var(--admin-layout-gap) !important;
+}
+
+.overview-grid-2 {
+  gap: var(--admin-layout-content-gap) !important;
+}
+
+.panel,
+.stat,
+.item,
+.editor-card,
+.audit-card {
+  min-width: 0;
+}
+
+.table-wrap,
+.audit-list,
+.editor-list {
+  max-width: 100%;
+}
+
+/* The dashboard can keep four stats only while each card remains genuinely usable. */
+@media (max-width: 1180px) {
+  .shell {
+    grid-template-columns: minmax(13.25rem, 14.5rem) minmax(0, 1fr) !important;
+  }
+
+  .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Collapse the workspace before a narrow sidebar starts stealing editing width. */
+@media (max-width: 900px) {
+  .shell {
+    display: block !important;
+    width: min(calc(100% - 1rem), var(--admin-layout-shell)) !important;
+    margin: .5rem auto !important;
+  }
+
+  .sidebar {
+    position: sticky !important;
+    top: .5rem !important;
+    z-index: 40 !important;
+    max-height: none !important;
+    margin-bottom: .65rem !important;
+    display: flex !important;
+    align-items: center;
+    gap: .45rem !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .sidebar .brand {
+    display: none !important;
+  }
+
+  .sidebar .nav-btn {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  .main-card {
+    border-radius: 1.25rem !important;
+  }
+
+  .topbar {
+    position: static !important;
+    align-items: flex-start !important;
+  }
+
+  .top-actions {
+    flex-wrap: wrap !important;
+  }
+
+  .toolbar,
+  .overview-grid-2,
+  .overview-intro,
+  .editor-meta-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .content {
+    padding: .72rem !important;
+  }
+
+  .grid-2,
+  .grid-4 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .topbar {
+    padding: .85rem !important;
+  }
+
+  .top-actions {
+    width: 100% !important;
+  }
+
+  .top-actions .btn {
+    flex: 1 1 10rem !important;
+  }
+
+  .panel {
+    padding: 1rem !important;
+  }
+
+  .capability-item,
+  .integrity-meta-grid,
+  .audit-list .item {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .shell {
+    width: calc(100% - .5rem) !important;
+    margin: .25rem auto !important;
+  }
+
+  .sidebar {
+    top: .25rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .row-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .row-actions .btn,
+  .row-actions a {
+    width: 100% !important;
+  }
+}
