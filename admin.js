@@ -1,7 +1,6 @@
-
-    import { firebaseConfig, FIREBASE_PROJECT_ID } from "./firebase-config.js";
+ import { firebaseConfig, FIREBASE_PROJECT_ID } from "./firebase-config.js";
     import contentRegistryData from "./content-registry.js";
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 
     import {
       initializeFirestore,
@@ -14,27 +13,24 @@
       query,
       orderBy,
       limit
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
     import {
       getAuth,
       GoogleAuthProvider,
       signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
       signInWithEmailAndPassword,
       setPersistence,
       browserLocalPersistence,
       signOut,
       onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 
     const app = initializeApp(firebaseConfig);
     const db = initializeFirestore(app, { experimentalForceLongPolling: true });
     const auth = getAuth(app);
     const googleProvider = new GoogleAuthProvider();
     googleProvider.setCustomParameters({ prompt: "select_account" });
-    const AUTH_REDIRECT_FLAG = "basair_admin_auth_redirect_pending";
 
     const publicRef = doc(db, "site_content", "public");
 
@@ -962,7 +958,7 @@
       const combined = `${code} ${message}`;
 
       if (combined.includes("requests-from-referer") && combined.includes("are-blocked")) {
-        return `Firebase يمنع الطلبات القادمة من ${window.location.origin}. هذا إعداد خارجي للمشروع وليس خطأ كلمة مرور: أضف localhost إلى Firebase Authentication → Settings → Authorized domains، واسمح بـ http://localhost:3000/* في Website restrictions لمفتاح Firebase Web API.`;
+        return `Firebase Authentication رفض طلب المصادقة بسبب تقييد HTTP referrer للنطاق ${window.location.origin}. هذه النسخة تستخدم Firebase JS SDK 12.15.0 الذي يرسل strict-origin-when-cross-origin لطلبات Authentication؛ تأكد فقط أن النطاق موجود في Website restrictions لمفتاح Firebase Web API.`;
       }
 
       const messages = {
@@ -973,9 +969,7 @@
         "auth/user-disabled": "هذا الحساب معطّل داخل Firebase Authentication.",
         "auth/too-many-requests": "تم إيقاف المحاولات مؤقتًا بسبب كثرتها. حاول لاحقًا.",
         "auth/network-request-failed": "تعذر الوصول إلى Firebase. تحقق من الإنترنت أو مانع الإعلانات/الجدار الناري.",
-        "auth/internal-error": host === "127.0.0.1"
-          ? "تعذر Firebase Auth على 127.0.0.1. شغّل المشروع عبر npm run dev وافتح رابط localhost الذي يظهر في الطرفية؛ إعداد التطوير أصبح يستخدم localhost لتوافق أفضل مع Authorized domains."
-          : `تعذر إكمال مصادقة Firebase من ${host}. تأكد من تفعيل طريقة الدخول ومن وجود ${host} في Authorized domains، ثم أعد المحاولة.`,
+        "auth/internal-error": `تعذر إكمال مصادقة Google (auth/internal-error). ${message ? `تفصيل Firebase: ${message}` : ""} إذا استمر الخطأ بعد تحديث SDK، عطّل Google Sign-in ثم فعّله من Firebase لإعادة مزامنة OAuth Web Client.`,
         "auth/popup-closed-by-user": "أُغلقت نافذة تسجيل الدخول قبل إتمام العملية."
       };
       return messages[code] || `${code} — ${message || "فشل تسجيل الدخول"}`;
@@ -1031,11 +1025,6 @@
       $("auth-help").textContent = `المشروع: ${FIREBASE_PROJECT_ID} • النطاق الحالي: ${currentOrigin}`;
 
       await setPersistence(auth, browserLocalPersistence).catch((error) => console.warn("Auth persistence:", error));
-      if (sessionStorage.getItem(AUTH_REDIRECT_FLAG) === "1") {
-        sessionStorage.removeItem(AUTH_REDIRECT_FLAG);
-        await getRedirectResult(auth).catch((error) => showStatus(friendlyAuthError(error), "error"));
-      }
-
       $("email-login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = ($("admin-email").value || "").trim();
@@ -1061,19 +1050,13 @@
           showStatus("جار فتح تسجيل الدخول بحساب Google...", "warning");
           await signInWithPopup(auth, googleProvider);
         } catch (error) {
-          console.error(error);
-          if (error && ["auth/popup-blocked", "auth/cancelled-popup-request", "auth/internal-error"].includes(error.code)) {
-            showStatus(error.code === "auth/internal-error"
-              ? "تعذر إكمال الدخول عبر النافذة المنبثقة؛ نجرب الآن التحويل المباشر إلى Google."
-              : "تعذر فتح النافذة المنبثقة؛ سيتم استخدام التحويل الآمن إلى Google.", "warning");
-            try {
-              sessionStorage.setItem(AUTH_REDIRECT_FLAG, "1");
-              await signInWithRedirect(auth, googleProvider);
-            } catch (redirectError) {
-              sessionStorage.removeItem(AUTH_REDIRECT_FLAG);
-              console.error(redirectError);
-              showStatus(friendlyAuthError(redirectError), "error");
-            }
+          console.error("Google sign-in failed:", error);
+          if (error && error.code === "auth/popup-blocked") {
+            showStatus("المتصفح منع نافذة تسجيل Google. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة.", "error");
+            return;
+          }
+          if (error && error.code === "auth/cancelled-popup-request") {
+            showStatus("أُلغي طلب نافذة Google لأن طلبًا آخر بدأ قبله. أعد المحاولة مرة واحدة.", "warning");
             return;
           }
           showStatus(friendlyAuthError(error), "error");
@@ -1178,4 +1161,5 @@
       console.error("Admin initialization failed:", error);
       showStatus("تعذر تهيئة لوحة الإدارة: " + (error && error.message ? error.message : "خطأ غير معروف"), "error");
     });
+  
   
