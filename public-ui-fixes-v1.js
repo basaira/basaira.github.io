@@ -34,27 +34,24 @@
     document.querySelectorAll('#tracks .course-dossier-index, #tracks .course-dossier-status, #tracks .course-dossier-note').forEach((el) => el.remove());
   }
 
-  function init() {
-    stripPublicFormExtras();
-    stripTrackNoise();
-    applyLocaleDirection();
-  }
+ function init() {
+  stripPublicFormExtras();
+  stripTrackNoise();
+}
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
-  } else {
-    init();
-  }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init, { once: true });
+} else {
+  init();
+}
 
-  const observer = new MutationObserver(() => {
-    stripPublicFormExtras();
-    stripTrackNoise();
-    applyLocaleDirection();
-  });
-  observer.observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ['class', 'lang']
-  });
+const observer = new MutationObserver(() => {
+  stripPublicFormExtras();
+  stripTrackNoise();
+});
+
+observer.observe(document.documentElement, {
+  subtree: true,
+  childList: true
+});
 })();
