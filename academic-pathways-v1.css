@@ -482,8 +482,9 @@ body.route-ar #tracks .academic-doc li{
   box-shadow:none!important;
 }
 body.route-ar #tracks .academic-doc li::before{
-  inset-inline-start:auto!important;
-  inset-inline-end:.1rem!important;
+  inset-inline-start:.1rem!important;
+  inset-inline-end:auto!important;
+
 }
 #tracks .academic-doc strong{
   color:var(--pathways-ink)!important;
