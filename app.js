@@ -198,10 +198,15 @@ function updateDynamicTrackSelect(lang) {
 }
 
 function prefersReducedMotion() {
-  return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  return Boolean(
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 }
 
-
+function canUseViewTransitions() {
+  return typeof document.startViewTransition === "function" && !prefersReducedMotion();
+}
 
 function applyLanguageState(safeLang) {
   const root = document.getElementById("html-root");
@@ -214,12 +219,16 @@ function applyLanguageState(safeLang) {
 
   if (body) {
     Array.from(body.classList).forEach(function (className) {
-      if (className.startsWith("route-")) body.classList.remove(className);
+      if (className.startsWith("route-")) {
+        body.classList.remove(className);
+      }
     });
+
     body.classList.add("route-" + safeLang, "relative");
   }
 
   const title = document.getElementById("page-title");
+
   if (title) {
     title.textContent = pageTitles[safeLang] || pageTitles.en;
   }
@@ -244,7 +253,6 @@ function setLang(lang) {
 
   applyLanguageState(safeLang);
 }
-
  
 
 
