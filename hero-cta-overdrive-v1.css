@@ -95,12 +95,12 @@ body.route-ar #home .hero-cta{
   box-shadow:0 21px 42px -29px rgba(7,91,70,.62),inset 0 1px rgba(255,255,255,.16)!important;
 }
 #home .hero-primary-cta::after{
-  content:"↗"!important;
+  content:"→"!important;
   color:#fff!important;
   background:rgba(255,255,255,.10)!important;
   border:1px solid rgba(255,255,255,.12)!important;
 }
-body.route-ar #home .hero-primary-cta::after{content:"↖"!important}
+body.route-ar #home .hero-primary-cta::after{content:"←"!important}
 #home .hero-primary-cta:hover,
 #home .hero-primary-cta:focus-visible{
   color:#fff!important;
@@ -108,9 +108,14 @@ body.route-ar #home .hero-primary-cta::after{content:"↖"!important}
   box-shadow:0 25px 48px -29px rgba(7,91,70,.68),0 9px 24px -20px rgba(212,175,55,.55),inset 0 1px rgba(255,255,255,.18)!important;
   transform:translateY(-1px)!important;
 }
-#home .hero-primary-cta:hover::after{transform:translate(1px,-1px)!important;background:rgba(212,175,55,.18)!important}
-body.route-ar #home .hero-primary-cta:hover::after{transform:translate(-1px,-1px)!important}
+#home .hero-primary-cta:hover::after{
+  transform:translateX(1px)!important;
+  background:rgba(212,175,55,.18)!important;
+}
 
+body.route-ar #home .hero-primary-cta:hover::after{
+  transform:translateX(-1px)!important;
+}
 /* Secondary research / guide action */
 #home .hero-secondary-cta{
   flex:1 1 15rem;
