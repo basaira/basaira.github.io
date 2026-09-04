@@ -201,9 +201,7 @@ function prefersReducedMotion() {
   return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 }
 
-function canUseViewTransitions() {
-  return typeof document.startViewTransition === "function" && !prefersReducedMotion();
-}
+
 
 function applyLanguageState(safeLang) {
   const root = document.getElementById("html-root");
@@ -233,8 +231,6 @@ function applyLanguageState(safeLang) {
   closeMobileMenu();
 }
 
-let activeLanguageTransition = null;
-
 function setLang(lang) {
   const safeLang = getSafeLang(lang);
   const root = document.getElementById("html-root");
@@ -246,27 +242,11 @@ function setLang(lang) {
     return;
   }
 
-  if (!canUseViewTransitions() || !document.body?.classList.contains("motion-entered")) {
-    applyLanguageState(safeLang);
-    return;
-  }
-
-  // Rapid language changes remain interruptible instead of queueing transitions.
-  if (activeLanguageTransition && typeof activeLanguageTransition.skipTransition === "function") {
-    activeLanguageTransition.skipTransition();
-  }
-
-  document.documentElement.classList.add("basair-language-transition");
-  const transition = document.startViewTransition(function () {
-    applyLanguageState(safeLang);
-  });
-  activeLanguageTransition = transition;
-
-  transition.finished.finally(function () {
-    if (activeLanguageTransition === transition) activeLanguageTransition = null;
-    document.documentElement.classList.remove("basair-language-transition");
-  });
+  applyLanguageState(safeLang);
 }
+
+ 
+
 
 // ==========================================
 // Public UI helpers
