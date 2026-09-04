@@ -192,27 +192,10 @@ body.route-ar #tracks .pathway-summary h2,
   border-radius:1rem!important;
   margin-top:1rem!important;
 }
-body.route-ar #contact .registration-shell,
-body.route-ar #enrollment-form{
-  direction:rtl;
-  text-align:right!important;
-}
-body.route-ar #enrollment-form input:not([dir="ltr"]),
-body.route-ar #enrollment-form select,
-body.route-ar #enrollment-form textarea{
-  direction:rtl;
-  text-align:right!important;
-}
-body:not(.route-ar) #contact .registration-shell,
-body:not(.route-ar) #enrollment-form{
-  direction:ltr;
-  text-align:left!important;
-}
-body:not(.route-ar) #enrollment-form input:not([dir="ltr"]),
-body:not(.route-ar) #enrollment-form select,
-body:not(.route-ar) #enrollment-form textarea{
-  direction:ltr;
-  text-align:left!important;
+#enrollment-form input:not([dir="ltr"]),
+#enrollment-form select,
+#enrollment-form textarea{
+  text-align:start;
 }
 
 /* Public track selector / text areas: remove extra noise in compact languages. */
