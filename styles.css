@@ -347,21 +347,17 @@ img[style*="display: none"] + .logo-fallback {
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.route-ar .mobile-drawer {
-    right: 0;
-    transform: translateX(100%);
+.mobile-drawer {
+    inset-inline-start: 0;
+    --mobile-drawer-hidden-x: -100%;
+    transform: translateX(var(--mobile-drawer-hidden-x));
 }
 
-.route-ar .mobile-drawer.active {
-    transform: translateX(0);
+html[dir="rtl"] .mobile-drawer {
+    --mobile-drawer-hidden-x: 100%;
 }
 
-body:not(.route-ar) .mobile-drawer {
-    left: 0;
-    transform: translateX(-100%);
-}
-
-body:not(.route-ar) .mobile-drawer.active {
+.mobile-drawer.active {
     transform: translateX(0);
 }
 
