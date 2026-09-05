@@ -208,7 +208,7 @@ function canUseViewTransitions() {
   return typeof document.startViewTransition === "function" && !prefersReducedMotion();
 }
 
-function applyLanguageState(safeLang) {
+function commitLanguageState(safeLang) {
   const root = document.getElementById("html-root");
   const body = document.getElementById("body-root");
 
@@ -235,9 +235,7 @@ function applyLanguageState(safeLang) {
 
   updateDynamicTrackSelect(safeLang);
   updateLanguageControls(safeLang);
-  closeDropdown();
-  closeMobileLangMenu();
-  closeMobileMenu();
+ 
 }
 
 function setLang(lang) {
@@ -251,7 +249,7 @@ function setLang(lang) {
     return;
   }
 
-  applyLanguageState(safeLang);
+  commitLanguageState(safeLang);
 }
  
 
