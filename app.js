@@ -208,6 +208,28 @@ function canUseViewTransitions() {
   return typeof document.startViewTransition === "function" && !prefersReducedMotion();
 }
 
+async function waitForVisualIdle(element) {
+  if (!element || prefersReducedMotion()) return;
+
+  await new Promise(function (resolve) {
+    window.requestAnimationFrame(resolve);
+  });
+
+  if (typeof element.getAnimations !== "function") return;
+
+  const animations = element.getAnimations().filter(function (animation) {
+    return animation.playState !== "finished";
+  });
+
+  if (!animations.length) return;
+
+  await Promise.allSettled(
+    animations.map(function (animation) {
+      return animation.finished;
+    })
+  );
+}
+
 function commitLanguageState(safeLang) {
   const root = document.getElementById("html-root");
   const body = document.getElementById("body-root");
@@ -235,17 +257,61 @@ function commitLanguageState(safeLang) {
 
   updateDynamicTrackSelect(safeLang);
   updateLanguageControls(safeLang);
- 
 }
 
-function setLang(lang) {
+async function closeDirectionSensitiveOverlays() {
+  const desktopDropdown = document.getElementById("langDropdown");
+  const mobileDropdown = document.getElementById("mobileLangDropdown");
+  const mobileMenu = document.getElementById("mobile-menu");
+
+  const desktopWasOpen = Boolean(
+    desktopDropdown?.classList.contains("active")
+  );
+  const mobileDropdownWasOpen = Boolean(
+    mobileDropdown?.classList.contains("active")
+  );
+  const mobileMenuWasOpen = Boolean(
+    mobileMenu?.classList.contains("active")
+  );
+
+  closeDropdown();
+  closeMobileLangMenu();
+  closeMobileMenu();
+
+  const pendingClosures = [];
+
+  if (desktopWasOpen) {
+    pendingClosures.push(waitForVisualIdle(desktopDropdown));
+  }
+
+  if (mobileDropdownWasOpen) {
+    pendingClosures.push(waitForVisualIdle(mobileDropdown));
+  }
+
+  if (mobileMenuWasOpen) {
+    pendingClosures.push(waitForVisualIdle(mobileMenu));
+  }
+
+  if (pendingClosures.length) {
+    await Promise.all(pendingClosures);
+  }
+}
+
+let languageChangeRevision = 0;
+
+async function setLang(lang) {
   const safeLang = getSafeLang(lang);
-  const root = document.getElementById("html-root");
+  const root = document.getElementById('html-root');
   const currentLang = getSafeLang(root?.lang || DEFAULT_LANGUAGE);
+  const revision = ++languageChangeRevision;
+
+  await closeDirectionSensitiveOverlays();
+
+  if (revision !== languageChangeRevision) {
+    return;
+  }
 
   if (currentLang === safeLang) {
-    closeDropdown();
-    closeMobileLangMenu();
     return;
   }
 
@@ -1841,7 +1907,7 @@ async function loadDynamicContent() {
 // ==========================================
 document.addEventListener("DOMContentLoaded", function () {
   try {
-    setLang(getInitialLanguage());
+    commitLanguageState(getInitialLanguage());
     initLanguageButtons();
     initGlobalClicks();
     initScrollEffects();
