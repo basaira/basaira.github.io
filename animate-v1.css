@@ -84,7 +84,6 @@ body.route-ar #navbar .nav-link>span.absolute.bottom-0{transform-origin:right ce
 
 /* Mobile navigation communicates spatial continuity. */
 .mobile-backdrop{transition:opacity var(--motion-state) ease,visibility var(--motion-state) linear!important}
-.mobile-drawer{transition:transform var(--motion-overlay) var(--motion-ease-out)!important}
 #langDropdown,.mobile-language-popover{transition-duration:var(--motion-state)!important}
 
 /* Video player: overlay relationship + fast close affordance. */
