@@ -1,0 +1,45 @@
+name: Phase 0 baseline audit
+
+on:
+  push:
+    branches:
+      - basair/phase-0-correctness
+
+jobs:
+  baseline-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 2c573b31f48fe6b97a96fc1049b41aa23d15cca5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Runtime
+        run: |
+          node --version
+          npm --version
+          git rev-parse HEAD
+          git status --short
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Baseline verify must expose existing contract failure
+        shell: bash
+        run: |
+          set +e
+          npm run verify
+          code=$?
+          set -e
+          echo "BASELINE_VERIFY_EXIT=$code"
+          test "$code" -ne 0
+
+      - name: Baseline explicit build
+        run: npm run build
