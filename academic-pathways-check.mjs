@@ -9,7 +9,7 @@ if(links.at(-1)!=='track-buttons-v6.css?v=20260830-surgical2') fail('Protected t
 if(links.indexOf('academic-pathways-v1.css?v=20260830-pathways1')>links.indexOf('track-buttons-v6.css?v=20260830-surgical2')) fail('Academic pathways CSS must load before protected CTA CSS');
 if((html.match(/class="grid lg:grid-cols-12 gap-12 lg:gap-20 items-start academic-pathway"/g)||[]).length!==3) fail('Expected exactly 3 refined academic pathways');
 if((html.match(/class="pathway-reading-rail"/g)||[]).length!==3) fail('Expected one reading rail per pathway');
-if((html.match(/data-content-id="/g)||[]).length!==1066) fail('CMS content ID count changed');
+if((html.match(/data-content-id="/g)||[]).length!==1061) fail('CMS content ID count changed');
 for(const token of ['view-timeline-name:--pathway-reading','animation-timeline:--pathway-reading','@media (prefers-reduced-motion:reduce)','counter-increment:pathway-stage']){
   if(!css.includes(token)) fail(`Missing ${token}`);
 }

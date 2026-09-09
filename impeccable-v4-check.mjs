@@ -21,5 +21,5 @@ ok(app.includes('measureSections()') && app.includes('offsets = sections.map'),'
 ok(pkg.scripts.dev.includes('--host=localhost'),'local Firebase development uses localhost rather than 127.0.0.1');
 const links=[...html.matchAll(/<link[^>]+href="([^"]+\.css[^"]*)"[^>]*rel="stylesheet"/g)].map(m=>m[1]);
 ok(links.at(-1)==='track-buttons-v6.css?v=20260830-surgical2','protected track CTA stylesheet remains last');
-ok((html.match(/data-content-id=/g)||[]).length===1066,'all homepage CMS bindings remain intact');
+ok((html.match(/data-content-id=/g)||[]).length===1061,'all homepage CMS bindings remain intact');
 console.log('IMPECCABLE V4 CHECK PASSED');

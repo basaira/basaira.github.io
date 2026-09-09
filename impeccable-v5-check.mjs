@@ -12,9 +12,9 @@ ok(publicCss.includes('@media(max-width:1179px)') && publicCss.includes('grid-te
 ok(publicCss.includes('@media(min-width:1024px) and (max-width:1279px)') && publicCss.includes('body.route-uz #navbar .lg\\:hidden.flex.items-center'),'Uzbek route uses mobile command controls in the cramped desktop range');
 ok(publicCss.includes('font-size:clamp(.78rem,.84vw,.84rem)!important'),'wide Uzbek navigation stays readable');
 ok(adminCss.includes('.content:has(#login-screen:not(.hidden)) #status'),'login auth errors are constrained to the login task width');
-ok(adminJs.includes('"auth/internal-error"].includes(error.code)'),'Google auth internal errors fall back to redirect');
+ok(adminJs.includes('firebasejs/12.15.0/firebase-auth.js') && adminJs.includes('await signInWithPopup(auth, googleProvider)') && !adminJs.includes('signInWithRedirect') && !adminJs.includes('getRedirectResult'),'Google auth uses the intentional Firebase 12.15 popup-only flow');
 ok(adminJs.includes('auth/configuration-not-found'),'Firebase configuration error has explicit recovery copy');
 const links=[...html.matchAll(/<link[^>]+href="([^"]+\.css[^"]*)"[^>]*rel="stylesheet"/g)].map(m=>m[1]);
 ok(links.at(-1)==='track-buttons-v6.css?v=20260830-surgical2','protected track CTA stylesheet remains last');
-ok((html.match(/data-content-id=/g)||[]).length===1066,'homepage CMS bindings remain intact');
+ok((html.match(/data-content-id=/g)||[]).length===1061,'homepage CMS bindings remain intact');
 console.log('IMPECCABLE V5 CHECK PASSED');

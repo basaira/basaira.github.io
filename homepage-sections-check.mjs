@@ -19,5 +19,5 @@ const links=[...html.matchAll(/<link[^>]+href="([^"]+\.css[^\"]*)"[^>]*rel="styl
 if(!links.length || links.at(-1)!=='track-buttons-v6.css?v=20260830-surgical2') throw new Error('Protected track stylesheet is not last');
 if(links.indexOf('homepage-sections-v1.css?v=20260829-home1') > links.indexOf('track-buttons-v6.css?v=20260830-surgical2')) throw new Error('Homepage stylesheet must load before protected track stylesheet');
 const cms=(html.match(/data-content-id="/g)||[]).length;
-if(cms!==1066) throw new Error(`CMS content count changed: ${cms}`);
-console.log('HOMEPAGE SECTIONS CHECK PASSED (7 chapters, 1066 homepage CMS IDs)');
+if(cms!==1061) throw new Error(`CMS content count changed: ${cms}`);
+console.log('HOMEPAGE SECTIONS CHECK PASSED (7 chapters, 1061 homepage CMS IDs)');

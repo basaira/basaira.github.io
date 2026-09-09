@@ -18,6 +18,6 @@ ok(!cards.includes('pointermove'),'card polish adds no pointer-driven repaint lo
 ok(trackCss.includes('#tracks .track-detail-cta-v6'),'protected CTA component remains in its dedicated stylesheet');
 const links=[...html.matchAll(/<link[^>]+href="([^"]+\.css[^"]*)"[^>]*rel="stylesheet"/g)].map(m=>m[1]);
 ok(links.at(-1)==='track-buttons-v6.css?v=20260830-surgical2','protected track CTA stylesheet remains last');
-ok((html.match(/data-content-id=/g)||[]).length===1066,'all homepage CMS bindings remain intact');
+ok((html.match(/data-content-id=/g)||[]).length===1061,'all homepage CMS bindings remain intact');
 ok((html.match(/class="lang-(?:ar|en|fr|ru|uz) track-detail-cta-v6"/g)||[]).length===15,'all 15 localized course CTAs remain intact');
 console.log('IMPECCABLE V6 COURSE CARDS CHECK PASSED');

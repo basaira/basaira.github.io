@@ -393,6 +393,22 @@
       renderContactSettings();
     }
 
+
+    function normalizeRequestContactFields(data) {
+      return {
+        phone: data.phone ? String(data.phone) : "",
+        whatsapp: data.whatsapp ? String(data.whatsapp) : "",
+        email: data.email ? String(data.email) : ""
+      };
+    }
+
+    function requestWhatsappDigits(request) {
+      const candidate = String(request.whatsapp || request.phone || "").trim();
+      if (!candidate || !/^[+\d().\-\s]+$/.test(candidate)) return "";
+      const digits = candidate.replace(/\D/g, "");
+      return digits.length >= 6 && digits.length <= 15 ? digits : "";
+    }
+
     async function loadRequests() {
       const [legacyResult, assessmentResult] = await Promise.allSettled([
         getDocs(query(collection(db, "enrollment_requests"), limit(1000))),
@@ -405,7 +421,7 @@
           id: d.id,
           sourceCollection,
           ...data,
-          phone: data.phone || data.whatsapp || data.email || "",
+          ...normalizeRequestContactFields(data),
           message: data.message || data.goal || "",
           submissionDate: data.submissionDate || data.submittedAt || null
         };
@@ -554,9 +570,8 @@
         item.querySelector(".item-meta").textContent = `${r.phone || r.whatsapp || r.email || "—"} | ${r.country || "—"} | ${r.track || "—"} | ${fmtDate(r.submissionDate)} | ${r.sourceCollection || "—"}`;
 
         const contactActions = item.querySelector(".row-actions");
-        const rawWhatsapp = String(r.whatsapp || r.phone || "").replace(/[^0-9+]/g, "");
-        const waDigits = rawWhatsapp.replace(/\D/g, "");
-        if (waDigits.length >= 6) {
+        const waDigits = requestWhatsappDigits(r);
+        if (waDigits) {
           const wa = document.createElement("a");
           wa.className = "btn small secondary";
           wa.target = "_blank";

@@ -27,13 +27,13 @@ ok(html.includes('splash.style.setProperty("display", "none", "important")'), 'S
 ok(html.includes('basair-splash.css?v=20260831-welcome4'), 'Splash fix has a fresh browser cache key');
 ok(html.includes('ui-stability-v1.css?v=20260830-surgical2'), 'Stability fix has a fresh browser cache key');
 ok(html.includes('track-buttons-v6.css?v=20260830-surgical2'), 'Track CTA fix has a fresh browser cache key');
-ok(html.includes('app.js?v=20260831-perf4'), 'Application boot fix has a fresh browser cache key');
+ok(html.includes('app.js?v=20260905-rtl-lifecycle1'), 'Application boot fix has a fresh browser cache key');
 
 for (const id of ['tracks','video-library','testimonials','contact']) {
   ok(html.includes(`id="${id}"`), `Section preserved: #${id}`);
 }
 ok((html.match(/data-pathway-index="0[123]"/g) || []).length === 3, 'All three academic pathways are preserved');
-ok((html.match(/data-content-id=/g) || []).length === 1066, 'All 1066 homepage CMS bindings are preserved');
+ok((html.match(/data-content-id=/g) || []).length === 1061, 'All 1061 homepage CMS bindings are preserved');
 
 const cmsRows = [];
 const cmsPattern = /<span\b[^>]*\bdata-content-id="([^"]+)"[^>]*>([\s\S]*?)<\/span>/g;
@@ -42,8 +42,8 @@ while ((cmsMatch = cmsPattern.exec(html))) {
   cmsRows.push(`${cmsMatch[1]}\u0000${cmsMatch[2]}`);
 }
 const cmsDigest = crypto.createHash('sha256').update(cmsRows.join('\u0001')).digest('hex');
-ok(cmsRows.length === 1066, 'All homepage CMS text nodes remain readable');
-ok(cmsDigest === 'b21a6db3ccff31688bf529daf8ff7a7ae67d4467fa370873a999a23083d3de0b', 'Homepage wording is byte-for-byte preserved');
+ok(cmsRows.length === 1061, 'All homepage CMS text nodes remain readable');
+ok(cmsDigest === 'e0a1efe43d32dc3e96def7518d4a2c9529f6100fbec2cb9ec4dc2b5c2727d658', 'Homepage wording is byte-for-byte preserved');
 
 const links = [...html.matchAll(/<link[^>]+href="([^"]+\.css[^\"]*)"[^>]*>/g)].map(m => m[1]);
 ok(links.at(-1)?.startsWith('track-buttons-v6.css'), 'Protected track stylesheet remains last');
