@@ -1,0 +1,56 @@
+name: Phase 0 correctness verification
+
+on:
+  push:
+    branches:
+      - basair/phase-0-correctness
+
+permissions:
+  contents: write
+
+jobs:
+  verify-phase0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Phase 0 branch
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-0-correctness
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Record runtime
+        run: |
+          node --version
+          npm --version
+
+      - name: Apply reviewed Phase 0 patch
+        run: |
+          git apply --check .phase0-bootstrap.patch
+          git apply .phase0-bootstrap.patch
+          git diff --check
+
+      - name: Clean install
+        run: npm ci
+
+      - name: Full verification
+        run: npm run verify
+
+      - name: Explicit production build
+        run: npm run build
+
+      - name: Commit only verified Phase 0 changes
+        run: |
+          rm .phase0-bootstrap.patch
+          rm .github/workflows/phase0-bootstrap.yml
+          git config user.name "basair-phase0-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Phase 0 correctness reconciliation (verify + build passed)"
+          git push origin HEAD:basair/phase-0-correctness
