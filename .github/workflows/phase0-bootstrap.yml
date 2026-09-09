@@ -32,9 +32,9 @@ jobs:
 
       - name: Apply reviewed Phase 0 patch
         run: |
+          sed -i 's/waDigits.length >=6/waDigits.length >= 6/' .phase0-bootstrap.patch
           printf '\n' >> .phase0-bootstrap.patch
-          wc -c .phase0-bootstrap.patch
-          sha256sum .phase0-bootstrap.patch
+          echo "9825560ed604458ea056210ae4e6196756d5d28bd7f49f45e7a3eede4f94f821  .phase0-bootstrap.patch" | sha256sum -c -
           git apply --check .phase0-bootstrap.patch
           git apply .phase0-bootstrap.patch
           git diff --check
