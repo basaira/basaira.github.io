@@ -1,0 +1,86 @@
+name: Phase 2 Review Alias Audit
+on:
+  push:
+    branches: ["basair/phase-2-review-audit"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Audit legacy alias surfaces including inline styles
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re,json,pathlib,collections,posixpath
+          root=pathlib.Path('.')
+          manifest=json.loads((root/'token-authority-manifest.json').read_text())
+          aliases=set(manifest['aliases'])
+          def strip_comments(s): return re.sub(r'/\*[\s\S]*?\*/','',s)
+          def defs(s): return [(m.group(1),m.group(2).strip()) for m in re.finditer(r'(--[A-Za-z0-9_-]+)\s*:\s*([^;}{]+?)\s*(?=;|})',strip_comments(s))]
+          def uses(s): return [m.group(1) for m in re.finditer(r'var\(\s*(--[A-Za-z0-9_-]+)',strip_comments(s))]
+          css_files={str(p).replace('\\','/') for p in root.rglob('*.css') if '.git' not in p.parts}
+          def resolve(base,href):
+            href=href.split('?')[0].split('#')[0]
+            if not href or href.startswith(('http:','https:','//','data:')): return None
+            p=('/'+href.lstrip('/')) if href.startswith('/') else posixpath.normpath(posixpath.join(posixpath.dirname(base),href))
+            p=p.lstrip('/')
+            return p if p in css_files else None
+          pages=[]
+          for hp in sorted(root.rglob('*.html')):
+            if '.git' in hp.parts or 'dist' in hp.parts: continue
+            rel=str(hp).replace('\\','/')
+            txt=hp.read_text()
+            links=[]
+            for tag in re.findall(r'<link\b[^>]*>',txt,re.I):
+              rm=re.search(r'\brel=["\']([^"\']+)',tag,re.I); hm=re.search(r'\bhref=["\']([^"\']+)',tag,re.I)
+              if rm and hm and 'stylesheet' in rm.group(1).lower().split():
+                p=resolve(rel,hm.group(1));
+                if p: links.append(p)
+            seen=set(); stack=list(links)
+            while stack:
+              f=stack.pop(0)
+              if f in seen: continue
+              seen.add(f)
+              t=(root/f).read_text()
+              for href in re.findall(r'@import\s+(?:url\()?\s*["\']([^"\']+)',t):
+                if href.startswith(('.', '/')):
+                  p=resolve(f,href)
+                  if p and p not in seen: stack.append(p)
+            if any('admin-' in pathlib.PurePosixPath(f).name or pathlib.PurePosixPath(f).name=='admin.css' for f in seen) or rel=='admin.html': surface='admin'
+            elif 'acquisition.css' in seen or any(pathlib.PurePosixPath(f).name.startswith('acquisition-') for f in seen): surface='acquisition'
+            else: surface='public'
+            inline=re.findall(r'<style\b[^>]*>([\s\S]*?)</style\s*>',txt,re.I)
+            pages.append((rel,surface,seen,inline))
+          data={a:{'consumers':collections.defaultdict(set),'externalDefs':collections.defaultdict(list),'inlineDefs':collections.defaultdict(list)} for a in aliases}
+          for rel,surface,files,inline in pages:
+            for f in files:
+              if f=='tokens.css': continue
+              t=(root/f).read_text()
+              for a in set(uses(t)) & aliases: data[a]['consumers'][surface].add(f)
+              for n,v in defs(t):
+                if n in aliases: data[n]['externalDefs'][surface].append({'file':f,'value':v})
+            for i,s in enumerate(inline,1):
+              for a in set(uses(s)) & aliases: data[a]['consumers'][surface].add(f'{rel}::<style#{i}>')
+              for n,v in defs(s):
+                if n in aliases: data[n]['inlineDefs'][surface].append({'file':f'{rel}::<style#{i}>','value':v})
+          print('PAGES_BY_SURFACE',dict(collections.Counter(s for _,s,_,_ in pages)))
+          print('ALIASES',len(aliases))
+          for a in sorted(aliases):
+            d=data[a]
+            out={'alias':a,
+                 'canonical':manifest['aliases'][a]['canonical'],
+                 'manifestStatus':manifest['aliases'][a].get('status'),
+                 'consumers':{k:sorted(v) for k,v in d['consumers'].items()},
+                 'externalDefs':dict(d['externalDefs']),
+                 'inlineDefs':dict(d['inlineDefs'])}
+            print('ALIAS',json.dumps(out,separators=(',',':')))
+          # explicit collision candidates: inline pre-definition + global authority alias on same surface
+          for a in sorted(aliases):
+            if data[a]['inlineDefs']:
+              print('INLINE_COLLISION',a,json.dumps(dict(data[a]['inlineDefs']),separators=(',',':')))
+          PY
