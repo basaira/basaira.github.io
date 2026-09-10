@@ -1,0 +1,58 @@
+name: Phase 2 Review Conflict Scope
+on:
+  push:
+    branches: ["basair/phase-2-review-audit"]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit corrected production conflict scope
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re,pathlib,posixpath,collections,json
+          root=pathlib.Path('.')
+          css_files={str(p).replace('\\','/') for p in root.rglob('*.css') if '.git' not in p.parts}
+          def resolve(base,href):
+            href=href.split('?')[0].split('#')[0]
+            if not href or href.startswith(('http:','https:','//','data:')): return None
+            p=('/'+href.lstrip('/')) if href.startswith('/') else posixpath.normpath(posixpath.join(posixpath.dirname(base),href)); p=p.lstrip('/')
+            return p if p in css_files else None
+          production=set(); inline=[]
+          for hp in sorted(root.rglob('*.html')):
+            if '.git' in hp.parts or 'dist' in hp.parts: continue
+            rel=str(hp).replace('\\','/'); txt=hp.read_text()
+            for i,s in enumerate(re.findall(r'<style\b[^>]*>([\s\S]*?)</style\s*>',txt,re.I),1): inline.append((f'{rel}::<style#{i}>',s))
+            for tag in re.findall(r'<link\b[^>]*>',txt,re.I):
+              rm=re.search(r'\brel=["\']([^"\']+)',tag,re.I); hm=re.search(r'\bhref=["\']([^"\']+)',tag,re.I)
+              if rm and hm and 'stylesheet' in rm.group(1).lower().split():
+                p=resolve(rel,hm.group(1));
+                if p: production.add(p)
+          changed=True
+          while changed:
+            changed=False
+            for f in list(production):
+              t=(root/f).read_text()
+              for href in re.findall(r'@import\s+(?:url\()?\s*["\']([^"\']+)',t):
+                if href.startswith(('.', '/')):
+                  p=resolve(f,href)
+                  if p and p not in production: production.add(p); changed=True
+          def decls(src,text):
+            text=re.sub(r'/\*[\s\S]*?\*/','',text)
+            return [(m.group(1),re.sub(r'\s+',' ',m.group(2).strip()).lower(),src) for m in re.finditer(r'(--[A-Za-z0-9_-]+)\s*:\s*([^;}{]+?)\s*(?=;|})',text)]
+          by=collections.defaultdict(list)
+          for f in sorted(production):
+            for n,v,s in decls(f,(root/f).read_text()): by[n].append((v,s))
+          for s,t in inline:
+            for n,v,src in decls(s,t): by[n].append((v,src))
+          conflicts={n:xs for n,xs in by.items() if len({v for v,s in xs})>1}
+          print('PRODUCTION_CSS',len(production),'INLINE_STYLES',len(inline),'TOKENS',len(by),'CONFLICTS',len(conflicts))
+          for n in sorted(conflicts): print('CONFLICT',n,json.dumps(conflicts[n],separators=(',',':')))
+          mf=json.loads((root/'token-authority-manifest.json').read_text())
+          old=set(x['token'] for x in mf['conflictDecisions'])
+          actual=set(conflicts)
+          print('OLD_DOCUMENTED',len(old),'ADDED_BY_CORRECTED_SCOPE',sorted(actual-old),'NO_LONGER_IN_ACTUAL',sorted(old-actual))
+          PY
