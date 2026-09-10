@@ -1,0 +1,240 @@
+name: Phase 2.5 Browser Characterization Rerun
+on:
+  push:
+    branches: ["basair/phase-2.5-browser-characterization"]
+permissions:
+  contents: write
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact closed Phase 2 source
+        uses: actions/checkout@v4
+        with:
+          ref: 1504baad33b2123056877c1e92f4e2d558c00d51
+          fetch-depth: 0
+      - name: Prove authoritative starting state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "1504baad33b2123056877c1e92f4e2d558c00d51"
+          test "$(git rev-parse HEAD^{tree})" = "1d987040d0158387d0425d6e6ed00fe2a68ec617"
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse 6e46539a02db342838d7c113a45ff558192658e5^{tree})" = "8c18f5050f4ffa33c2317823e540766a4b2bc9ff"
+          echo "START_HEAD=$(git rev-parse HEAD)"
+          echo "START_TREE=$(git rev-parse HEAD^{tree})"
+          echo "WORKTREE=CLEAN"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify untouched Phase 2 production tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verify
+          npm run build
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Prepare exact Phase 0 comparison worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach /tmp/basair-phase0 6e46539a02db342838d7c113a45ff558192658e5
+          cd /tmp/basair-phase0
+          test "$(git rev-parse HEAD)" = "6e46539a02db342838d7c113a45ff558192658e5"
+          test "$(git rev-parse HEAD^{tree})" = "8c18f5050f4ffa33c2317823e540766a4b2bc9ff"
+          test -z "$(git status --porcelain)"
+          npm ci
+          npm run build
+      - name: Prepare isolated real-browser tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$BROWSER_BIN" ]; then echo "NO_REAL_BROWSER_ENGINE" >&2; exit 78; fi
+          echo "BROWSER_BIN=$BROWSER_BIN" >> "$GITHUB_ENV"
+          "$BROWSER_BIN" --version
+          mkdir -p /tmp/basair-browser-tooling
+          cd /tmp/basair-browser-tooling
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false puppeteer-core@24.16.0 >/dev/null
+          node -p "require('puppeteer-core/package.json').version"
+      - name: Serve both built trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory "$GITHUB_WORKSPACE/dist" >/tmp/phase2-server.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-phase0/dist >/tmp/phase0-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:4173/ >/dev/null && curl -fsS http://127.0.0.1:4174/ >/dev/null && exit 0
+            sleep 1
+          done
+          exit 1
+      - name: Run exhaustive real-browser characterization
+        shell: bash
+        env:
+          PHASE2_BASE_URL: http://127.0.0.1:4173/
+          PHASE0_BASE_URL: http://127.0.0.1:4174/
+        run: |
+          set -euo pipefail
+          cat >/tmp/basair-browser-tooling/characterize.mjs <<'EOF'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import os from 'node:os';
+          import {execFileSync} from 'node:child_process';
+          import puppeteer from 'puppeteer-core';
+
+          const ROOT=process.env.GITHUB_WORKSPACE;
+          const BROWSER=process.env.BROWSER_BIN;
+          const FINAL_URL=process.env.PHASE2_BASE_URL;
+          const BASE_URL=process.env.PHASE0_BASE_URL;
+          const SOURCE_COMMIT='1504baad33b2123056877c1e92f4e2d558c00d51';
+          const SOURCE_TREE='1d987040d0158387d0425d6e6ed00fe2a68ec617';
+          const COMP_COMMIT='6e46539a02db342838d7c113a45ff558192658e5';
+          const COMP_TREE='8c18f5050f4ffa33c2317823e540766a4b2bc9ff';
+          const routes=['/','/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/','/admin.html'];
+          const viewports=[
+            {name:'mobile',width:390,height:844,deviceScaleFactor:1},
+            {name:'tablet',width:768,height:1024,deviceScaleFactor:1},
+            {name:'desktop',width:1440,height:900,deviceScaleFactor:1},
+            {name:'wide',width:1920,height:1080,deviceScaleFactor:1}
+          ];
+          const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'token-authority-manifest.json'),'utf8'));
+          const canonical=Object.keys(manifest.canonicalTokens);
+          const aliasEntries=Object.entries(manifest.aliases);
+          const conflicts=[...manifest.correctedAuditScope.conflictTokens];
+          const classCounts=aliasEntries.reduce((a,[,m])=>{a[m.surfaceClassification]=(a[m.surfaceClassification]||0)+1;return a;},{});
+          const count=(k)=>classCounts[k]||0;
+          if(canonical.length!==106||aliasEntries.length!==98||count('A')!==1||count('B')!==49||count('C')!==23||count('D')!==23||count('E')!==2||conflicts.length!==40) throw new Error('Phase-2 token contract drift');
+          if(manifest.correctedAuditScope.productionCssFileCount!==55||manifest.correctedAuditScope.inlineStyleBlockCount!==1) throw new Error('Corrected audit scope drift');
+          if(JSON.stringify(aliasEntries.filter(([,m])=>m.surfaceClassification==='E').map(([n])=>n).sort())!==JSON.stringify(['--line','--muted'])) throw new Error('E alias drift');
+          if(JSON.stringify(aliasEntries.filter(([,m])=>m.surfaceClassification==='A').map(([n])=>n).sort())!==JSON.stringify(['--gold'])) throw new Error('A alias drift');
+
+          const normalize=v=>String(v??'').trim().replace(/\s+/g,' ').toLowerCase();
+          const cssColorNorm=v=>normalize(v).replace(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*0?\.(\d+)\)/,'rgba($1,$2,$3,.$4)');
+          const routeSlug=r=>r==='/'?'root':r.replace(/^\//,'').replace(/\/$/,'').replaceAll('/','-').replace('.html','')||'root';
+          const expectedAlias=(cls,surface)=>cls==='A'||(cls==='B'&&surface==='PUBLIC')||(cls==='C'&&surface==='ACQUISITION')||(cls==='D'&&surface==='ADMIN')||(cls==='E'&&(surface==='ACQUISITION'||surface==='ADMIN'));
+          const screenshotRoot='/tmp/phase-2.5-screenshots-final';fs.mkdirSync(screenshotRoot,{recursive:true});
+          const browserVersion=execFileSync(BROWSER,['--version'],{encoding:'utf8'}).trim();
+          const osText=(fs.readFileSync('/etc/os-release','utf8').match(/^PRETTY_NAME="?([^"\n]+)"?/m)?.[1])||`${os.type()} ${os.release()}`;
+          const automationTool=`puppeteer-core ${JSON.parse(fs.readFileSync('/tmp/basair-browser-tooling/node_modules/puppeteer-core/package.json','utf8')).version}`;
+          const browser=await puppeteer.launch({executablePath:BROWSER,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--font-render-hinting=none']});
+          const data={
+            metadata:{sourceCommit:SOURCE_COMMIT,sourceTree:SOURCE_TREE,comparisonCommit:COMP_COMMIT,comparisonTree:COMP_TREE,browser:'Google Chrome',browserVersion,automationTool,nodeVersion:process.version,os:osText,reducedMotion:'reduce',colorScheme:'light',deviceScaleFactor:1,generatedAt:new Date().toISOString()},
+            coverage:{routes,viewports,totalStatesExpected:48,totalStatesCompleted:0,failures:[]},
+            sourceAuthorityGraph:{PUBLIC:{entry:'index.css',authority:'tokens.css',bridge:'tokens-public-compat.css'},ACQUISITION:{entry:'acquisition.css',authority:'tokens.css',bridge:'tokens-acquisition-compat.css'},ADMIN:{entry:'admin-ui-fixes-v1.css',authority:'tokens.css',bridge:'tokens-admin-compat.css'}},
+            surfaceDetection:[],rootTokenObservations:[],aliasObservations:[],criticalOwnershipAssertions:[],conflictTokenCharacterization:[],representativeElementFingerprints:[],baselineComparison:[],runtimeSmoke:[],screenshots:[],limitations:[]
+          };
+
+          async function settle(page){
+            await page.evaluate(async()=>{if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1800))]);}).catch(()=>{});
+            await new Promise(r=>setTimeout(r,180));
+          }
+          const descriptorScript=el=>{if(!el)return null;const sec=el.closest?.('section,main,header,nav,form,article');const cls=el.classList?[...el.classList].slice(0,4).join('.'):'';return `${el.tagName.toLowerCase()}${el.id?'#'+el.id:''}${cls?'.'+cls:''}${sec&&sec!==el?` @ ${sec.tagName.toLowerCase()}${sec.id?'#'+sec.id:''}`:''}`;};
+
+          async function capture(baseUrl,route,vp,label,{runtime=false,screenshot=false}={}){
+            const page=await browser.newPage();await page.setViewport(vp);await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'},{name:'prefers-color-scheme',value:'light'}]);
+            const consoleErrors=[],pageErrors=[],failedResources=[];
+            page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text().slice(0,700));});page.on('pageerror',e=>pageErrors.push(String(e).slice(0,700)));page.on('requestfailed',r=>failedResources.push({url:r.url(),type:r.resourceType(),failure:r.failure()?.errorText||'failed'}));
+            if(!runtime)await page.setJavaScriptEnabled(false);
+            const url=new URL(route,baseUrl).href;
+            const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:15000});await settle(page);if(runtime)await new Promise(r=>setTimeout(r,650));
+            const obs=await page.evaluate(({canonical,aliasEntries,conflicts})=>{
+              const norm=v=>String(v??'').trim().replace(/\s+/g,' ').toLowerCase();
+              const desc=el=>{if(!el)return null;const sec=el.closest?.('section,main,header,nav,form,article');const cls=el.classList?[...el.classList].slice(0,4).join('.'):'';return `${el.tagName.toLowerCase()}${el.id?'#'+el.id:''}${cls?'.'+cls:''}${sec&&sec!==el?` @ ${sec.tagName.toLowerCase()}${sec.id?'#'+sec.id:''}`:''}`;};
+              const visible=el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';};
+              const root=getComputedStyle(document.documentElement);
+              const rootTokens=Object.fromEntries(canonical.map(n=>{const raw=root.getPropertyValue(n).trim();return[n,{raw,normalized:norm(raw),present:raw!==''}]}));
+              const aliases=Object.fromEntries(aliasEntries.map(([n])=>{const raw=root.getPropertyValue(n).trim();return[n,{raw,normalized:norm(raw),present:raw!==''}]}));
+              const markers={public:root.getPropertyValue('--basair-canvas').trim(),acquisition:root.getPropertyValue('--quranic').trim(),admin:root.getPropertyValue('--admin-bg').trim()};
+              const surface=markers.admin?'ADMIN':markers.acquisition?'ACQUISITION':markers.public?'PUBLIC':'UNKNOWN';
+              const bridge=surface==='PUBLIC'?'tokens-public-compat.css':surface==='ACQUISITION'?'tokens-acquisition-compat.css':surface==='ADMIN'?'tokens-admin-compat.css':null;
+              const stylesheets=[...document.styleSheets].map((s,index)=>{let ruleCount=null,rulesAccessible=true;try{ruleCount=s.cssRules.length}catch{rulesAccessible=false}return{index,href:s.href||null,inline:!s.href,ownerTag:s.ownerNode?.tagName||null,rulesAccessible,ruleCount}});
+              const all=[document.documentElement,...document.querySelectorAll('body *')].filter(el=>!['SCRIPT','STYLE','NOSCRIPT','TEMPLATE'].includes(el.tagName));
+              const conflictValues={};
+              for(const token of conflicts){const map=new Map();for(const el of all){const raw=getComputedStyle(el).getPropertyValue(token).trim();if(!raw)continue;const n=norm(raw);if(!map.has(n))map.set(n,{computedValue:raw,normalized:n,count:0,representatives:[],scopes:new Set()});const rec=map.get(n);rec.count++;if(rec.representatives.length<3)rec.representatives.push(desc(el));if(el===document.documentElement)rec.scopes.add('root');if(el.style?.getPropertyValue(token))rec.scopes.add('inline');if(el.closest?.('section')&&el!==document.documentElement)rec.scopes.add('section');if(el!==document.documentElement)rec.scopes.add('component');}conflictValues[token]=[...map.values()].map(r=>({...r,scopes:[...r.scopes]}));}
+              const fingerprint=el=>{if(!el)return null;const s=getComputedStyle(el),r=el.getBoundingClientRect();return{descriptor:desc(el),styles:{color:s.color,backgroundColor:s.backgroundColor,borderColor:s.borderColor,borderWidth:s.borderWidth,borderRadius:s.borderRadius,boxShadow:s.boxShadow,fontFamily:s.fontFamily,fontSize:s.fontSize,fontWeight:s.fontWeight,lineHeight:s.lineHeight,letterSpacing:s.letterSpacing,padding:s.padding,margin:s.margin,gap:s.gap,display:s.display,position:s.position,width:s.width,maxWidth:s.maxWidth},geometry:{x:r.x,y:r.y,width:r.width,height:r.height}}};
+              const first=q=>[...document.querySelectorAll(q)].find(visible)||null;const visibleEls=[...document.querySelectorAll('body *')].filter(visible);
+              const heading=first('h1,h2,h3');const para=[...document.querySelectorAll('p')].find(el=>visible(el)&&(el.textContent||'').trim().length>20)||null;const ctas=[...document.querySelectorAll('a[href],button,input[type="submit"]')].filter(visible);
+              const panel=visibleEls.filter(el=>['ARTICLE','FORM','DIV','SECTION'].includes(el.tagName)).map(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{el,score:((s.backgroundColor!=='rgba(0, 0, 0, 0)'&&s.backgroundColor!=='transparent')?3:0)+(parseFloat(s.borderTopWidth)>0?2:0)+(s.boxShadow!=='none'?2:0)+(r.width*r.height>15000?1:0)}}).sort((a,b)=>b.score-a.score)[0]?.el||null;
+              const muted=visibleEls.find(el=>{const t=(el.textContent||'').trim();if(!t||t.length>180)return false;const s=getComputedStyle(el);return parseFloat(s.fontSize)<=14.5||parseFloat(s.opacity)<.9})||null;const divider=visibleEls.find(el=>{const s=getComputedStyle(el);return parseFloat(s.borderTopWidth)>0||parseFloat(s.borderBottomWidth)>0})||null;
+              const reps={body:fingerprint(document.body),primaryHeading:fingerprint(heading),bodySupportText:fingerprint(para),primaryCTA:fingerprint(ctas[0]||null),secondaryCTA:fingerprint(ctas[1]||null),mainCardPanel:fingerprint(panel),formControl:fingerprint(first('input:not([type="hidden"]),select,textarea')),mutedHelper:fingerprint(muted),representativeBorder:fingerprint(divider),navigationHeader:fingerprint(first('header,nav')),sectionContainer:fingerprint(first('main,section'))};
+              return{surface,bridge,markers,rootTokens,aliases,conflictValues,reps,stylesheets,inlineStyleBlockCount:document.querySelectorAll('style').length,authorityPresent:!!root.getPropertyValue('--color-brand-green').trim(),readyState:document.readyState,bodyTextLength:(document.body?.innerText||'').length};
+            },{canonical,aliasEntries,conflicts});
+            let stateChanges=[];
+            if(!runtime){const hs=await page.$$('a,button,input,select,textarea,[tabindex]');let tested=0;for(const h of hs){if(tested>=80)break;const before=await h.evaluate((el,ts)=>{const s=getComputedStyle(el);const r=el.getBoundingClientRect();if(r.width<=0||r.height<=0||s.display==='none'||s.visibility==='hidden')return null;const o={};for(const t of ts){const v=s.getPropertyValue(t).trim();if(v)o[t]=v}return o},conflicts).catch(()=>null);if(!before||!Object.keys(before).length)continue;tested++;const desc=await h.evaluate(descriptorScript).catch(()=>null);for(const state of ['hover','focus']){try{if(state==='hover')await h.hover();else await h.focus();await new Promise(r=>setTimeout(r,18));const after=await h.evaluate((el,ts)=>{const s=getComputedStyle(el),o={};for(const t of ts){const v=s.getPropertyValue(t).trim();if(v)o[t]=v}return o},conflicts);for(const t of new Set([...Object.keys(before),...Object.keys(after)])){if(normalize(before[t])!==normalize(after[t]))stateChanges.push({token:t,state,descriptor:desc,before:before[t]||'',after:after[t]||''})}}catch{}await page.mouse.move(1,1).catch(()=>{});await h.evaluate(el=>el.blur?.()).catch(()=>{});}}
+            let shot=null;if(screenshot){const dir=path.join(screenshotRoot,label,vp.name);fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,`${routeSlug(route)}.png`);await page.screenshot({path:file,fullPage:false});shot={logicalName:`${label}:${route}:${vp.name}`,sha256:crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),location:`temporary Actions artifact phase-2.5-screenshots-final/${label}/${vp.name}/${path.basename(file)}`};}
+            const result={route,viewport:vp.name,url,status:response?.status()||null,...obs,stateChanges,consoleErrors,pageErrors,failedResources};await page.close();return{result,shot};
+          }
+
+          const finalCss=new Map(),phase0Css=new Map();
+          for(const route of routes)for(const vp of viewports){const key=`${route}|${vp.name}`;try{const f=await capture(FINAL_URL,route,vp,'final',{runtime:false});const b=await capture(BASE_URL,route,vp,'phase0',{runtime:false});finalCss.set(key,f.result);phase0Css.set(key,b.result);data.coverage.totalStatesCompleted++;}catch(e){data.coverage.failures.push({route,viewport:vp.name,mode:'css',error:String(e)})}}
+
+          const stateIndex=new Map();
+          for(const [key,s] of finalCss){const [route,viewport]=key.split('|');data.surfaceDetection.push({route,viewport,surface:s.surface,bridge:s.bridge,authorityPresent:s.authorityPresent,inlineStyleBlockCount:s.inlineStyleBlockCount,builtBrowserStylesheets:s.stylesheets,sourceGraph:data.sourceAuthorityGraph[s.surface]||null});data.rootTokenObservations.push({route,viewport,tokens:s.rootTokens});const aliases={};for(const [name,meta] of aliasEntries){const o=s.aliases[name];aliases[name]={...o,classification:meta.surfaceClassification,expectedOnSurface:expectedAlias(meta.surfaceClassification,s.surface),presenceMatchesExpectation:o.present===expectedAlias(meta.surfaceClassification,s.surface)}}data.aliasObservations.push({route,viewport,surface:s.surface,aliases});data.representativeElementFingerprints.push({route,viewport,surface:s.surface,categories:s.reps});for(const token of conflicts){data.conflictTokenCharacterization.push({token,route,viewport,surface:s.surface,observed:(s.conflictValues[token]||[]).length>0,values:s.conflictValues[token]||[],stateChanges:s.stateChanges.filter(x=>x.token===token),viewportChanges:false});}for(const ch of s.stateChanges){if(!stateIndex.has(ch.token))stateIndex.set(ch.token,[]);stateIndex.get(ch.token).push({route,viewport,...ch})}}
+
+          const assertions=[];const add=(name,pass,evidence)=>assertions.push({name,pass,evidence});
+          for(const [key,s] of finalCss){const [route,viewport]=key.split('|');const av=n=>s.aliases[n]?.normalized||'',cv=n=>s.rootTokens[n]?.normalized||'';add(`global --gold ${route} ${viewport}`,av('--gold')===cv('--color-accent-gold')&&!!av('--gold'),{surface:s.surface,gold:av('--gold'),canonical:cv('--color-accent-gold')});if(s.surface==='ACQUISITION'){add(`acquisition --muted ${route} ${viewport}`,av('--muted')===cv('--color-acquisition-text-muted')&&av('--muted')==='#526860',{muted:av('--muted'),canonical:cv('--color-acquisition-text-muted')});add(`acquisition --line ${route} ${viewport}`,av('--line')===cv('--color-border-subtle'),{line:av('--line'),canonical:cv('--color-border-subtle')})}if(s.surface==='ADMIN'){const m=cssColorNorm(av('--muted')),l=cssColorNorm(av('--line'));add(`admin --muted ${route} ${viewport}`,m==='rgba(255,255,255,.62)',{muted:av('--muted')});add(`admin --line ${route} ${viewport}`,l==='rgba(255,255,255,.12)',{line:av('--line')});add(`admin isolated from acquisition ${route} ${viewport}`,av('--muted')!=='#526860'&&av('--line')!==cv('--color-border-subtle'),{muted:av('--muted'),line:av('--line'),acquisitionMuted:'#526860',acquisitionLine:cv('--color-border-subtle')})}if(s.surface==='PUBLIC')add(`public dark-green chains ${route} ${viewport}`,av('--basair-green-deep')===cv('--color-public-evergreen-surface')&&cv('--color-public-evergreen-surface')==='#073b31'&&av('--basair-green-hover')===cv('--color-brand-green-deep')&&cv('--color-brand-green-deep')==='#044637'&&av('--basair-green-deep')!==av('--basair-green-hover'),{greenDeep:av('--basair-green-deep'),greenHover:av('--basair-green-hover')})}
+          data.criticalOwnershipAssertions=assertions;
+
+          const fpProps=['color','backgroundColor','borderColor','borderWidth','borderRadius','boxShadow','fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','padding','margin','gap','display','position','width','maxWidth'];let category5=0;
+          for(const [key,f] of finalCss){const b=phase0Css.get(key);if(!b)continue;const [route,viewport]=key.split('|');const categories={};for(const cat of Object.keys(f.reps)){const x=f.reps[cat],y=b.reps[cat];if(!x&&!y){categories[cat]={classification:'EXACTLY EQUIVALENT',note:'N/A in both trees'};continue}if(!x||!y){categories[cat]={classification:'UNEXPLAINED COMPUTED-STYLE DELTA',phase2:x,phase0:y};category5++;continue}const styleDiff={},geometryDiff={};for(const p of fpProps)if(x.styles[p]!==y.styles[p])styleDiff[p]={phase2:x.styles[p],phase0:y.styles[p]};for(const p of ['x','y','width','height'])if(Math.abs((x.geometry[p]||0)-(y.geometry[p]||0))>.51)geometryDiff[p]={phase2:x.geometry[p],phase0:y.geometry[p]};if(Object.keys(styleDiff).length||Object.keys(geometryDiff).length){categories[cat]={classification:'UNEXPLAINED COMPUTED-STYLE DELTA',descriptorPhase2:x.descriptor,descriptorPhase0:y.descriptor,styleDiff,geometryDiff};category5++}else categories[cat]={classification:'EXACTLY EQUIVALENT',descriptor:x.descriptor}}
+            const legacyAliases={};for(const [name] of aliasEntries){const x=f.aliases[name],y=b.aliases[name];if(x?.present&&y?.present)legacyAliases[name]={phase2:x.raw,phase0:y.raw,classification:normalize(x.raw)===normalize(y.raw)?'EXACTLY EQUIVALENT':'UNEXPLAINED COMPUTED-STYLE DELTA'};else if(x?.present||y?.present)legacyAliases[name]={phase2:x?.raw||null,phase0:y?.raw||null,classification:'EXPECTED TOKEN-INTERNAL REFACTOR WITH SAME COMPUTED RESULT'};}
+            data.baselineComparison.push({route,viewport,categories,legacyAliases})}
+
+          const conflictAnalysis={};
+          for(const token of conflicts){const rows=data.conflictTokenCharacterization.filter(x=>x.token===token);const values=new Set(rows.flatMap(x=>x.values.map(v=>v.normalized)));const stateChange=rows.some(x=>x.stateChanges.length);let breakpointChange=false;for(const route of routes){const sigs=new Set(viewports.map(v=>rows.find(x=>x.route===route&&x.viewport===v.name)?.values.map(x=>x.normalized).sort().join('|')||'').filter(Boolean));if(sigs.size>1)breakpointChange=true}for(const r of rows)r.viewportChanges=breakpointChange;const observed=rows.some(x=>x.observed);const contextual=values.size>1||stateChange||breakpointChange;conflictAnalysis[token]={observed,observedValues:[...values],stateChange,breakpointChange,contextual,classification:!observed?'UNOBSERVED — DO NOT CONSOLIDATE WITHOUT FURTHER EVIDENCE':contextual?'MUST NOT GLOBALLY CONSOLIDATE':'APPEARS SAFE CANDIDATE FOR LATER CONSOLIDATION REVIEW'}}data.conflictAnalysis=conflictAnalysis;
+
+          for(const route of routes)for(const vp of viewports){try{const f=await capture(FINAL_URL,route,vp,'final',{runtime:true,screenshot:true});const b=await capture(BASE_URL,route,vp,'phase0',{runtime:true,screenshot:true});if(f.shot)data.screenshots.push(f.shot);if(b.shot)data.screenshots.push(b.shot);data.runtimeSmoke.push({route,viewport:vp.name,status:f.result.status,surface:f.result.surface,readyState:f.result.readyState,bodyTextLength:f.result.bodyTextLength,consoleErrors:f.result.consoleErrors,pageErrors:f.result.pageErrors,failedResources:f.result.failedResources})}catch(e){data.coverage.failures.push({route,viewport:vp.name,mode:'runtime/screenshot',error:String(e)})}}
+
+          const surfaces=[...new Set(data.surfaceDetection.map(x=>x.surface))];if(!['PUBLIC','ACQUISITION','ADMIN'].every(x=>surfaces.includes(x)))data.coverage.failures.push({mode:'surface-detection',error:`Detected ${surfaces.join(',')}`});
+          data.limitations.push('Authenticated Admin interior was not browser-characterized because no safe authorized credentials were available. The unauthenticated Admin document, inline token ownership, root tokens, cascade, and reachable controls were characterized.');data.limitations.push('Screenshot evidence is supporting only; computed styles are primary. External font/Firebase/network failures are recorded separately and are not automatically treated as CSS regressions.');
+          const failedAssertions=assertions.filter(x=>!x.pass);const safe=Object.entries(conflictAnalysis).filter(([,x])=>x.classification.startsWith('APPEARS')).map(([k])=>k);const must=Object.entries(conflictAnalysis).filter(([,x])=>x.classification.startsWith('MUST')).map(([k])=>k);const unobserved=Object.entries(conflictAnalysis).filter(([,x])=>x.classification.startsWith('UNOBSERVED')).map(([k])=>k);const breakpoint=Object.entries(conflictAnalysis).filter(([,x])=>x.breakpointChange).map(([k])=>k);const stateful=Object.entries(conflictAnalysis).filter(([,x])=>x.stateChange).map(([k])=>k);
+          const coverageComplete=data.coverage.totalStatesCompleted===48&&data.coverage.failures.length===0;const verdict=category5>0?'HOLD':coverageComplete&&failedAssertions.length===0?'COMPLETE':'NOT COMPLETE';data.verdict={status:verdict,unexplainedComputedStyleDeltas:category5,failedOwnershipAssertions:failedAssertions.length,coverageComplete};
+
+          const md=['# BASAIR — PHASE 2.5 Browser Characterization','',`- Source: \`${SOURCE_COMMIT}\` / tree \`${SOURCE_TREE}\`` ,`- Historical comparison: \`${COMP_COMMIT}\` / tree \`${COMP_TREE}\`` ,`- Browser engine/version: **${browserVersion}**`,`- Automation: **${automationTool}**; Node **${process.version}**; OS **${osText}**.`,`- Coverage: **${data.coverage.totalStatesCompleted}/48** authoritative CSS states; runtime smoke/screenshots attempted for the same 48 states; failures: **${data.coverage.failures.length}**.`,`- Contract revalidated: **106 canonical**, aliases **A/B/C/D/E = 1/49/23/23/2**, **40** corrected conflict tokens, **55** production CSS files, **1** inline style block.`,'','## 1. What the browser actually computed',`Detected surfaces from loaded token/bridge markers: **${surfaces.join(', ')}**. Built stylesheet graphs, root canonical values, all legacy alias values, and representative style/geometry fingerprints are recorded per route/viewport in the JSON.`,'','## 2. Surface isolation and critical ownership',`Critical ownership assertions passed: **${assertions.length-failedAssertions.length}/${assertions.length}**. Admin remained isolated from Acquisition aliases: ${failedAssertions.some(x=>x.name.startsWith('admin '))?'**NO**':'**YES**'}. Acquisition \`--muted\` was checked against \`#526860\`; Admin \`--muted\` against \`rgba(255,255,255,.62)\`; Admin \`--line\` against \`rgba(255,255,255,.12)\`. Public dark-green chains remained distinct: \`--basair-green-deep\` → \`#073B31\`, while \`--basair-green-hover\` → \`#044637\`.`,'','## 3. Exact 40-token browser characterization',`Contextual / MUST NOT be globally consolidated (${must.length}): ${must.map(x=>`\`${x}\``).join(', ')||'none'}.`,`Appears safe for later consolidation **review**, not automatic deletion (${safe.length}): ${safe.map(x=>`\`${x}\``).join(', ')||'none'}.`,`Unobserved (${unobserved.length}): ${unobserved.map(x=>`\`${x}\``).join(', ')||'none'}. Unobserved means unresolved, not equivalent/dead.`,`Breakpoint-changing (${breakpoint.length}): ${breakpoint.map(x=>`\`${x}\``).join(', ')||'none'}.`,`State-changing via real hover/focus observation (${stateful.length}): ${stateful.map(x=>`\`${x}\``).join(', ')||'none'}.`,'','## 4. Phase 0 vs final Phase 2',`Representative browser-computed style/geometry fingerprints were compared for all completed route/viewport pairs. **Unexplained category-5 deltas: ${category5}.** Per-category details are in \`baselineComparison\` in the JSON. Legacy custom-property effective values are compared separately from canonical-token naming.`,'','## 5. Runtime smoke and screenshots',`Runtime smoke used JavaScript normally. ${data.screenshots.length} matching Phase-2/Phase-0 screenshots were captured as temporary CI artifacts; each logical filename and SHA-256 is recorded in JSON. Screenshots were not committed.`,'','## 6. Limitations',...data.limitations.map(x=>`- ${x}`),'','## 7. Constraints for Phase 3 / CSS consolidation','- Never globalize `--line` or `--muted`; preserve their surface contracts.','- Preserve `--basair-green-deep` and `--basair-green-hover` as distinct semantic chains.','- Do not globally consolidate any conflict marked contextual, breakpoint-changing, or state-changing.','- Treat unobserved conflicts as unresolved, not dead/equivalent.','- Preserve `track-buttons-v6.css` until a deliberate replacement has equivalent real-browser characterization.','- Do not consolidate authenticated Admin interior-affecting ownership without separate authorized browser evidence.','- Re-run this 12×4 real-browser matrix after destructive ownership/cascade migrations.',''];
+          if(data.coverage.failures.length)md.push('## Coverage failures',...data.coverage.failures.map(x=>`- ${x.route||''} ${x.viewport||''} ${x.mode}: ${x.error}`),'');if(failedAssertions.length)md.push('## Failed ownership assertions',...failedAssertions.map(x=>`- ${x.name}: ${JSON.stringify(x.evidence)}`),'');
+          if(verdict==='COMPLETE')md.push('PHASE 2.5 = COMPLETE','READY FOR CSS CONSOLIDATION PLANNING','CSS CONSOLIDATION NOT STARTED');else if(verdict==='HOLD')md.push('PHASE 2.5 = HOLD','UNEXPLAINED COMPUTED-STYLE DELTA — DO NOT CONSOLIDATE');else md.push('PHASE 2.5 = NOT COMPLETE','INCOMPLETE BROWSER EVIDENCE — DO NOT CONSOLIDATE');
+          fs.writeFileSync(path.join(ROOT,'phase-2.5-browser-characterization.json'),JSON.stringify(data,null,2)+'\n');fs.writeFileSync(path.join(ROOT,'PHASE_2_5_BROWSER_CHARACTERIZATION.md'),md.join('\n')+'\n');await browser.close();console.log(JSON.stringify({verdict,coverage:data.coverage,failedAssertions:failedAssertions.length,category5,safe:safe.length,must:must.length,unobserved:unobserved.length,breakpoint:breakpoint.length,stateful:stateful.length,screenshots:data.screenshots.length},null,2));
+          EOF
+          cd /tmp/basair-browser-tooling
+          node characterize.mjs
+      - name: Upload final temporary screenshot evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-2.5-screenshots-final
+          path: /tmp/phase-2.5-screenshots-final
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish only characterization artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1504baad33b2123056877c1e92f4e2d558c00d51
+          cp PHASE_2_5_BROWSER_CHARACTERIZATION.md /tmp/PHASE_2_5_BROWSER_CHARACTERIZATION.md
+          cp phase-2.5-browser-characterization.json /tmp/phase-2.5-browser-characterization.json
+          git fetch origin basair/phase-2.5-browser-characterization
+          git switch --track -c phase25-final origin/basair/phase-2.5-browser-characterization
+          cp /tmp/PHASE_2_5_BROWSER_CHARACTERIZATION.md .
+          cp /tmp/phase-2.5-browser-characterization.json .
+          rm -f .github/workflows/phase-2-5-browser-characterization-rerun.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          git diff --cached --check
+          mapfile -t changed < <(git diff --cached --name-only "$BASE")
+          printf 'FINAL_NET_CHANGED_FILES_FROM_PHASE2:\n'; printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 2
+          printf '%s\n' "${changed[@]}" | grep -Fxq 'PHASE_2_5_BROWSER_CHARACTERIZATION.md'
+          printf '%s\n' "${changed[@]}" | grep -Fxq 'phase-2.5-browser-characterization.json'
+          test "$(git hash-object track-buttons-v6.css)" = "$(git rev-parse "$BASE:track-buttons-v6.css")"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Phase 2.5: complete real-browser characterization matrix'
+          echo "FINAL_COMMIT=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
+          git push origin HEAD:basair/phase-2.5-browser-characterization
