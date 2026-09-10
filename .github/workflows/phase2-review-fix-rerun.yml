@@ -1,0 +1,66 @@
+name: Phase 2 Review Fix Rerun
+on:
+  push:
+    branches: ["basair/phase-2-review-fix-ci"]
+permissions:
+  contents: write
+jobs:
+  fix-verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply reviewed isolation logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          wf=Path('.github/workflows/phase2-review-fix-ci.yml').read_text()
+          def extract(start,end):
+              body=wf.split(start,1)[1].split(end,1)[0]
+              return '\n'.join(line[10:] if line.startswith('          ') else line for line in body.splitlines())
+          py=extract("          python3 - <<'PY'\n","\n          PY\n")
+          exec(compile(py,'phase2-review-transform','exec'),globals(),globals())
+          js=extract("          cat > token-authority-check.mjs <<'EOF'\n","\n          EOF\n")
+          Path('token-authority-check.mjs').write_text(js+'\n')
+          PY
+          node token-authority-check.mjs
+          git diff --check
+      - name: Verify protected source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=afb9d9d77aec1af69163719927ea6a0fe07110b2
+          git diff --exit-code "$BASE" -- app.js admin.js acquisition.js firestore.rules firebase-config.js index.html admin.html en ru uz track-buttons-v6.css public-ui-fixes-v1.js form-overdrive-v1.js
+          test "$(git hash-object track-buttons-v6.css)" = "$(git rev-parse "$BASE:track-buttons-v6.css")"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Clean install
+        run: npm ci
+      - name: Full verification
+        run: npm run verify
+      - name: Explicit build
+        run: npm run build
+      - name: Commit clean verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/phase2-review-fix-ci.yml .github/workflows/phase2-review-fix-rerun.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          git diff --cached --check
+          echo FINAL_CHANGED_FILES_FROM_AFB9
+          git diff --cached --name-only afb9d9d77aec1af69163719927ea6a0fe07110b2
+          echo FINAL_DIFFSTAT_FROM_AFB9
+          git diff --cached --stat afb9d9d77aec1af69163719927ea6a0fe07110b2
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Phase 2 review: isolate legacy token bindings by surface'
+          echo "CANDIDATE_COMMIT=$(git rev-parse HEAD)"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+          git push origin HEAD:basair/phase-2-review-fix-ci
