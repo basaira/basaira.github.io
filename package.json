@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --host=localhost",
     "lint": "tsc --noEmit",
-    "verify": "npm run lint && npm run verify:security && npm run verify:phase0 && npm run verify:ui && npm run verify:harden && npm run verify:form-polish && npm run verify:course-cards && npm run verify:course-buttons-delight && npm run verify:final-polish && npm run verify:hero && npm run verify:hero-final-v4 && npm run verify:hero-cta && npm run verify:homepage-sections && npm run verify:academic-pathways && npm run verify:welcome && npm run verify:surgical && npm run verify:impeccable-v4 && npm run verify:impeccable-v5 && npm run verify:impeccable-v6-cards && npm run verify:impeccable-v7-nav-video-settings && npm run verify:impeccable-v8-guide && npm run build",
+    "verify": "npm run lint && npm run verify:security && npm run verify:phase0 && npm run verify:tokens && npm run verify:ui && npm run verify:harden && npm run verify:form-polish && npm run verify:course-cards && npm run verify:course-buttons-delight && npm run verify:final-polish && npm run verify:hero && npm run verify:hero-final-v4 && npm run verify:hero-cta && npm run verify:homepage-sections && npm run verify:academic-pathways && npm run verify:welcome && npm run verify:surgical && npm run verify:impeccable-v4 && npm run verify:impeccable-v5 && npm run verify:impeccable-v6-cards && npm run verify:impeccable-v7-nav-video-settings && npm run verify:impeccable-v8-guide && npm run build",
     "deploy:firestore-rules": "npx firebase-tools@15.28.1 deploy --only firestore:rules --project basair-academy-4a1d0",
     "verify:security": "node security-check.mjs",
     "verify:ui": "node ui-regression-check.mjs",
@@ -30,7 +30,8 @@
     "verify:impeccable-v6-cards": "node impeccable-v6-course-cards-check.mjs",
     "verify:impeccable-v7-nav-video-settings": "node impeccable-v7-nav-video-settings-check.mjs",
     "verify:impeccable-v8-guide": "node impeccable-v8-quick-guide-check.mjs",
-    "verify:phase0": "node phase0-correctness-check.mjs"
+    "verify:phase0": "node phase0-correctness-check.mjs",
+    "verify:tokens": "node token-authority-check.mjs"
   },
   "dependencies": {},
   "devDependencies": {

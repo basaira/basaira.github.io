@@ -1,11 +1,12 @@
+@import "./tokens.css";
 @import "tailwindcss";
 
 @theme {
-  --color-quranic: #00563F;
-  --color-gold: #D4AF37;
+  --color-quranic: var(--color-brand-green);
+  --color-gold: var(--color-accent-gold);
   --color-ivory: #FDFDF5;
-  --color-navy: #0A1F44;
+  --color-navy: var(--color-structural-navy);
   
-  --font-arabic: "IBM Plex Sans Arabic", "Tajawal", sans-serif;
-  --font-latin: "Manrope", sans-serif;
+  --font-arabic: var(--font-family-arabic);
+  --font-latin: var(--font-family-latin);
 }

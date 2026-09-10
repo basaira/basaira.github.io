@@ -1,18 +1,5 @@
 /* Basair Acquisition — Impeccable Colorize v1
    Same brand world as the academy: ivory field, emerald action, gold academic accent. */
-:root{
-  --quranic:#00563f;
-  --quranic-deep:#044637;
-  --gold:#d4af37;
-  --gold-ink:#8a6d14;
-  --ivory:#fdfcf3;
-  --navy:#0a1f44;
-  --ink:#12382f;
-  --muted:#526860;
-  --line:rgba(18,56,47,.12);
-  --surface:#fffdf8;
-  --shadow:0 24px 70px rgba(7,59,49,.10);
-}
 body{background:var(--ivory);color:var(--ink)}
 .site-header{background:rgba(253,252,243,.94);border-bottom-color:rgba(18,56,47,.09)}
 .brand-copy strong{color:var(--ink)}

@@ -2,29 +2,6 @@
    Strategy: Illuminated Emerald Manuscript.
    Warm ivory is the reading field; Quranic green owns action and major dark regions;
    heritage gold signals focus and scholarship; navy is structural, not atmospheric. */
-:root{
-  --basair-canvas:#FDFCF3;
-  --basair-paper:#FFFDF8;
-  --basair-paper-green:#F1F7F3;
-  --basair-paper-gold:#FBF6E5;
-  --basair-ink:#12382F;
-  --basair-ink-soft:#38534C;
-  --basair-navy:#0A1F44;
-  --basair-green:#00563F;
-  --basair-green-hover:#044637;
-  --basair-green-deep:#073B31;
-  --basair-green-night:#071F1B;
-  --basair-green-bright:#0B7A5D;
-  --basair-gold:#D4AF37;
-  --basair-gold-ink:#8A6D14;
-  --basair-gold-soft:#F4E6AF;
-  --basair-line:rgba(18,56,47,.12);
-  --basair-line-gold:rgba(212,175,55,.24);
-  --basair-white:#FFFFFF;
-  --basair-danger:#A63D49;
-  --basair-success:#075D47;
-}
-
 html{background:var(--basair-canvas)}
 body{background:var(--basair-canvas);color:var(--basair-navy)}
 

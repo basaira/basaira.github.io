@@ -1,18 +1,4 @@
 /* Basair Admin v3 — secure editorial console */
-:root{
-  --admin-bg:#061327;
-  --admin-surface:#0a1f44;
-  --admin-surface-2:#0d2856;
-  --admin-card:rgba(255,255,255,.055);
-  --admin-line:rgba(255,255,255,.105);
-  --admin-text:#f7f8fb;
-  --admin-muted:rgba(232,238,249,.66);
-  --admin-ivory:#fffdf5;
-  --admin-green:#08735a;
-  --admin-green-2:#0b8a6c;
-  --admin-gold:#d4af37;
-  --admin-danger:#c95f68;
-}
 html{background:var(--admin-bg);color-scheme:dark}
 body{
   background:

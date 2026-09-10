@@ -1,3 +1,4 @@
+@import "./tokens.css";
 /* Quiet final admin cleanup requested on 2026-08-31. */
 .auth-help{display:none!important}
 .nav-btn .badge.is-hidden,

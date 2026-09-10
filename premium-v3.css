@@ -1,12 +1,7 @@
 
 :root{
+  /* Phase 2: unresolved/local compatibility values only. */
   --basair-ivory:#fbfaf3;
-  --basair-paper:#fffef9;
-  --basair-navy:#071d3d;
-  --basair-green:#00604a;
-  --basair-green-deep:#034538;
-  --basair-gold:#c8a43a;
-  --basair-line:rgba(7,29,61,.11);
   --basair-soft:rgba(7,29,61,.63);
   --basair-radius:1.75rem;
 }

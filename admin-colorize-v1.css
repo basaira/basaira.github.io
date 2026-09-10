@@ -1,20 +1,5 @@
 /* Basair Admin — Impeccable Colorize v1
    Dark operational theme rebuilt around evergreen depth rather than navy dominance. */
-:root{
-  --admin-bg:#071713;
-  --admin-surface:#0B2620;
-  --admin-surface-2:#12362D;
-  --admin-card:rgba(246,247,241,.058);
-  --admin-line:rgba(218,231,220,.12);
-  --admin-text:#F6F7F1;
-  --admin-muted:#B5C6BF;
-  --admin-ivory:#FFFDF5;
-  --admin-green:#0D7A5E;
-  --admin-green-2:#13A178;
-  --admin-gold:#D4AF37;
-  --admin-danger:#D9747D;
-  --admin-info:#7FB8D6;
-}
 html{background:var(--admin-bg)!important}
 body{
   background:

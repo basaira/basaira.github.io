@@ -1,19 +1,4 @@
-:root {
-  --quranic: #00563f;
-  --quranic-deep: #003f2f;
-  --gold: #d4af37;
-  --ivory: #fdfdf5;
-  --navy: #0a1f44;
-  --ink: #10243f;
-  --muted: #667085;
-  --line: rgba(10, 31, 68, 0.11);
-  --surface: #ffffff;
-  --shadow: 0 24px 70px rgba(10, 31, 68, 0.10);
-  --radius-xl: 34px;
-  --radius-lg: 24px;
-  --radius-md: 16px;
-}
-
+@import "./tokens.css";
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -359,15 +344,6 @@ html, body { width:100%; max-width:100%; overflow-x:clip; }
 .hp-field{position:absolute!important;inline-size:1px!important;block-size:1px!important;overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;opacity:0!important;pointer-events:none!important}
 
 /* Impeccable Typeset — acquisition surfaces, 2026-08-26 */
-:root{
-  --acq-type-display:clamp(2.625rem,5vw,4.5rem);
-  --acq-type-section:clamp(1.875rem,4vw,3rem);
-  --acq-type-card:1.125rem;
-  --acq-type-body:1rem;
-  --acq-type-support:.875rem;
-  --acq-type-meta:.75rem;
-  --acq-measure:68ch;
-}
 body{font-family:"Manrope",ui-sans-serif,system-ui,sans-serif;font-synthesis:none;letter-spacing:0}
 .hero h1{font-size:var(--acq-type-display);font-weight:800;line-height:1.03;letter-spacing:-.045em;text-wrap:balance}
 .hero-copy{max-width:var(--acq-measure);font-size:clamp(1rem,1vw + .75rem,1.25rem);line-height:1.72;text-wrap:pretty}
@@ -393,13 +369,6 @@ details.faq summary{font-size:.92rem;font-weight:700;line-height:1.55}
 }
 
 /* Impeccable Layout — acquisition surfaces, 2026-08-26 */
-:root{
-  --acq-layout-gutter:clamp(.75rem,3vw,2rem);
-  --acq-layout-wide:74rem;
-  --acq-layout-section:clamp(4rem,7vw,6rem);
-  --acq-layout-gap:clamp(1rem,2vw,1.5rem);
-  --acq-layout-stack:clamp(2rem,4vw,3.5rem);
-}
 .container{
   width:min(var(--acq-layout-wide),calc(100% - (2 * var(--acq-layout-gutter))));
 }

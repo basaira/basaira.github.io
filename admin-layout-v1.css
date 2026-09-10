@@ -1,13 +1,6 @@
 /* Basair Admin — Impeccable Layout v1
    Operational geometry only; visual identity and application logic are untouched. */
 
-:root {
-  --admin-layout-gutter: clamp(.75rem, 2vw, 1.25rem);
-  --admin-layout-gap: clamp(.75rem, 1.4vw, 1.1rem);
-  --admin-layout-content-gap: clamp(.9rem, 1.6vw, 1.35rem);
-  --admin-layout-shell: 96rem;
-}
-
 .shell {
   width: min(calc(100% - (2 * var(--admin-layout-gutter))), var(--admin-layout-shell)) !important;
   grid-template-columns: minmax(14.5rem, 17rem) minmax(0, 1fr) !important;

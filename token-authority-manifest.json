@@ -1,0 +1,1287 @@
+{
+  "schemaVersion": 1,
+  "phase": "PHASE 2 — CANONICAL DESIGN TOKEN AUTHORITY",
+  "authorityFile": "tokens.css",
+  "baseline": {
+    "branch": "basair/phase-0-correctness",
+    "head": "6e46539a02db342838d7c113a45ff558192658e5",
+    "tree": "8c18f5050f4ffa33c2317823e540766a4b2bc9ff",
+    "phase2Branch": "basair/phase-2-token-authority"
+  },
+  "baselineMetrics": {
+    "uniqueCustomPropertyNames": 253,
+    "repeatedTokenNames": 66,
+    "totalDefinitions": 334,
+    "duplicateDefinitionsBeyondFirst": 81,
+    "multiFileDifferentValueConflicts": 30
+  },
+  "canonicalTokens": {
+    "--color-brand-green": "#00563F",
+    "--color-brand-green-deep": "#044637",
+    "--color-structural-navy": "#0A1F44",
+    "--color-surface-ivory": "#FDFCF3",
+    "--color-surface-paper": "#FFFDF8",
+    "--color-surface-green-paper": "#F1F7F3",
+    "--color-accent-gold": "#D4AF37",
+    "--color-accent-gold-ink": "#8A6D14",
+    "--color-public-evergreen-surface": "#073B31",
+    "--color-text-primary": "#12382F",
+    "--color-text-secondary": "#38534C",
+    "--color-border-subtle": "rgba(18,56,47,.12)",
+    "--color-border-gold": "rgba(212,175,55,.24)",
+    "--color-surface-gold-paper": "#FBF6E5",
+    "--color-public-green-night": "#071F1B",
+    "--color-public-green-bright": "#0B7A5D",
+    "--color-accent-gold-soft": "#F4E6AF",
+    "--color-white": "#FFFFFF",
+    "--color-danger": "#A63D49",
+    "--color-success": "#075D47",
+    "--color-admin-canvas": "#071713",
+    "--color-admin-surface": "#0B2620",
+    "--color-admin-surface-raised": "#12362D",
+    "--color-admin-card": "rgba(246,247,241,.058)",
+    "--color-admin-border": "rgba(218,231,220,.12)",
+    "--color-admin-text": "#F6F7F1",
+    "--color-admin-text-muted": "#B5C6BF",
+    "--color-admin-ivory": "#FFFDF5",
+    "--color-admin-action": "#0D7A5E",
+    "--color-admin-action-bright": "#13A178",
+    "--color-admin-danger": "#D9747D",
+    "--color-admin-info": "#7FB8D6",
+    "--font-family-latin": "\"Manrope\", sans-serif",
+    "--font-family-arabic": "\"IBM Plex Sans Arabic\", \"Tajawal\", sans-serif",
+    "--font-family-quranic": "\"Noto Naskh Arabic\", serif",
+    "--font-weight-display-latin": "800",
+    "--font-weight-display-arabic": "700",
+    "--font-weight-body": "500",
+    "--line-height-body-latin": "1.7",
+    "--line-height-body-arabic": "1.8",
+    "--font-size-display": "clamp(2.75rem,6vw,6.1rem)",
+    "--font-size-section": "clamp(2rem,4vw,3.75rem)",
+    "--font-size-subsection": "clamp(1.45rem,2.4vw,2.25rem)",
+    "--font-size-card-title": "clamp(1.15rem,1.6vw,1.45rem)",
+    "--font-size-body": "clamp(1rem,.35vw + .94rem,1.125rem)",
+    "--font-size-support": ".875rem",
+    "--font-size-label": ".78rem",
+    "--line-height-display": "1.025",
+    "--line-height-section": "1.1",
+    "--line-height-public-body": "1.72",
+    "--line-height-public-arabic": "1.86",
+    "--measure-reading-default": "68ch",
+    "--measure-compact-default": "56ch",
+    "--font-size-acquisition-display": "clamp(2.625rem,5vw,4.5rem)",
+    "--font-size-acquisition-section": "clamp(1.875rem,4vw,3rem)",
+    "--font-size-acquisition-card": "1.125rem",
+    "--font-size-acquisition-body": "1rem",
+    "--font-size-acquisition-support": ".875rem",
+    "--font-size-acquisition-meta": ".75rem",
+    "--layout-acquisition-gutter": "clamp(.75rem,3vw,2rem)",
+    "--layout-acquisition-wide": "74rem",
+    "--space-acquisition-section": "clamp(4rem,7vw,6rem)",
+    "--space-acquisition-gap": "clamp(1rem,2vw,1.5rem)",
+    "--space-acquisition-stack": "clamp(2rem,4vw,3.5rem)",
+    "--color-acquisition-text-muted": "#526860",
+    "--shadow-acquisition-panel": "0 24px 70px rgba(7,59,49,.10)",
+    "--radius-acquisition-xl": "34px",
+    "--radius-acquisition-lg": "24px",
+    "--radius-acquisition-md": "16px",
+    "--font-size-admin-title": "1.32rem",
+    "--font-size-admin-panel": "1.08rem",
+    "--font-size-admin-body": ".94rem",
+    "--font-size-admin-support": ".86rem",
+    "--font-size-admin-meta": ".76rem",
+    "--line-height-admin-body": "1.72",
+    "--layout-admin-gutter": "clamp(.75rem, 2vw, 1.25rem)",
+    "--layout-admin-gap": "clamp(.75rem, 1.4vw, 1.1rem)",
+    "--layout-admin-content-gap": "clamp(.9rem, 1.6vw, 1.35rem)",
+    "--layout-admin-shell": "96rem",
+    "--space-xs": ".5rem",
+    "--space-sm": ".75rem",
+    "--space-md": "1rem",
+    "--space-lg": "1.5rem",
+    "--space-xl": "2rem",
+    "--space-2xl": "3rem",
+    "--space-3xl": "4rem",
+    "--space-section": "clamp(4.75rem, 7.5vw, 7rem)",
+    "--layout-public-gutter": "clamp(1rem, 3vw, 2rem)",
+    "--layout-public-wide": "84rem",
+    "--layout-public-content": "72rem",
+    "--layout-assessment": "64rem",
+    "--space-layout-section-compact": "clamp(3.75rem, 6vw, 5.75rem)",
+    "--space-layout-cluster": "clamp(1.25rem, 2.5vw, 2rem)",
+    "--space-layout-stack": "clamp(2.25rem, 4vw, 3.75rem)",
+    "--radius-system-sm": ".75rem",
+    "--radius-system-md": "1rem",
+    "--radius-system-lg": "1.35rem",
+    "--radius-system-xl": "1.75rem",
+    "--radius-system-pill": "999px",
+    "--duration-feedback": "140ms",
+    "--duration-state": "220ms",
+    "--duration-overlay": "340ms",
+    "--duration-focal": "680ms",
+    "--duration-exit": "180ms",
+    "--ease-arrival": "cubic-bezier(.16,1,.3,1)",
+    "--ease-state": "cubic-bezier(.2,.8,.2,1)"
+  },
+  "designExplicit": {
+    "--color-brand-green": "#00563F",
+    "--color-brand-green-deep": "#044637",
+    "--color-structural-navy": "#0A1F44",
+    "--color-surface-ivory": "#FDFCF3",
+    "--color-surface-paper": "#FFFDF8",
+    "--color-surface-green-paper": "#F1F7F3",
+    "--color-accent-gold": "#D4AF37",
+    "--color-accent-gold-ink": "#8A6D14",
+    "--color-public-evergreen-surface": "#073B31",
+    "--color-admin-canvas": "#071713",
+    "--color-admin-surface": "#0B2620",
+    "--font-weight-display-latin": "800",
+    "--font-weight-display-arabic": "700",
+    "--font-weight-body": "500",
+    "--line-height-body-latin": "1.7",
+    "--line-height-body-arabic": "1.8",
+    "--space-xs": ".5rem",
+    "--space-sm": ".75rem",
+    "--space-md": "1rem",
+    "--space-lg": "1.5rem",
+    "--space-xl": "2rem",
+    "--space-2xl": "3rem",
+    "--space-3xl": "4rem",
+    "--space-section": "clamp(4.75rem, 7.5vw, 7rem)",
+    "--layout-public-wide": "84rem",
+    "--layout-public-content": "72rem",
+    "--measure-reading-default": "68ch",
+    "--layout-public-gutter": "clamp(1rem, 3vw, 2rem)",
+    "--layout-acquisition-wide": "74rem",
+    "--layout-admin-shell": "96rem",
+    "--radius-system-sm": ".75rem",
+    "--radius-system-md": "1rem",
+    "--radius-system-lg": "1.35rem",
+    "--radius-system-xl": "1.75rem",
+    "--radius-system-pill": "999px",
+    "--duration-feedback": "140ms",
+    "--duration-state": "220ms",
+    "--duration-overlay": "340ms",
+    "--duration-focal": "680ms",
+    "--ease-arrival": "cubic-bezier(.16,1,.3,1)",
+    "--ease-state": "cubic-bezier(.2,.8,.2,1)"
+  },
+  "aliases": {
+    "--basair-canvas": {
+      "canonical": "--color-surface-ivory",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-paper": {
+      "canonical": "--color-surface-paper",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-paper-green": {
+      "canonical": "--color-surface-green-paper",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-paper-gold": {
+      "canonical": "--color-surface-gold-paper",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-ink": {
+      "canonical": "--color-text-primary",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-ink-soft": {
+      "canonical": "--color-text-secondary",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-navy": {
+      "canonical": "--color-structural-navy",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-green": {
+      "canonical": "--color-brand-green",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-green-hover": {
+      "canonical": "--color-brand-green-deep",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-green-deep": {
+      "canonical": "--color-public-evergreen-surface",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low",
+      "note": "Historical name maps to DESIGN Evergreen Deep #073B31, not Quranic Green Deep #044637."
+    },
+    "--basair-green-night": {
+      "canonical": "--color-public-green-night",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-green-bright": {
+      "canonical": "--color-public-green-bright",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-gold": {
+      "canonical": "--color-accent-gold",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-gold-ink": {
+      "canonical": "--color-accent-gold-ink",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-gold-soft": {
+      "canonical": "--color-accent-gold-soft",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-line": {
+      "canonical": "--color-border-subtle",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-line-gold": {
+      "canonical": "--color-border-gold",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-white": {
+      "canonical": "--color-white",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-danger": {
+      "canonical": "--color-danger",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--basair-success": {
+      "canonical": "--color-success",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-bg": {
+      "canonical": "--color-admin-canvas",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-surface": {
+      "canonical": "--color-admin-surface",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-surface-2": {
+      "canonical": "--color-admin-surface-raised",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-card": {
+      "canonical": "--color-admin-card",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-line": {
+      "canonical": "--color-admin-border",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-text": {
+      "canonical": "--color-admin-text",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-muted": {
+      "canonical": "--color-admin-text-muted",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-ivory": {
+      "canonical": "--color-admin-ivory",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-green": {
+      "canonical": "--color-admin-action",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-green-2": {
+      "canonical": "--color-admin-action-bright",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-gold": {
+      "canonical": "--color-accent-gold",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-danger": {
+      "canonical": "--color-admin-danger",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-info": {
+      "canonical": "--color-admin-info",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--quranic": {
+      "canonical": "--color-brand-green",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--quranic-deep": {
+      "canonical": "--color-brand-green-deep",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--gold": {
+      "canonical": "--color-accent-gold",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--gold-ink": {
+      "canonical": "--color-accent-gold-ink",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--ivory": {
+      "canonical": "--color-surface-ivory",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--navy": {
+      "canonical": "--color-structural-navy",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--ink": {
+      "canonical": "--color-text-primary",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--muted": {
+      "canonical": "--color-acquisition-text-muted",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--line": {
+      "canonical": "--color-border-subtle",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--surface": {
+      "canonical": "--color-surface-paper",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--shadow": {
+      "canonical": "--shadow-acquisition-panel",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--radius-md": {
+      "canonical": "--radius-acquisition-md",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--radius-lg": {
+      "canonical": "--radius-acquisition-lg",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--radius-xl": {
+      "canonical": "--radius-acquisition-xl",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--type-display": {
+      "canonical": "--font-size-display",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--type-section": {
+      "canonical": "--font-size-section",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--type-subsection": {
+      "canonical": "--font-size-subsection",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--type-card-title": {
+      "canonical": "--font-size-card-title",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--type-body": {
+      "canonical": "--font-size-body",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--type-support": {
+      "canonical": "--font-size-support",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--type-label": {
+      "canonical": "--font-size-label",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--leading-display": {
+      "canonical": "--line-height-display",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--leading-section": {
+      "canonical": "--line-height-section",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--leading-body": {
+      "canonical": "--line-height-public-body",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--leading-arabic": {
+      "canonical": "--line-height-public-arabic",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--measure-reading": {
+      "canonical": "--measure-reading-default",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--measure-compact": {
+      "canonical": "--measure-compact-default",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-type-display": {
+      "canonical": "--font-size-acquisition-display",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--acq-type-section": {
+      "canonical": "--font-size-acquisition-section",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--acq-type-card": {
+      "canonical": "--font-size-acquisition-card",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-type-body": {
+      "canonical": "--font-size-acquisition-body",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-type-support": {
+      "canonical": "--font-size-acquisition-support",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-type-meta": {
+      "canonical": "--font-size-acquisition-meta",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-measure": {
+      "canonical": "--measure-reading-default",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-layout-gutter": {
+      "canonical": "--layout-acquisition-gutter",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--acq-layout-wide": {
+      "canonical": "--layout-acquisition-wide",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-layout-section": {
+      "canonical": "--space-acquisition-section",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--acq-layout-gap": {
+      "canonical": "--space-acquisition-gap",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--acq-layout-stack": {
+      "canonical": "--space-acquisition-stack",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-type-title": {
+      "canonical": "--font-size-admin-title",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--admin-type-panel": {
+      "canonical": "--font-size-admin-panel",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--admin-type-body": {
+      "canonical": "--font-size-admin-body",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--admin-type-support": {
+      "canonical": "--font-size-admin-support",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--admin-type-meta": {
+      "canonical": "--font-size-admin-meta",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-leading-body": {
+      "canonical": "--line-height-admin-body",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-layout-gutter": {
+      "canonical": "--layout-admin-gutter",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-layout-gap": {
+      "canonical": "--layout-admin-gap",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-layout-content-gap": {
+      "canonical": "--layout-admin-content-gap",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--admin-layout-shell": {
+      "canonical": "--layout-admin-shell",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-gutter": {
+      "canonical": "--layout-public-gutter",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--layout-wide": {
+      "canonical": "--layout-public-wide",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-content": {
+      "canonical": "--layout-public-content",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-form": {
+      "canonical": "--layout-assessment",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-reading": {
+      "canonical": "--measure-reading-default",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-section": {
+      "canonical": "--space-section",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--layout-section-compact": {
+      "canonical": "--space-layout-section-compact",
+      "status": "alias-with-contextual-overrides",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "moderate"
+    },
+    "--layout-cluster": {
+      "canonical": "--space-layout-cluster",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--layout-stack": {
+      "canonical": "--space-layout-stack",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-feedback": {
+      "canonical": "--duration-feedback",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-state": {
+      "canonical": "--duration-state",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-overlay": {
+      "canonical": "--duration-overlay",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-focal": {
+      "canonical": "--duration-focal",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-exit": {
+      "canonical": "--duration-exit",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-ease-out": {
+      "canonical": "--ease-arrival",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    },
+    "--motion-ease-state": {
+      "canonical": "--ease-state",
+      "status": "alias",
+      "sameSemanticMeaning": true,
+      "safeAlias": true,
+      "migrationRisk": "low"
+    }
+  },
+  "componentLocalPrefixes": [
+    "--hero-",
+    "--pathway-",
+    "--pathways-",
+    "--fo-",
+    "--form-od-",
+    "--course-btn-",
+    "--course-od-",
+    "--od-pointer-",
+    "--od-shift-",
+    "--bar-rail-",
+    "--bar-glow-"
+  ],
+  "componentLocalExplicit": [
+    "--mobile-drawer-hidden-x",
+    "--folio-opacity",
+    "--od-reading-progress"
+  ],
+  "unresolved": [
+    {
+      "token": "--color-ivory",
+      "status": "unresolved-visual",
+      "reason": "Tailwind theme adapter remains #FDFDF5 while DESIGN Manuscript Ivory is #FDFCF3; changing the adapter can alter generated utilities."
+    },
+    {
+      "token": "--basair-ivory",
+      "status": "unresolved-visual",
+      "reason": "premium-v3.css historical value #fbfaf3 differs from DESIGN Manuscript Ivory; no forced alias without browser characterization."
+    },
+    {
+      "token": "--layout-section",
+      "status": "unresolved-responsive",
+      "reason": "DESIGN canonical value is centralized, but later visual-layout-hotfix-v2.css intentionally remains the effective legacy override."
+    },
+    {
+      "token": "--layout-section-compact",
+      "status": "unresolved-responsive",
+      "reason": "No explicit DESIGN compact numeric value and a later hotfix remains effective."
+    },
+    {
+      "family": "global-shadow-scale",
+      "status": "unresolved-authority",
+      "reason": "DESIGN gives elevation intent but no numeric global shadow scale; no invented scale."
+    },
+    {
+      "family": "z-index-scale",
+      "status": "unresolved-authority",
+      "reason": "No documented global z-index authority; no invented scale."
+    },
+    {
+      "rules": [
+        "main minimum name = 3",
+        "acquisition minimum name = 2",
+        "main cooldown = 60 min",
+        "acquisition cooldown = 15 min"
+      ],
+      "status": "PRODUCT DECISION REQUIRED",
+      "reason": "Business behavior is out of Phase 2."
+    }
+  ],
+  "conflictDecisions": [
+    {
+      "token": "--layout-section",
+      "allCurrentValues": "layout-v1.css:::root::base => clamp(4.75rem, 7.5vw, 7rem) || layout-v1.css:::root::@media (max-width: 1023px) => clamp(4.25rem, 8vw, 5.75rem) || layout-v1.css:::root::@media (max-width: 767px) => clamp(3.75rem, 12vw, 5rem) || visual-layout-hotfix-v2.css:::root::base => clamp(3.8rem,5.4vw,5.35rem) || visual-layout-hotfix-v2.css:::root::@media (max-width:767px) => clamp(3.2rem,10vw,4.2rem)",
+      "definingFiles": "layout-v1.css; visual-layout-hotfix-v2.css",
+      "currentEffectiveWinnerPerSurface": "homepage >767px: visual-layout-hotfix-v2.css clamp(3.8rem,5.4vw,5.35rem); <=767px: clamp(3.2rem,10vw,4.2rem)",
+      "designGuidanceClass": "A",
+      "designGuidance": "DESIGN canonical section is clamp(4.75rem, 7.5vw, 7rem); authority records it as --space-section, but the current later hotfix remains to preserve geometry.",
+      "intendedSemanticDecision": "responsive-legacy",
+      "proposedCanonical": "--space-section + contextual legacy overrides",
+      "visualClass": "C",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--pathway-summary-line",
+      "allCurrentValues": "academic-pathways-v1.css::#tracks .academic-pathway::base => rgba(255,255,255,.16) || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(2)::base => rgba(10,31,68,.13) || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(3)::base => rgba(255,255,255,.14) || public-ui-fixes-v1.css::#tracks article > div.pathway-summary.course-dossier-card::base => rgba(10,31,68,.11)",
+      "definingFiles": "academic-pathways-v1.css; public-ui-fixes-v1.css",
+      "currentEffectiveWinnerPerSurface": "selector-scoped: public-ui-fixes-v1.css child value rgba(10,31,68,.11) where matched; otherwise inherited pathway variant",
+      "designGuidanceClass": "D",
+      "designGuidance": "State/variant token owned by Academic Pathways selectors; not globalized.",
+      "intendedSemanticDecision": "component-local",
+      "proposedCanonical": "component-local",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--pathway-summary-muted",
+      "allCurrentValues": "academic-pathways-v1.css::#tracks .academic-pathway::base => rgba(255,253,248,.80) || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(2)::base => rgba(10,31,68,.73) || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(3)::base => rgba(255,253,248,.80) || public-ui-fixes-v1.css::#tracks article > div.pathway-summary.course-dossier-card::base => #4B5B72",
+      "definingFiles": "academic-pathways-v1.css; public-ui-fixes-v1.css",
+      "currentEffectiveWinnerPerSurface": "selector-scoped: public-ui-fixes-v1.css child value #4B5B72 where matched; otherwise inherited pathway variant",
+      "designGuidanceClass": "D",
+      "designGuidance": "State/variant token owned by Academic Pathways selectors; not globalized.",
+      "intendedSemanticDecision": "component-local",
+      "proposedCanonical": "component-local",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-bg",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #071713 || admin-v3.css:::root::base => #061327",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #071713 from admin-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "DESIGN Operational Evergreen Night = #071713.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-canvas",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-card",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => rgba(246,247,241,.058) || admin-v3.css:::root::base => rgba(255,255,255,.055)",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: rgba(246,247,241,.058) from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "No DESIGN numeric card-alpha authority; preserve current effective value in admin family.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-card",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-danger",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #D9747D || admin-v3.css:::root::base => #c95f68",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #D9747D from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "No DESIGN numeric danger authority; preserve current effective value.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-danger",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-gold",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #D4AF37 || admin-v3.css:::root::base => #d4af37",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #D4AF37 from admin-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Heritage Gold.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-accent-gold",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-green",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #0D7A5E || admin-v3.css:::root::base => #08735a",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #0D7A5E from admin-colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "DESIGN says admin action hierarchy is green-first but gives no numeric admin-action value; preserve winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-action",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-green-2",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #13A178 || admin-v3.css:::root::base => #0b8a6c",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #13A178 from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "No DESIGN numeric authority; preserve winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-action-bright",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-ivory",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #FFFDF5 || admin-v3.css:::root::base => #fffdf5",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #FFFDF5 from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "Admin near-white is distinct from public Manuscript Ivory; no forced public alias.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-ivory",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-line",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => rgba(218,231,220,.12) || admin-v3.css:::root::base => rgba(255,255,255,.105)",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: rgba(218,231,220,.12) from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "No DESIGN numeric authority; preserve current admin border.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-border",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-muted",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #B5C6BF || admin-v3.css:::root::base => rgba(232,238,249,.66)",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #B5C6BF from admin-colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "DESIGN requires muted text to remain visibly lighter; no exact value, so preserve winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-text-muted",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-surface",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #0B2620 || admin-v3.css:::root::base => #0a1f44",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #0B2620 from admin-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "DESIGN Operational Evergreen Surface = #0B2620.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-surface",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-surface-2",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #12362D || admin-v3.css:::root::base => #0d2856",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #12362D from admin-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "No DESIGN numeric raised-surface authority; preserve winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-surface-raised",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--admin-text",
+      "allCurrentValues": "admin-colorize-v1.css:::root::base => #F6F7F1 || admin-v3.css:::root::base => #f7f8fb",
+      "definingFiles": "admin-colorize-v1.css; admin-v3.css",
+      "currentEffectiveWinnerPerSurface": "admin: #F6F7F1 from admin-colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "DESIGN requires high-contrast operational text but gives no exact token; preserve winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-admin-text",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-gold",
+      "allCurrentValues": "colorize-v1.css:::root::base => #D4AF37 || premium-v3.css:::root::base => #c8a43a",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: #D4AF37 from colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Heritage Gold.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-accent-gold",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-green",
+      "allCurrentValues": "colorize-v1.css:::root::base => #00563F || premium-v3.css:::root::base => #00604a",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: #00563F from colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Quranic Green.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-brand-green",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-green-deep",
+      "allCurrentValues": "colorize-v1.css:::root::base => #073B31 || premium-v3.css:::root::base => #034538",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: #073B31 from colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Name is historically misleading: usage/current winner corresponds to DESIGN Evergreen Deep #073B31, while Quranic Green Deep #044637 remains the hover/pressed semantic.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-public-evergreen-surface",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-line",
+      "allCurrentValues": "colorize-v1.css:::root::base => rgba(18,56,47,.12) || premium-v3.css:::root::base => rgba(7,29,61,.11)",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: rgba(18,56,47,.12) from colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "DESIGN specifies subtle structural borders semantically; preserve exact winner.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-border-subtle",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-navy",
+      "allCurrentValues": "colorize-v1.css:::root::base => #0A1F44 || premium-v3.css:::root::base => #071d3d",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: #0A1F44 from colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Scholarly Navy.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-structural-navy",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--basair-paper",
+      "allCurrentValues": "colorize-v1.css:::root::base => #FFFDF8 || premium-v3.css:::root::base => #fffef9",
+      "definingFiles": "colorize-v1.css; premium-v3.css",
+      "currentEffectiveWinnerPerSurface": "homepage: #FFFDF8 from colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Warm Paper.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-surface-paper",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--ink",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => #12382f || acquisition.css:::root::base => #10243f",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: #12382f from acquisition-colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "Same semantic/current value as public primary ink; unify authority only.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-text-primary",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--ivory",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => #fdfcf3 || acquisition.css:::root::base => #fdfdf5",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: #fdfcf3 from acquisition-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Manuscript Ivory.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-surface-ivory",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--layout-section-compact",
+      "allCurrentValues": "layout-v1.css:::root::base => clamp(3.75rem, 6vw, 5.75rem) || visual-layout-hotfix-v2.css:::root::base => clamp(3.25rem,4.7vw,4.65rem)",
+      "definingFiles": "layout-v1.css; visual-layout-hotfix-v2.css",
+      "currentEffectiveWinnerPerSurface": "homepage: visual-layout-hotfix-v2.css clamp(3.25rem,4.7vw,4.65rem)",
+      "designGuidanceClass": "C",
+      "designGuidance": "No explicit DESIGN numeric compact-section authority. Base alias is value-preserving; later hotfix remains.",
+      "intendedSemanticDecision": "responsive-legacy",
+      "proposedCanonical": "--space-layout-section-compact + contextual legacy override",
+      "visualClass": "D",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--line",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => rgba(18,56,47,.12) || acquisition.css:::root::base => rgba(10, 31, 68, 0.11)",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: rgba(18,56,47,.12) from acquisition-colorize-v1.css",
+      "designGuidanceClass": "B",
+      "designGuidance": "Same subtle structural-line semantic/value as public.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-border-subtle",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--muted",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => #526860 || acquisition.css:::root::base => #667085",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: #526860 from acquisition-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "Acquisition muted text remains a separate semantic family; no forced admin/public unification.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-acquisition-text-muted",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--pathway-summary-ink",
+      "allCurrentValues": "academic-pathways-v1.css::#tracks .academic-pathway::base => #FFFDF8 || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(2)::base => #0A1F44 || academic-pathways-v1.css::#tracks .academic-pathway:nth-child(3)::base => #FFFDF8 || public-ui-fixes-v1.css::#tracks article > div.pathway-summary.course-dossier-card::base => #0A1F44",
+      "definingFiles": "academic-pathways-v1.css; public-ui-fixes-v1.css",
+      "currentEffectiveWinnerPerSurface": "selector-scoped: public-ui-fixes-v1.css child value #0A1F44 where matched; otherwise inherited pathway variant",
+      "designGuidanceClass": "D",
+      "designGuidance": "State/variant token owned by Academic Pathways selectors; not globalized.",
+      "intendedSemanticDecision": "component-local",
+      "proposedCanonical": "component-local",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--quranic-deep",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => #044637 || acquisition.css:::root::base => #003f2f",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: #044637 from acquisition-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Quranic Green Deep.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-brand-green-deep",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--shadow",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => 0 24px 70px rgba(7,59,49,.10) || acquisition.css:::root::base => 0 24px 70px rgba(10, 31, 68, 0.10)",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: 0 24px 70px rgba(7,59,49,.10) from acquisition-colorize-v1.css",
+      "designGuidanceClass": "C",
+      "designGuidance": "DESIGN has elevation intent but no numeric shadow scale; preserve page-level shadow only.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--shadow-acquisition-panel",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    },
+    {
+      "token": "--surface",
+      "allCurrentValues": "acquisition-colorize-v1.css:::root::base => #fffdf8 || acquisition.css:::root::base => #ffffff",
+      "definingFiles": "acquisition-colorize-v1.css; acquisition.css",
+      "currentEffectiveWinnerPerSurface": "acquisition: #fffdf8 from acquisition-colorize-v1.css",
+      "designGuidanceClass": "A",
+      "designGuidance": "Exact Warm Paper.",
+      "intendedSemanticDecision": "alias",
+      "proposedCanonical": "--color-surface-paper",
+      "visualClass": "B",
+      "migrationChangesCurrentComputedOutput": false
+    }
+  ],
+  "accessibilityContracts": {
+    "prefersReducedMotion": "preserved",
+    "forcedColors": "preserved"
+  },
+  "protectedContracts": [
+    "track-buttons-v6.css remains final protected owner; no load-order change"
+  ]
+}
