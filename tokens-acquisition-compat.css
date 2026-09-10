@@ -1,0 +1,29 @@
+/* Basair Academy — Acquisition compatibility bridge
+   Legacy bindings are surface-scoped; canonical semantic tokens remain in tokens.css. */
+:root {
+  --quranic: var(--color-brand-green);
+  --quranic-deep: var(--color-brand-green-deep);
+  --gold-ink: var(--color-accent-gold-ink);
+  --ivory: var(--color-surface-ivory);
+  --navy: var(--color-structural-navy);
+  --ink: var(--color-text-primary);
+  --surface: var(--color-surface-paper);
+  --shadow: var(--shadow-acquisition-panel);
+  --radius-md: var(--radius-acquisition-md);
+  --radius-lg: var(--radius-acquisition-lg);
+  --radius-xl: var(--radius-acquisition-xl);
+  --acq-type-display: var(--font-size-acquisition-display);
+  --acq-type-section: var(--font-size-acquisition-section);
+  --acq-type-card: var(--font-size-acquisition-card);
+  --acq-type-body: var(--font-size-acquisition-body);
+  --acq-type-support: var(--font-size-acquisition-support);
+  --acq-type-meta: var(--font-size-acquisition-meta);
+  --acq-measure: var(--measure-reading-default);
+  --acq-layout-gutter: var(--layout-acquisition-gutter);
+  --acq-layout-wide: var(--layout-acquisition-wide);
+  --acq-layout-section: var(--space-acquisition-section);
+  --acq-layout-gap: var(--space-acquisition-gap);
+  --acq-layout-stack: var(--space-acquisition-stack);
+  --muted: var(--color-acquisition-text-muted);
+  --line: var(--color-border-subtle);
+}
