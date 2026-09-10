@@ -1,0 +1,69 @@
+name: Phase 2 Token Metrics
+on:
+  push:
+    branches: ["basair/phase-2-token-metrics-run"]
+permissions:
+  contents: read
+jobs:
+  metrics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Measure token architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, subprocess, pathlib, collections
+          BASE='6e46539a02db342838d7c113a45ff558192658e5'
+          def text_at(ref,path):
+              if ref=='HEAD': return pathlib.Path(path).read_text(encoding='utf-8')
+              return subprocess.check_output(['git','show',f'{ref}:{path}'], text=True)
+          def files_at(ref, suffix):
+              if ref=='HEAD':
+                  return [str(p) for p in pathlib.Path('.').rglob(f'*{suffix}') if '.git' not in p.parts and 'node_modules' not in p.parts and 'dist' not in p.parts]
+              return [x for x in subprocess.check_output(['git','ls-tree','-r','--name-only',ref],text=True).splitlines() if x.endswith(suffix)]
+          def local_css_from_html(ref):
+              css=set()
+              for h in files_at(ref,'.html'):
+                  t=text_at(ref,h)
+                  for tag in re.findall(r'<link\b[^>]*>',t,re.I):
+                      rm=re.search(r'\brel=["\']([^"\']+)',tag,re.I); hm=re.search(r'\bhref=["\']([^"\']+)',tag,re.I)
+                      if not rm or not hm or 'stylesheet' not in rm.group(1).lower().split(): continue
+                      href=hm.group(1).split('?')[0].split('#')[0]
+                      if not href or href.startswith(('http:','https:','//','data:')): continue
+                      p=(pathlib.PurePosixPath('/')/href.lstrip('/')) if href.startswith('/') else pathlib.PurePosixPath(h).parent/href
+                      p=str(p).lstrip('./')
+                      if p in files_at(ref,'.css'): css.add(p)
+              changed=True
+              while changed:
+                  changed=False
+                  for f in list(css):
+                      t=text_at(ref,f)
+                      for href in re.findall(r'@import\s+(?:url\()?\s*["\']([^"\']+)',t):
+                          if not href.startswith(('.', '/')): continue
+                          p=(pathlib.PurePosixPath('/')/href.lstrip('/')) if href.startswith('/') else pathlib.PurePosixPath(f).parent/href
+                          p=str(p).lstrip('./')
+                          if p in files_at(ref,'.css') and p not in css: css.add(p); changed=True
+              return sorted(css)
+          def metrics(ref):
+              defs=[]
+              for f in local_css_from_html(ref):
+                  t=re.sub(r'/\*[\s\S]*?\*/','',text_at(ref,f))
+                  for m in re.finditer(r'(--[A-Za-z0-9_-]+)\s*:\s*([^;}{]+?)\s*(?=;|})',t): defs.append((m.group(1),m.group(2).strip(),f))
+              by=collections.defaultdict(list)
+              for n,v,f in defs: by[n].append((v,f))
+              repeated=sum(1 for x in by.values() if len(x)>1)
+              conflicts=sum(1 for x in by.values() if len({re.sub(r'\s+',' ',v.strip().lower()) for v,f in x})>1)
+              return {'production_css':len(local_css_from_html(ref)),'unique':len(by),'total_defs':len(defs),'repeated':repeated,'duplicate_beyond_first':len(defs)-len(by),'different_value_conflicts':conflicts}
+          print('BASELINE_METRICS',metrics(BASE))
+          print('PHASE2_METRICS',metrics('HEAD'))
+          import json
+          mf=json.loads(pathlib.Path('token-authority-manifest.json').read_text())
+          print('CANONICAL',len(mf['canonicalTokens']))
+          print('ALIASES',len(mf['aliases']))
+          print('UNRESOLVED',len(mf['unresolved']))
+          print('CONFLICT_DECISIONS',len(mf['conflictDecisions']))
+          PY
