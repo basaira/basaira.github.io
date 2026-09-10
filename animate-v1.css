@@ -1,15 +1,6 @@
 /* Basair Academy — Impeccable Animate v1
    Motion thesis: illuminated manuscript reveal + quiet operational feedback.
    Load before track-buttons-v6.css so protected track CTA motion remains authoritative. */
-:root{
-  --motion-feedback:140ms;
-  --motion-state:220ms;
-  --motion-overlay:340ms;
-  --motion-focal:680ms;
-  --motion-exit:180ms;
-  --motion-ease-out:cubic-bezier(.16,1,.3,1);
-  --motion-ease-state:cubic-bezier(.2,.8,.2,1);
-}
 
 /* Splash: acknowledgement, never a long gate. */
 #splash-screen.basair-splash{

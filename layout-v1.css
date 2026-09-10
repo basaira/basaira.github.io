@@ -2,18 +2,6 @@
    Structural layer only: reading order, spacing rhythm, containers, responsive composition.
    Keep track-buttons-v6.css after this file: it is an intentional protected override. */
 
-:root {
-  --layout-gutter: clamp(1rem, 3vw, 2rem);
-  --layout-wide: 84rem;
-  --layout-content: 72rem;
-  --layout-form: 64rem;
-  --layout-reading: 68ch;
-  --layout-section: clamp(4.75rem, 7.5vw, 7rem);
-  --layout-section-compact: clamp(3.75rem, 6vw, 5.75rem);
-  --layout-cluster: clamp(1.25rem, 2.5vw, 2rem);
-  --layout-stack: clamp(2.25rem, 4vw, 3.75rem);
-}
-
 /* Shared section rhythm. Preserve each section's visual treatment while aligning the page vertically. */
 #about,
 #contact,

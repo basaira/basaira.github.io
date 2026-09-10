@@ -1,12 +1,4 @@
 /* Impeccable Typeset — Basair Admin operational typography */
-:root{
-  --admin-type-title:1.32rem;
-  --admin-type-panel:1.08rem;
-  --admin-type-body:.94rem;
-  --admin-type-support:.86rem;
-  --admin-type-meta:.76rem;
-  --admin-leading-body:1.72;
-}
 html{font-size:100%;text-size-adjust:100%;-webkit-text-size-adjust:100%}
 body{
   font-family:"IBM Plex Sans Arabic","Manrope",ui-sans-serif,system-ui,sans-serif!important;

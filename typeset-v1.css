@@ -2,22 +2,6 @@
    Purpose-led typography layer for the public Academy experience.
    Canonical families: Manrope (Latin/Cyrillic) + IBM Plex Sans Arabic (Arabic).
 */
-:root{
-  --type-display:clamp(2.75rem,6vw,6.1rem);
-  --type-section:clamp(2rem,4vw,3.75rem);
-  --type-subsection:clamp(1.45rem,2.4vw,2.25rem);
-  --type-card-title:clamp(1.15rem,1.6vw,1.45rem);
-  --type-body:clamp(1rem,.35vw + .94rem,1.125rem);
-  --type-support:.875rem;
-  --type-label:.78rem;
-  --leading-display:1.025;
-  --leading-section:1.1;
-  --leading-body:1.72;
-  --leading-arabic:1.86;
-  --measure-reading:68ch;
-  --measure-compact:56ch;
-}
-
 html{font-size:100%;text-size-adjust:100%;-webkit-text-size-adjust:100%}
 body{
   font-family:"Manrope",ui-sans-serif,system-ui,sans-serif!important;

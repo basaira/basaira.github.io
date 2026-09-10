@@ -1,0 +1,242 @@
+/* Basair Academy — Canonical Design Token Authority
+   Phase 2: authority + compatibility aliases only.
+   Canonical values marked DESIGN:A are explicit in DESIGN.md.
+   DESIGN:B preserves documented semantic intent with the current computed value.
+   SOURCE:C preserves an existing value where DESIGN.md has no numeric authority.
+   Component-local, responsive, state, pointer and scratch variables do not belong here. */
+
+:root {
+  /* Brand / public identity — DESIGN:A */
+  --color-brand-green: #00563F;
+  --color-brand-green-deep: #044637;
+  --color-structural-navy: #0A1F44;
+  --color-surface-ivory: #FDFCF3;
+  --color-surface-paper: #FFFDF8;
+  --color-surface-green-paper: #F1F7F3;
+  --color-accent-gold: #D4AF37;
+  --color-accent-gold-ink: #8A6D14;
+  --color-public-evergreen-surface: #073B31;
+
+  /* Public semantic colors — DESIGN:B / SOURCE:C, value-preserving */
+  --color-text-primary: #12382F;
+  --color-text-secondary: #38534C;
+  --color-border-subtle: rgba(18,56,47,.12);
+  --color-border-gold: rgba(212,175,55,.24);
+  --color-surface-gold-paper: #FBF6E5;
+  --color-public-green-night: #071F1B;
+  --color-public-green-bright: #0B7A5D;
+  --color-accent-gold-soft: #F4E6AF;
+  --color-white: #FFFFFF;
+  --color-danger: #A63D49;
+  --color-success: #075D47;
+
+  /* Admin operational palette — public palette is deliberately not forced onto admin. */
+  --color-admin-canvas: #071713; /* DESIGN:A Operational Evergreen Night */
+  --color-admin-surface: #0B2620; /* DESIGN:A Operational Evergreen Surface */
+  --color-admin-surface-raised: #12362D;
+  --color-admin-card: rgba(246,247,241,.058);
+  --color-admin-border: rgba(218,231,220,.12);
+  --color-admin-text: #F6F7F1;
+  --color-admin-text-muted: #B5C6BF;
+  --color-admin-ivory: #FFFDF5;
+  --color-admin-action: #0D7A5E;
+  --color-admin-action-bright: #13A178;
+  --color-admin-danger: #D9747D;
+  --color-admin-info: #7FB8D6;
+
+  /* Typography primitives. Composition remains in the owning component/page styles. */
+  --font-family-latin: "Manrope", sans-serif;
+  --font-family-arabic: "IBM Plex Sans Arabic", "Tajawal", sans-serif;
+  --font-family-quranic: "Noto Naskh Arabic", serif;
+  --font-weight-display-latin: 800;
+  --font-weight-display-arabic: 700;
+  --font-weight-body: 500;
+  --line-height-body-latin: 1.7;
+  --line-height-body-arabic: 1.8;
+
+  /* Public type scale — existing computed baseline, not a Hero redesign. */
+  --font-size-display: clamp(2.75rem,6vw,6.1rem);
+  --font-size-section: clamp(2rem,4vw,3.75rem);
+  --font-size-subsection: clamp(1.45rem,2.4vw,2.25rem);
+  --font-size-card-title: clamp(1.15rem,1.6vw,1.45rem);
+  --font-size-body: clamp(1rem,.35vw + .94rem,1.125rem);
+  --font-size-support: .875rem;
+  --font-size-label: .78rem;
+  --line-height-display: 1.025;
+  --line-height-section: 1.1;
+  --line-height-public-body: 1.72;
+  --line-height-public-arabic: 1.86;
+  --measure-reading-default: 68ch;
+  --measure-compact-default: 56ch;
+
+  /* Acquisition type/layout family — deliberately separate responsive semantics. */
+  --font-size-acquisition-display: clamp(2.625rem,5vw,4.5rem);
+  --font-size-acquisition-section: clamp(1.875rem,4vw,3rem);
+  --font-size-acquisition-card: 1.125rem;
+  --font-size-acquisition-body: 1rem;
+  --font-size-acquisition-support: .875rem;
+  --font-size-acquisition-meta: .75rem;
+  --layout-acquisition-gutter: clamp(.75rem,3vw,2rem);
+  --layout-acquisition-wide: 74rem; /* DESIGN:A */
+  --space-acquisition-section: clamp(4rem,7vw,6rem);
+  --space-acquisition-gap: clamp(1rem,2vw,1.5rem);
+  --space-acquisition-stack: clamp(2rem,4vw,3.5rem);
+  --color-acquisition-text-muted: #526860;
+  --shadow-acquisition-panel: 0 24px 70px rgba(7,59,49,.10);
+  --radius-acquisition-xl: 34px;
+  --radius-acquisition-lg: 24px;
+  --radius-acquisition-md: 16px;
+
+  /* Admin type/layout family — operational scale remains separate. */
+  --font-size-admin-title: 1.32rem;
+  --font-size-admin-panel: 1.08rem;
+  --font-size-admin-body: .94rem;
+  --font-size-admin-support: .86rem;
+  --font-size-admin-meta: .76rem;
+  --line-height-admin-body: 1.72;
+  --layout-admin-gutter: clamp(.75rem, 2vw, 1.25rem);
+  --layout-admin-gap: clamp(.75rem, 1.4vw, 1.1rem);
+  --layout-admin-content-gap: clamp(.9rem, 1.6vw, 1.35rem);
+  --layout-admin-shell: 96rem; /* DESIGN:A */
+
+  /* Global spacing/layout primitives — DESIGN:A unless noted. */
+  --space-xs: .5rem;
+  --space-sm: .75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+  --space-section: clamp(4.75rem, 7.5vw, 7rem);
+  --layout-public-gutter: clamp(1rem, 3vw, 2rem);
+  --layout-public-wide: 84rem;
+  --layout-public-content: 72rem;
+  --layout-assessment: 64rem;
+  --space-layout-section-compact: clamp(3.75rem, 6vw, 5.75rem);
+  --space-layout-cluster: clamp(1.25rem, 2.5vw, 2rem);
+  --space-layout-stack: clamp(2.25rem, 4vw, 3.75rem);
+
+  /* Radius primitives — DESIGN:A. Acquisition keeps its own larger scale above. */
+  --radius-system-sm: .75rem;
+  --radius-system-md: 1rem;
+  --radius-system-lg: 1.35rem;
+  --radius-system-xl: 1.75rem;
+  --radius-system-pill: 999px;
+
+  /* Motion primitives — DESIGN:A except exit duration (SOURCE:C baseline). */
+  --duration-feedback: 140ms;
+  --duration-state: 220ms;
+  --duration-overlay: 340ms;
+  --duration-focal: 680ms;
+  --duration-exit: 180ms;
+  --ease-arrival: cubic-bezier(.16,1,.3,1);
+  --ease-state: cubic-bezier(.2,.8,.2,1);
+
+  /* Compatibility aliases: preserve historical contracts while ownership migrates. */
+  --basair-canvas: var(--color-surface-ivory);
+  --basair-paper: var(--color-surface-paper);
+  --basair-paper-green: var(--color-surface-green-paper);
+  --basair-paper-gold: var(--color-surface-gold-paper);
+  --basair-ink: var(--color-text-primary);
+  --basair-ink-soft: var(--color-text-secondary);
+  --basair-navy: var(--color-structural-navy);
+  --basair-green: var(--color-brand-green);
+  --basair-green-hover: var(--color-brand-green-deep);
+  --basair-green-deep: var(--color-public-evergreen-surface);
+  --basair-green-night: var(--color-public-green-night);
+  --basair-green-bright: var(--color-public-green-bright);
+  --basair-gold: var(--color-accent-gold);
+  --basair-gold-ink: var(--color-accent-gold-ink);
+  --basair-gold-soft: var(--color-accent-gold-soft);
+  --basair-line: var(--color-border-subtle);
+  --basair-line-gold: var(--color-border-gold);
+  --basair-white: var(--color-white);
+  --basair-danger: var(--color-danger);
+  --basair-success: var(--color-success);
+
+  --admin-bg: var(--color-admin-canvas);
+  --admin-surface: var(--color-admin-surface);
+  --admin-surface-2: var(--color-admin-surface-raised);
+  --admin-card: var(--color-admin-card);
+  --admin-line: var(--color-admin-border);
+  --admin-text: var(--color-admin-text);
+  --admin-muted: var(--color-admin-text-muted);
+  --admin-ivory: var(--color-admin-ivory);
+  --admin-green: var(--color-admin-action);
+  --admin-green-2: var(--color-admin-action-bright);
+  --admin-gold: var(--color-accent-gold);
+  --admin-danger: var(--color-admin-danger);
+  --admin-info: var(--color-admin-info);
+
+  --quranic: var(--color-brand-green);
+  --quranic-deep: var(--color-brand-green-deep);
+  --gold: var(--color-accent-gold);
+  --gold-ink: var(--color-accent-gold-ink);
+  --ivory: var(--color-surface-ivory);
+  --navy: var(--color-structural-navy);
+  --ink: var(--color-text-primary);
+  --muted: var(--color-acquisition-text-muted);
+  --line: var(--color-border-subtle);
+  --surface: var(--color-surface-paper);
+  --shadow: var(--shadow-acquisition-panel);
+  --radius-md: var(--radius-acquisition-md);
+  --radius-lg: var(--radius-acquisition-lg);
+  --radius-xl: var(--radius-acquisition-xl);
+
+  --type-display: var(--font-size-display);
+  --type-section: var(--font-size-section);
+  --type-subsection: var(--font-size-subsection);
+  --type-card-title: var(--font-size-card-title);
+  --type-body: var(--font-size-body);
+  --type-support: var(--font-size-support);
+  --type-label: var(--font-size-label);
+  --leading-display: var(--line-height-display);
+  --leading-section: var(--line-height-section);
+  --leading-body: var(--line-height-public-body);
+  --leading-arabic: var(--line-height-public-arabic);
+
+  --measure-reading: var(--measure-reading-default);
+  --measure-compact: var(--measure-compact-default);
+
+  --acq-type-display: var(--font-size-acquisition-display);
+  --acq-type-section: var(--font-size-acquisition-section);
+  --acq-type-card: var(--font-size-acquisition-card);
+  --acq-type-body: var(--font-size-acquisition-body);
+  --acq-type-support: var(--font-size-acquisition-support);
+  --acq-type-meta: var(--font-size-acquisition-meta);
+  --acq-measure: var(--measure-reading-default);
+  --acq-layout-gutter: var(--layout-acquisition-gutter);
+  --acq-layout-wide: var(--layout-acquisition-wide);
+  --acq-layout-section: var(--space-acquisition-section);
+  --acq-layout-gap: var(--space-acquisition-gap);
+  --acq-layout-stack: var(--space-acquisition-stack);
+
+  --admin-type-title: var(--font-size-admin-title);
+  --admin-type-panel: var(--font-size-admin-panel);
+  --admin-type-body: var(--font-size-admin-body);
+  --admin-type-support: var(--font-size-admin-support);
+  --admin-type-meta: var(--font-size-admin-meta);
+  --admin-leading-body: var(--line-height-admin-body);
+  --admin-layout-gutter: var(--layout-admin-gutter);
+  --admin-layout-gap: var(--layout-admin-gap);
+  --admin-layout-content-gap: var(--layout-admin-content-gap);
+  --admin-layout-shell: var(--layout-admin-shell);
+
+  --layout-gutter: var(--layout-public-gutter);
+  --layout-wide: var(--layout-public-wide);
+  --layout-content: var(--layout-public-content);
+  --layout-form: var(--layout-assessment);
+  --layout-reading: var(--measure-reading-default);
+  --layout-section: var(--space-section);
+  --layout-section-compact: var(--space-layout-section-compact);
+  --layout-cluster: var(--space-layout-cluster);
+  --layout-stack: var(--space-layout-stack);
+
+  --motion-feedback: var(--duration-feedback);
+  --motion-state: var(--duration-state);
+  --motion-overlay: var(--duration-overlay);
+  --motion-focal: var(--duration-focal);
+  --motion-exit: var(--duration-exit);
+  --motion-ease-out: var(--ease-arrival);
+  --motion-ease-state: var(--ease-state);
+}
