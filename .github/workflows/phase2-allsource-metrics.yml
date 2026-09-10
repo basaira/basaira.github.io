@@ -1,0 +1,35 @@
+name: Phase 2 All Source Metrics
+on:
+  push:
+    branches: ["basair/phase-2-token-metrics-run"]
+permissions:
+  contents: read
+jobs:
+  metrics:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Measure all CSS token definitions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, subprocess, pathlib, collections
+          BASE='6e46539a02db342838d7c113a45ff558192658e5'
+          def files(ref):
+              if ref=='HEAD': return [str(p) for p in pathlib.Path('.').rglob('*.css') if '.git' not in p.parts and 'node_modules' not in p.parts and 'dist' not in p.parts]
+              return [x for x in subprocess.check_output(['git','ls-tree','-r','--name-only',ref],text=True).splitlines() if x.endswith('.css')]
+          def text(ref,p):
+              return pathlib.Path(p).read_text(encoding='utf-8') if ref=='HEAD' else subprocess.check_output(['git','show',f'{ref}:{p}'],text=True)
+          def metrics(ref):
+              d=[]
+              for f in files(ref):
+                  t=re.sub(r'/\*[\s\S]*?\*/','',text(ref,f))
+                  d += [(m.group(1),m.group(2).strip(),f) for m in re.finditer(r'(--[A-Za-z0-9_-]+)\s*:\s*([^;}{]+?)\s*(?=;|})',t)]
+              by=collections.defaultdict(list)
+              for n,v,f in d: by[n].append((v,f))
+              return dict(files=len(files(ref)),unique=len(by),total_defs=len(d),repeated=sum(len(v)>1 for v in by.values()),duplicate_beyond_first=len(d)-len(by),different_value=sum(len({re.sub(r'\s+',' ',v.lower()) for v,f in xs})>1 for xs in by.values()))
+          print('ALLSOURCE_BASELINE',metrics(BASE))
+          print('ALLSOURCE_PHASE2',metrics('HEAD'))
+          PY
