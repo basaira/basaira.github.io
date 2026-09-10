@@ -1,0 +1,79 @@
+name: Phase 2 Token Authority CI
+
+on:
+  push:
+    branches:
+      - basair/phase-2-token-authority-ci
+
+permissions:
+  contents: write
+
+jobs:
+  verify-phase2:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard exact Phase 0 baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6e46539a02db342838d7c113a45ff558192658e5
+          test "$(git rev-parse "$BASE^{tree}")" = "8c18f5050f4ffa33c2317823e540766a4b2bc9ff"
+          mapfile -t changed < <(git diff --name-only "$BASE"...HEAD | sort)
+          expected=(.github/workflows/phase2-token-ci.yml phase2.patch.gz.b64)
+          printf '%s\n' "${changed[@]}"
+          test "${changed[*]}" = "${expected[*]}"
+
+      - name: Apply reviewed Phase 2 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d phase2.patch.gz.b64 | gzip -d > /tmp/phase2.patch
+          git apply --check /tmp/phase2.patch
+          git apply /tmp/phase2.patch
+          git diff --check
+          node token-authority-check.mjs
+
+      - name: Verify forbidden surfaces unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6e46539a02db342838d7c113a45ff558192658e5
+          git diff --exit-code "$BASE" -- \
+            app.js admin.js acquisition.js firestore.rules firebase-config.js \
+            index.html admin.html en/index.html ru/index.html uz/index.html \
+            track-buttons-v6.css public-ui-fixes-v1.js form-overdrive-v1.js
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install clean dependencies
+        run: npm ci
+
+      - name: Full verification
+        run: npm run verify
+
+      - name: Explicit production build
+        run: npm run build
+
+      - name: Commit verified candidate on CI branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f phase2.patch.gz.b64 .github/workflows/phase2-token-ci.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+          git add -A
+          BASE=6e46539a02db342838d7c113a45ff558192658e5
+          echo 'Final changed files vs Phase 0:'
+          git diff --cached --name-only "$BASE"
+          test "$(git diff --cached --name-only "$BASE" | wc -l)" -eq 17
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Phase 2 canonical token authority (verify + build passed)'
+          git push origin HEAD:basair/phase-2-token-authority-ci
