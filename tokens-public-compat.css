@@ -1,0 +1,53 @@
+/* Basair Academy — Public compatibility bridge
+   Legacy bindings are surface-scoped; canonical semantic tokens remain in tokens.css. */
+:root {
+  --basair-canvas: var(--color-surface-ivory);
+  --basair-paper: var(--color-surface-paper);
+  --basair-paper-green: var(--color-surface-green-paper);
+  --basair-paper-gold: var(--color-surface-gold-paper);
+  --basair-ink: var(--color-text-primary);
+  --basair-ink-soft: var(--color-text-secondary);
+  --basair-navy: var(--color-structural-navy);
+  --basair-green: var(--color-brand-green);
+  --basair-green-hover: var(--color-brand-green-deep);
+  --basair-green-deep: var(--color-public-evergreen-surface);
+  --basair-green-night: var(--color-public-green-night);
+  --basair-green-bright: var(--color-public-green-bright);
+  --basair-gold: var(--color-accent-gold);
+  --basair-gold-ink: var(--color-accent-gold-ink);
+  --basair-gold-soft: var(--color-accent-gold-soft);
+  --basair-line: var(--color-border-subtle);
+  --basair-line-gold: var(--color-border-gold);
+  --basair-white: var(--color-white);
+  --basair-danger: var(--color-danger);
+  --basair-success: var(--color-success);
+  --type-display: var(--font-size-display);
+  --type-section: var(--font-size-section);
+  --type-subsection: var(--font-size-subsection);
+  --type-card-title: var(--font-size-card-title);
+  --type-body: var(--font-size-body);
+  --type-support: var(--font-size-support);
+  --type-label: var(--font-size-label);
+  --leading-display: var(--line-height-display);
+  --leading-section: var(--line-height-section);
+  --leading-body: var(--line-height-public-body);
+  --leading-arabic: var(--line-height-public-arabic);
+  --measure-reading: var(--measure-reading-default);
+  --measure-compact: var(--measure-compact-default);
+  --layout-gutter: var(--layout-public-gutter);
+  --layout-wide: var(--layout-public-wide);
+  --layout-content: var(--layout-public-content);
+  --layout-form: var(--layout-assessment);
+  --layout-reading: var(--measure-reading-default);
+  --layout-section: var(--space-section);
+  --layout-section-compact: var(--space-layout-section-compact);
+  --layout-cluster: var(--space-layout-cluster);
+  --layout-stack: var(--space-layout-stack);
+  --motion-feedback: var(--duration-feedback);
+  --motion-state: var(--duration-state);
+  --motion-overlay: var(--duration-overlay);
+  --motion-focal: var(--duration-focal);
+  --motion-exit: var(--duration-exit);
+  --motion-ease-out: var(--ease-arrival);
+  --motion-ease-state: var(--ease-state);
+}

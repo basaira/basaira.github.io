@@ -1,0 +1,27 @@
+/* Basair Academy — Admin compatibility bridge
+   Legacy bindings are surface-scoped; canonical semantic tokens remain in tokens.css. */
+:root {
+  --admin-bg: var(--color-admin-canvas);
+  --admin-surface: var(--color-admin-surface);
+  --admin-surface-2: var(--color-admin-surface-raised);
+  --admin-card: var(--color-admin-card);
+  --admin-line: var(--color-admin-border);
+  --admin-text: var(--color-admin-text);
+  --admin-muted: var(--color-admin-text-muted);
+  --admin-ivory: var(--color-admin-ivory);
+  --admin-green: var(--color-admin-action);
+  --admin-green-2: var(--color-admin-action-bright);
+  --admin-gold: var(--color-accent-gold);
+  --admin-danger: var(--color-admin-danger);
+  --admin-info: var(--color-admin-info);
+  --admin-type-title: var(--font-size-admin-title);
+  --admin-type-panel: var(--font-size-admin-panel);
+  --admin-type-body: var(--font-size-admin-body);
+  --admin-type-support: var(--font-size-admin-support);
+  --admin-type-meta: var(--font-size-admin-meta);
+  --admin-leading-body: var(--line-height-admin-body);
+  --admin-layout-gutter: var(--layout-admin-gutter);
+  --admin-layout-gap: var(--layout-admin-gap);
+  --admin-layout-content-gap: var(--layout-admin-content-gap);
+  --admin-layout-shell: var(--layout-admin-shell);
+}
