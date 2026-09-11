@@ -11,16 +11,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Recover original Phase 2.5 capture algorithm and target evidence
+      - name: Decode original Phase 2.5 browser harness exactly
         shell: bash
         run: |
           set -euo pipefail
           git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
-          awk '/phase25-characterize.b64/{flag=1;next}/^          B64$/{flag=0}flag{gsub(/^          /,"");print}' /tmp/orig.yml >/tmp/orig.b64
-          base64 -d /tmp/orig.b64 >/tmp/orig.mjs
+          python3 <<'PY'
+          import re,base64
+          s=open('/tmp/orig.yml',encoding='utf-8').read()
+          m=re.search(r"cat >/tmp/phase25-characterize\.b64 <<'B64'\n(.*?)\n\s*B64\n",s,re.S)
+          assert m, 'base64 heredoc not found'
+          payload='\n'.join(line.strip() for line in m.group(1).splitlines())
+          open('/tmp/orig.mjs','wb').write(base64.b64decode(payload,validate=True))
+          PY
           node --check /tmp/orig.mjs
           echo '--- relevant algorithm lines ---'
-          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport' /tmp/orig.mjs | head -220
+          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|delay|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport|networkidle|domcontentloaded' /tmp/orig.mjs | head -260
           echo '--- target screenshots ---'
           node <<'NODE'
           const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
