@@ -5,55 +5,26 @@ on:
 permissions:
   contents: read
 jobs:
-  locate-delta:
+  recover-harness:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Locate every non-equivalent baseline record
+      - name: Recover original Phase 2.5 capture algorithm and target evidence
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git hash-object phase-2.5-browser-characterization.json)" = "b79d09a7639183665ed23b33dbeca0e6937e3fab"
+          git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
+          awk '/phase25-characterize.b64/{flag=1;next}/^          B64$/{flag=0}flag{gsub(/^          /,"");print}' /tmp/orig.yml >/tmp/orig.b64
+          base64 -d /tmp/orig.b64 >/tmp/orig.mjs
+          node --check /tmp/orig.mjs
+          echo '--- relevant algorithm lines ---'
+          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport' /tmp/orig.mjs | head -220
+          echo '--- target screenshots ---'
           node <<'NODE'
-          const fs=require('fs');
-          const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log('VERDICT',JSON.stringify(d.verdict,null,2));
-          console.log('LIMITATIONS',JSON.stringify(d.limitations,null,2));
-          console.log('SCREENSHOT_SAMPLE',JSON.stringify(d.screenshots.slice(0,4),null,2));
-          console.log('SCREENSHOT_KEYS',JSON.stringify(Object.keys(d.screenshots[0]||{})));
-          const classes=new Map(); const non=[]; const textHits=[];
-          function walk(x,path=''){
-            if(!x||typeof x!=='object') return;
-            if(!Array.isArray(x)){
-              if(typeof x.classification==='string'){
-                classes.set(x.classification,(classes.get(x.classification)||0)+1);
-                if(x.classification!=='EXACTLY EQUIVALENT') non.push({path,value:x});
-              }
-              const txt=JSON.stringify(x);
-              if(/unexplained|unrelated|delta|restoration|equivalent/i.test(txt) && path.startsWith('baselineComparison')) textHits.push({path,value:x});
-            }
-            if(Array.isArray(x)) x.forEach((v,i)=>walk(v,`${path}[${i}]`));
-            else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
-          }
-          walk(d.baselineComparison,'baselineComparison');
-          console.log('CLASSIFICATIONS',JSON.stringify(Object.fromEntries(classes),null,2));
-          console.log('NON_EQ_COUNT',non.length);
-          console.log('NON_EQ',JSON.stringify(non,null,2));
-          console.log('TEXT_HITS_LAST',JSON.stringify(textHits.slice(-30),null,2));
-          const rows=[];
-          d.baselineComparison.forEach((r,i)=>{
-            const n=[];
-            for(const [k,v] of Object.entries(r.categories||{})) if(v?.classification!=='EXACTLY EQUIVALENT') n.push({kind:'category',key:k,value:v});
-            for(const [k,v] of Object.entries(r.legacyAliases||{})) if(v?.classification!=='EXACTLY EQUIVALENT') n.push({kind:'alias',key:k,value:v});
-            if(n.length) rows.push({index:i,route:r.route,viewport:r.viewport,nonEquivalent:n});
-          });
-          console.log('ROWS_WITH_NON_EQ',JSON.stringify(rows,null,2));
-          for(const rr of rows){
-            const fp=d.representativeElementFingerprints.find(x=>x.route===rr.route&&x.viewport===rr.viewport);
-            console.log('FINGERPRINT_FOR_ROW',rr.index,JSON.stringify(fp,null,2));
-            const shots=d.screenshots.filter(s=>s.route===rr.route&&s.viewport===rr.viewport);
-            console.log('SHOTS_FOR_ROW',rr.index,JSON.stringify(shots,null,2));
-          }
+          const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          console.log(JSON.stringify(d.screenshots.filter(s=>s.logicalName.includes('/en/quran-kids/:wide')),null,2));
+          console.log('TARGET_FINAL_FP',JSON.stringify(d.representativeElementFingerprints.find(x=>x.route==='/en/quran-kids/'&&x.viewport==='wide')?.categories?.mainCardPanel,null,2));
+          console.log('TARGET_BASELINE',JSON.stringify(d.baselineComparison[11],null,2));
           NODE
