@@ -11,26 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Decode original Phase 2.5 browser harness exactly
+      - name: Decode and gunzip original Phase 2.5 browser harness
         shell: bash
         run: |
           set -euo pipefail
           git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
           python3 <<'PY'
-          import re,base64
+          import re,base64,gzip
           s=open('/tmp/orig.yml',encoding='utf-8').read()
           m=re.search(r"cat >/tmp/phase25-characterize\.b64 <<'B64'\n(.*?)\n\s*B64\n",s,re.S)
-          assert m, 'base64 heredoc not found'
-          payload='\n'.join(line.strip() for line in m.group(1).splitlines())
-          open('/tmp/orig.mjs','wb').write(base64.b64decode(payload,validate=True))
+          assert m
+          payload=''.join(line.strip() for line in m.group(1).splitlines())
+          raw=base64.b64decode(payload,validate=True)
+          open('/tmp/orig.mjs','wb').write(gzip.decompress(raw))
           PY
           node --check /tmp/orig.mjs
           echo '--- relevant algorithm lines ---'
-          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|delay|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport|networkidle|domcontentloaded' /tmp/orig.mjs | head -260
-          echo '--- target screenshots ---'
+          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|delay|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport|networkidle|domcontentloaded' /tmp/orig.mjs | head -280
+          echo '--- target screenshots/fingerprint ---'
           node <<'NODE'
           const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log(JSON.stringify(d.screenshots.filter(s=>s.logicalName.includes('/en/quran-kids/:wide')),null,2));
-          console.log('TARGET_FINAL_FP',JSON.stringify(d.representativeElementFingerprints.find(x=>x.route==='/en/quran-kids/'&&x.viewport==='wide')?.categories?.mainCardPanel,null,2));
-          console.log('TARGET_BASELINE',JSON.stringify(d.baselineComparison[11],null,2));
+          console.log('SHOTS',JSON.stringify(d.screenshots.filter(s=>s.logicalName.includes('/en/quran-kids/:wide')),null,2));
+          console.log('FP',JSON.stringify(d.representativeElementFingerprints.find(x=>x.route==='/en/quran-kids/'&&x.viewport==='wide')?.categories?.mainCardPanel,null,2));
+          console.log('BC',JSON.stringify(d.baselineComparison[11],null,2));
           NODE
