@@ -5,49 +5,63 @@ on:
 permissions:
   contents: read
 jobs:
-  inspect-evidence:
+  derive-evidence:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Robust raw evidence introspection
+      - name: Derive counts and category-5 provenance from raw observations
         shell: bash
         run: |
           set -euo pipefail
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "TREE=$(git rev-parse HEAD^{tree})"
-          echo "JSON_BLOB=$(git hash-object phase-2.5-browser-characterization.json)"
           test "$(git hash-object phase-2.5-browser-characterization.json)" = "b79d09a7639183665ed23b33dbeca0e6937e3fab"
           test -z "$(git status --porcelain)"
           node <<'NODE'
           const fs=require('fs');
           const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          const typ=v=>Array.isArray(v)?`array(${v.length})`:(v&&typeof v==='object'?`object(${Object.keys(v).length})`:`${typeof v}:${String(v).slice(0,80)}`);
-          console.log('ROOT_TYPE',typ(d));
-          console.log('ROOT_KEYS',JSON.stringify(Object.keys(d)));
-          for(const [k,v] of Object.entries(d)) console.log('ROOT_CHILD',k,typ(v));
-          const cat5=[]; const hits84=[]; const named=[];
+          console.log('METADATA',JSON.stringify(d.metadata,null,2));
+          console.log('COVERAGE_STORED',JSON.stringify(d.coverage,null,2));
+          console.log('ASSERTION_SAMPLE',JSON.stringify(d.criticalOwnershipAssertions.slice(0,4),null,2));
+          const ak=Array.from(new Set(d.criticalOwnershipAssertions.flatMap(x=>Object.keys(x))));
+          console.log('ASSERTION_KEYS',JSON.stringify(ak));
+          const passKey=ak.find(k=>/pass/i.test(k));
+          const surfaceKey=ak.find(k=>/^surface$/i.test(k));
+          const passed=d.criticalOwnershipAssertions.filter(x=>passKey?x[passKey]===true:true).length;
+          const surf={}; for(const x of d.criticalOwnershipAssertions){const s=surfaceKey?x[surfaceKey]:'unknown'; (surf[s]??={total:0,passed:0}).total++; if(!passKey||x[passKey]===true)surf[s].passed++;}
+          console.log('ASSERTION_RECOMPUTED',JSON.stringify({total:d.criticalOwnershipAssertions.length,passed,passKey,surfaceKey,surfaces:surf},null,2));
+          console.log('CONFLICT_RAW_SAMPLE',JSON.stringify(d.conflictTokenCharacterization.slice(0,4),null,2));
+          console.log('CONFLICT_RAW_KEYS',JSON.stringify(Array.from(new Set(d.conflictTokenCharacterization.flatMap(x=>Object.keys(x))))));
+          const tokens=[...new Set(d.conflictTokenCharacterization.map(x=>x.token))].sort();
+          console.log('TOKEN_COUNT',tokens.length);
+          console.log('TOKENS',JSON.stringify(tokens));
+          for(const t of ['--line','--muted','--admin-type-body','--type-body','--course-btn-glow','--dossier-accent','--fo-bg','--layout-section-compact']){
+            console.log('TOKEN_SAMPLE',t,JSON.stringify(d.conflictTokenCharacterization.filter(x=>x.token===t).slice(0,8),null,2));
+          }
+          const candidates=[];
           function walk(x,path=''){
-            if(x===84 || (typeof x==='string' && /(^|\D)84(?:\/84)?(\D|$)/.test(x))) hits84.push({path,value:x});
-            if(!x||typeof x!=='object') return;
-            if(!Array.isArray(x) && x.category===5) cat5.push({path,value:x});
+            if(!x||typeof x!=='object')return;
             if(!Array.isArray(x)){
-              for(const k of Object.keys(x)) if(/^(routes|viewports|observations|ownership|stateChecks|coverage|tokenAuthority|conflictEvaluationMethod|baselineComparison)$/i.test(k)) named.push({path:path?`${path}.${k}`:k,type:typ(x[k])});
+              const str=JSON.stringify(x);
+              if(/unrelated\/unexplained computed-style delta/i.test(str)||/"classification"\s*:\s*5/.test(str)||/"category"\s*:\s*5/.test(str)) candidates.push({path,value:x});
             }
-            if(Array.isArray(x)) x.forEach((v,i)=>walk(v,`${path}[${i}]`));
+            if(Array.isArray(x))x.forEach((v,i)=>walk(v,`${path}[${i}]`));
             else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
           }
-          walk(d,'');
-          console.log('NAMED_PATHS',JSON.stringify(named,null,2));
-          console.log('CATEGORY5_COUNT',cat5.length);
-          console.log('CATEGORY5',JSON.stringify(cat5,null,2));
-          console.log('HITS84',JSON.stringify(hits84,null,2));
-          const bc=d.baselineComparison;
-          if(Array.isArray(bc)){
-            const targetRows=bc.map((v,i)=>({i,v})).filter(({v})=>JSON.stringify(v).includes('"category":5'));
-            console.log('BC_TARGET_ROWS',JSON.stringify(targetRows,null,2));
-            if(targetRows[0]) console.log('BC_TARGET_KEYS',JSON.stringify(Object.keys(targetRows[0].v)));
+          walk(d.baselineComparison,'baselineComparison');
+          console.log('DELTA_CANDIDATES',JSON.stringify(candidates.slice(-12),null,2));
+          const targetRows=d.baselineComparison.map((v,i)=>({i,v})).filter(({v})=>v.route==='/en'&&v.viewport==='desktop');
+          console.log('EN_DESKTOP_BASELINE_ROWS',JSON.stringify(targetRows,null,2));
+          const shots=d.screenshots.filter(x=>x.route==='/en'&&x.viewport==='desktop');
+          console.log('EN_DESKTOP_SCREENSHOTS',JSON.stringify(shots,null,2));
+          console.log('CONFLICT_ANALYSIS_DERIVED',JSON.stringify(d.conflictAnalysis,null,2));
+          const exact84=[];
+          function scan84(x,path=''){
+            if(x===84||x==='84/84')exact84.push({path,value:x});
+            if(!x||typeof x!=='object')return;
+            if(Array.isArray(x))x.forEach((v,i)=>scan84(v,`${path}[${i}]`));
+            else Object.entries(x).forEach(([k,v])=>scan84(v,path?`${path}.${k}`:k));
           }
+          scan84(d); console.log('EXACT_84_COUNT_HITS',JSON.stringify(exact84,null,2));
           NODE
