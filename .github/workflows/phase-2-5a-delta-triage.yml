@@ -5,64 +5,39 @@ on:
 permissions:
   contents: read
 jobs:
-  isolate-delta:
+  canonical-table:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v4
-        with: { node-version: 22 }
-      - name: Prepare exact trees and verify Phase 2
+      - name: Recompute canonical 40-token disposition from raw observations
         shell: bash
         run: |
           set -euo pipefail
-          git worktree add --detach /tmp/p0 6e46539a02db342838d7c113a45ff558192658e5
-          git worktree add --detach /tmp/p2 1504baad33b2123056877c1e92f4e2d558c00d51
-          test "$(git -C /tmp/p0 rev-parse HEAD^{tree})" = 8c18f5050f4ffa33c2317823e540766a4b2bc9ff
-          test "$(git -C /tmp/p2 rev-parse HEAD^{tree})" = 1d987040d0158387d0425d6e6ed00fe2a68ec617
-          cd /tmp/p0 && npm ci >/dev/null && npm run build >/dev/null
-          cd /tmp/p2 && npm ci >/dev/null && npm run verify && npm run build >/dev/null && git diff --check
-          echo PHASE2_CONTRACT_RECHECK=PASS
-      - name: Browser setup
-        shell: bash
-        run: |
-          set -euo pipefail
-          BROWSER_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
-          echo "BROWSER_BIN=$BROWSER_BIN" >> "$GITHUB_ENV"
-          "$BROWSER_BIN" --version
-          mkdir -p /tmp/tool && cd /tmp/tool && npm init -y >/dev/null 2>&1 && npm i --no-save --package-lock=false puppeteer-core@24.16.0 >/dev/null
-          echo "PUPPETEER=$(node -p "require('puppeteer-core/package.json').version") NODE=$(node -v)"
-          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/p2/dist >/tmp/p2.log 2>&1 &
-          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/p0/dist >/tmp/p0.log 2>&1 &
-          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/en/quran-kids/ >/dev/null 2>&1 && curl -fsS http://127.0.0.1:4174/en/quran-kids/ >/dev/null 2>&1 && exit 0; sleep .5; done; exit 1
-      - name: Measure target 5x5
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat >/tmp/tool/triage.cjs <<'JS'
-          const puppeteer=require('puppeteer-core'), crypto=require('crypto');
-          (async()=>{
-          const route='/en/quran-kids/', vp={name:'wide',width:1920,height:1080,deviceScaleFactor:1}, bases={phase0:'http://127.0.0.1:4174',phase2:'http://127.0.0.1:4173'};
-          const browser=await puppeteer.launch({executablePath:process.env.BROWSER_BIN,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
-          async function settle(page){await page.evaluate(async()=>{if(document.fonts?.ready)await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1800))])}).catch(()=>{});await new Promise(r=>setTimeout(r,180));}
-          async function snap(page){return page.evaluate(()=>{
-            const vis=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'};
-            const desc=e=>{const q=e.closest?.('section,main,header,nav,form,article'),c=[...e.classList].slice(0,4).join('.');return `${e.tagName.toLowerCase()}${e.id?'#'+e.id:''}${c?'.'+c:''}${q&&q!==e?` @ ${q.tagName.toLowerCase()}${q.id?'#'+q.id:''}`:''}`};
-            const els=[...document.querySelectorAll('body *')].filter(vis);const el=els.filter(e=>['ARTICLE','FORM','DIV','SECTION'].includes(e.tagName)).map(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return{e,score:((s.backgroundColor!=='rgba(0, 0, 0, 0)'&&s.backgroundColor!=='transparent')?3:0)+(parseFloat(s.borderTopWidth)>0?2:0)+(s.boxShadow!=='none'?2:0)+(r.width*r.height>15000?1:0)}}).sort((a,b)=>b.score-a.score)[0]?.e;
-            const s=getComputedStyle(el),r=el.getBoundingClientRect(),root=getComputedStyle(document.documentElement);const chain=[];for(let n=el;n&&chain.length<7;n=n.parentElement)chain.push({tag:n.tagName.toLowerCase(),id:n.id||null,classes:[...n.classList],color:getComputedStyle(n).color,inline:n.getAttribute('style')});
-            function rules(node){const out=[];let order=0;function walk(rs,href,media=[]){for(const rule of [...rs]){order++;try{if(rule.cssRules){let ok=true,m=media;if(rule.conditionText){ok=matchMedia(rule.conditionText).matches;m=[...media,{condition:rule.conditionText,matches:ok}]}if(ok)walk(rule.cssRules,href,m);continue}if(rule.selectorText&&node.matches(rule.selectorText)){const c=rule.style?.getPropertyValue('color')?.trim(),i=rule.style?.getPropertyValue('--ink')?.trim(),p=rule.style?.getPropertyValue('--color-text-primary')?.trim();if(c||i||p)out.push({selector:rule.selectorText,color:c,ink:i,primary:p,important:rule.style?.getPropertyPriority('color')||'',href,order,media:m})}}catch{}}}for(const sh of [...document.styleSheets])try{walk(sh.cssRules,sh.href||'INLINE')}catch{}return out}
-            return{descriptor:desc(el),sameAsDirect:el===document.querySelector('div.dashboard.reveal'),color:s.color,bodyColor:getComputedStyle(document.body).color,rootInk:root.getPropertyValue('--ink').trim(),rootPrimary:root.getPropertyValue('--color-text-primary').trim(),rect:{x:r.x,y:r.y,width:r.width,height:r.height},font:{family:s.fontFamily,size:s.fontSize,weight:s.fontWeight,lineHeight:s.lineHeight,status:document.fonts?.status||null,loaded:document.fonts?.check?.(`${s.fontSize} ${s.fontFamily}`)??null},text:{length:(el.innerText||'').length,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight},viewport:{innerWidth,innerHeight,clientWidth:document.documentElement.clientWidth,clientHeight:document.documentElement.clientHeight,scrollbarWidth:innerWidth-document.documentElement.clientWidth,dpr:devicePixelRatio},doc:{dir:document.documentElement.dir||getComputedStyle(document.documentElement).direction,lang:document.documentElement.lang,readyState:document.readyState},pseudo:{before:{color:getComputedStyle(el,'::before').color,content:getComputedStyle(el,'::before').content},after:{color:getComputedStyle(el,'::after').color,content:getComputedStyle(el,'::after').content}},ancestors:chain,links:[...document.querySelectorAll('link[rel="stylesheet"]')].map(l=>({href:l.href,sheet:!!l.sheet,disabled:l.disabled,media:l.media||''})),directRules:rules(el),bodyRules:rules(document.body)};
-          })}
-          async function cdp(page){const s=await page.createCDPSession();await s.send('DOM.enable');await s.send('CSS.enable');const d=await s.send('DOM.getDocument',{depth:-1,pierce:true}),q=await s.send('DOM.querySelector',{nodeId:d.root.nodeId,selector:'div.dashboard.reveal'}),m=await s.send('CSS.getMatchedStylesForNode',{nodeId:q.nodeId});const slim=r=>({selector:r.rule?.selectorList?.text||null,origin:r.rule?.origin||null,styleSheetId:r.rule?.styleSheetId||null,specificity:(r.rule?.selectorList?.selectors||[]).map(x=>x.specificity||null),properties:(r.rule?.style?.cssProperties||[]).filter(p=>['color','--ink','--color-text-primary'].includes(p.name)).map(p=>({name:p.name,value:p.value,important:!!p.important,range:p.range||null}))});const out={direct:(m.matchedCSSRules||[]).map(slim).filter(x=>x.properties.length),inherited:(m.inherited||[]).map((x,i)=>({level:i,rules:(x.matchedCSSRules||[]).map(slim).filter(y=>y.properties.length)})).filter(x=>x.rules.length)};await s.detach();return out}
-          async function one(label,index){const ctx=await browser.createBrowserContext(),page=await ctx.newPage();await page.setViewport(vp);await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'},{name:'prefers-color-scheme',value:'light'}]);await page.setJavaScriptEnabled(false);const failed=[];page.on('requestfailed',r=>failed.push({url:r.url(),error:r.failure()?.errorText||'failed'}));const res=await page.goto(new URL(route,bases[label]).href,{waitUntil:'domcontentloaded',timeout:15000});await settle(page);const original=await snap(page);let stylesheetsSettled=true;try{await page.waitForFunction(()=>[...document.querySelectorAll('link[rel="stylesheet"]')].every(l=>!!l.sheet),{timeout:5000})}catch{stylesheetsSettled=false}const settled=await snap(page),prov=await cdp(page),png=await page.screenshot({fullPage:false});const out={label,index,status:res?.status()||null,stylesheetsSettled,failed,original,settled,provenance:prov,screenshotSha256:crypto.createHash('sha256').update(png).digest('hex')};await ctx.close();return out}
-          const obs=[];for(let i=1;i<=5;i++){obs.push(await one('phase0',i));obs.push(await one('phase2',i))}console.log('ENV',JSON.stringify({browser:await browser.version(),puppeteer:require('puppeteer-core/package.json').version,node:process.version,os:require('os').release(),vp,reducedMotion:'reduce',javaScript:false,delayMs:180,fontTimeoutMs:1800},null,2));console.log('SUMMARY',JSON.stringify(obs.map(o=>({label:o.label,index:o.index,original:o.original.color,settled:o.settled.color,body:o.settled.bodyColor,ink:o.settled.rootInk,primary:o.settled.rootPrimary,descriptor:o.settled.descriptor,same:o.settled.sameAsDirect,rect:o.settled.rect,styleSettled:o.stylesheetsSettled,failed:o.failed.length,shot:o.screenshotSha256})),null,2));console.log('P0_PROVENANCE',JSON.stringify(obs.find(o=>o.label==='phase0'),null,2));console.log('P2_PROVENANCE',JSON.stringify(obs.find(o=>o.label==='phase2'),null,2));await browser.close();
-          })().catch(e=>{console.error(e);process.exit(1)});
-          JS
-          cd /tmp/tool && node --check triage.cjs && node triage.cjs
-      - name: Cleanliness
-        shell: bash
-        run: |
-          set -euo pipefail
+          test "$(git hash-object phase-2.5-browser-characterization.json)" = b79d09a7639183665ed23b33dbeca0e6937e3fab
+          node <<'NODE'
+          const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          const groups=new Map(); for(const r of d.conflictTokenCharacterization){if(!groups.has(r.token))groups.set(r.token,[]);groups.get(r.token).push(r)}
+          const contextual=new Set(['--acq-layout-gutter','--acq-layout-section','--acq-type-display','--acq-type-section','--admin-type-body','--admin-type-panel','--admin-type-support','--admin-type-title','--home-journey-section','--layout-gutter','--layout-section','--line','--muted','--pathway-accent','--pathway-accent-ink','--pathway-summary-bg','--pathway-summary-ink','--pathway-summary-line','--pathway-summary-muted','--type-body','--type-display','--type-section','--type-subsection']);
+          const review=new Set(['--course-btn-glow','--course-btn-press','--layout-section-compact','--mobile-drawer-hidden-x']);
+          const unobs=new Set(['--dossier-accent','--dossier-border','--fo-bg','--fo-border','--fo-border-strong','--fo-danger-bg','--fo-muted','--fo-shadow','--fo-success-bg','--fo-surface','--fo-surface-strong','--fo-text','--folio-opacity']);
+          const out=[];
+          for(const [token,rs] of [...groups].sort((a,b)=>a[0].localeCompare(b[0]))){
+            const observedRows=rs.filter(r=>r.observed);
+            const vals=[]; for(const r of observedRows) for(const v of (r.values||[])){const x=v.normalized??v.computedValue??v.value??String(v); if(!vals.includes(x)) vals.push(x)}
+            const surfaces=[...new Set(observedRows.map(r=>r.surface))].sort();
+            const bp=rs.some(r=>r.viewportChanges===true || (Array.isArray(r.viewportChanges)&&r.viewportChanges.length>0));
+            const st=rs.some(r=>r.stateChanges===true || (Array.isArray(r.stateChanges)&&r.stateChanges.length>0));
+            const cls=contextual.has(token)?'CONTEXTUAL — MUST NOT GLOBALIZE':review.has(token)?'REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION':unobs.has(token)?'UNOBSERVED — NO CONSOLIDATION EVIDENCE':'ERROR';
+            const reason=cls.startsWith('UNOBSERVED')?'No rendered-sample value in the 48 CSS states.':cls.startsWith('REVIEW')?'Observed with one stable computed value and no breakpoint/state change in the sampled matrix; this is evidence for review, not consolidation approval.':(token==='--line'||token==='--muted')?'Different computed values across Acquisition and Admin surfaces; surface semantics must remain isolated.':bp?'Computed value changes by viewport/breakpoint and is therefore contextual.':'Observed surface/context variation requires component/surface ownership; do not globalize.';
+            out.push({token,observed:observedRows.length>0,distinctValueCount:vals.length,distinctValues:vals,surfaces,breakpointDependent:bp,stateDependent:st,classification:cls,reason});
+          }
+          console.log('TABLE_JSON',JSON.stringify(out,null,2));
+          console.log('PARTITION',JSON.stringify({contextual:out.filter(x=>x.classification.startsWith('CONTEXTUAL')).length,review:out.filter(x=>x.classification.startsWith('REVIEW')).length,unobserved:out.filter(x=>x.classification.startsWith('UNOBSERVED')).length,total:out.length}));
+          console.log('BREAKPOINT',JSON.stringify(out.filter(x=>x.breakpointDependent).map(x=>x.token)));
+          console.log('STATE',JSON.stringify(out.filter(x=>x.stateDependent).map(x=>x.token)));
+          console.log('ASSERTIONS',JSON.stringify({total:d.criticalOwnershipAssertions.length,passed:d.criticalOwnershipAssertions.filter(x=>x.pass===true).length,failed:d.criticalOwnershipAssertions.filter(x=>x.pass!==true).length,nameCounts:Object.fromEntries([...new Set(d.criticalOwnershipAssertions.map(x=>x.name))].sort().map(n=>[n,d.criticalOwnershipAssertions.filter(x=>x.name===n).length]))},null,2));
+          console.log('RAW_COUNTS',JSON.stringify({states:d.surfaceDetection.length,conflictRows:d.conflictTokenCharacterization.length,baselineRows:d.baselineComparison.length,screenshots:d.screenshots.length},null,2));
+          NODE
           test -z "$(git status --porcelain)"
-          echo AUDIT_CHECKOUT_CLEAN=YES
