@@ -5,42 +5,55 @@ on:
 permissions:
   contents: read
 jobs:
-  exact-delta:
+  locate-delta:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Extract exact category-5 record and raw token partition
+      - name: Locate every non-equivalent baseline record
         shell: bash
         run: |
           set -euo pipefail
           test "$(git hash-object phase-2.5-browser-characterization.json)" = "b79d09a7639183665ed23b33dbeca0e6937e3fab"
           node <<'NODE'
-          const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log('BC0_KEYS',JSON.stringify(Object.keys(d.baselineComparison[0])));
-          const rows=d.baselineComparison.map((v,i)=>({i,...v})).filter(v=>v.route==='/en/'&&v.viewport==='desktop');
-          console.log('EN_DESKTOP',JSON.stringify(rows,null,2));
-          const shots=d.screenshots.map((v,i)=>({i,...v})).filter(v=>v.route==='/en/'&&v.viewport==='desktop');
-          console.log('SHOTS',JSON.stringify(shots,null,2));
-          const matches=[];
+          const fs=require('fs');
+          const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          console.log('VERDICT',JSON.stringify(d.verdict,null,2));
+          console.log('LIMITATIONS',JSON.stringify(d.limitations,null,2));
+          console.log('SCREENSHOT_SAMPLE',JSON.stringify(d.screenshots.slice(0,4),null,2));
+          console.log('SCREENSHOT_KEYS',JSON.stringify(Object.keys(d.screenshots[0]||{})));
+          const classes=new Map(); const non=[]; const textHits=[];
           function walk(x,path=''){
-            if(!x||typeof x!=='object')return;
+            if(!x||typeof x!=='object') return;
             if(!Array.isArray(x)){
-              const s=JSON.stringify(x);
-              if(s.includes('rgb(205, 183, 116)')||s.includes('rgb(212, 175, 55)')||/unrelated\/unexplained computed-style delta/i.test(s)) matches.push({path,value:x});
+              if(typeof x.classification==='string'){
+                classes.set(x.classification,(classes.get(x.classification)||0)+1);
+                if(x.classification!=='EXACTLY EQUIVALENT') non.push({path,value:x});
+              }
+              const txt=JSON.stringify(x);
+              if(/unexplained|unrelated|delta|restoration|equivalent/i.test(txt) && path.startsWith('baselineComparison')) textHits.push({path,value:x});
             }
-            if(Array.isArray(x))x.forEach((v,i)=>walk(v,`${path}[${i}]`)); else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
+            if(Array.isArray(x)) x.forEach((v,i)=>walk(v,`${path}[${i}]`));
+            else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
           }
-          walk(d.baselineComparison,'baselineComparison'); console.log('MATCHES',JSON.stringify(matches.slice(-15),null,2));
-          const groups=new Map(); for(const r of d.conflictTokenCharacterization){if(!groups.has(r.token))groups.set(r.token,[]);groups.get(r.token).push(r)}
-          const table=[];
-          for(const [token,rs] of [...groups].sort((a,b)=>a[0].localeCompare(b[0]))){
-            const obs=rs.filter(r=>r.observed); const values=[...new Set(obs.flatMap(r=>r.values.map(v=>v.normalized??v.computedValue)))]; const surfaces=[...new Set(obs.map(r=>r.surface))];
-            const bp=rs.some(r=>r.viewportChanges===true); const st=rs.some(r=>Array.isArray(r.stateChanges)&&r.stateChanges.length>0);
-            const cls=!obs.length?'UNOBSERVED — NO CONSOLIDATION EVIDENCE':(values.length>1||bp||st?'CONTEXTUAL — MUST NOT GLOBALIZE':'REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION');
-            table.push({token,observed:!!obs.length,distinctValues:values,surfaces,breakpointDependent:bp,stateDependent:st,classification:cls});
+          walk(d.baselineComparison,'baselineComparison');
+          console.log('CLASSIFICATIONS',JSON.stringify(Object.fromEntries(classes),null,2));
+          console.log('NON_EQ_COUNT',non.length);
+          console.log('NON_EQ',JSON.stringify(non,null,2));
+          console.log('TEXT_HITS_LAST',JSON.stringify(textHits.slice(-30),null,2));
+          const rows=[];
+          d.baselineComparison.forEach((r,i)=>{
+            const n=[];
+            for(const [k,v] of Object.entries(r.categories||{})) if(v?.classification!=='EXACTLY EQUIVALENT') n.push({kind:'category',key:k,value:v});
+            for(const [k,v] of Object.entries(r.legacyAliases||{})) if(v?.classification!=='EXACTLY EQUIVALENT') n.push({kind:'alias',key:k,value:v});
+            if(n.length) rows.push({index:i,route:r.route,viewport:r.viewport,nonEquivalent:n});
+          });
+          console.log('ROWS_WITH_NON_EQ',JSON.stringify(rows,null,2));
+          for(const rr of rows){
+            const fp=d.representativeElementFingerprints.find(x=>x.route===rr.route&&x.viewport===rr.viewport);
+            console.log('FINGERPRINT_FOR_ROW',rr.index,JSON.stringify(fp,null,2));
+            const shots=d.screenshots.filter(s=>s.route===rr.route&&s.viewport===rr.viewport);
+            console.log('SHOTS_FOR_ROW',rr.index,JSON.stringify(shots,null,2));
           }
-          console.log('RAW_TABLE',JSON.stringify(table,null,2));
-          console.log('PARTITION',JSON.stringify(Object.fromEntries([...new Set(table.map(x=>x.classification))].map(c=>[c,table.filter(x=>x.classification===c).map(x=>x.token)])),null,2));
           NODE
