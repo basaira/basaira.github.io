@@ -5,63 +5,42 @@ on:
 permissions:
   contents: read
 jobs:
-  derive-evidence:
+  exact-delta:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Derive counts and category-5 provenance from raw observations
+        with: { fetch-depth: 0 }
+      - name: Extract exact category-5 record and raw token partition
         shell: bash
         run: |
           set -euo pipefail
           test "$(git hash-object phase-2.5-browser-characterization.json)" = "b79d09a7639183665ed23b33dbeca0e6937e3fab"
-          test -z "$(git status --porcelain)"
           node <<'NODE'
-          const fs=require('fs');
-          const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log('METADATA',JSON.stringify(d.metadata,null,2));
-          console.log('COVERAGE_STORED',JSON.stringify(d.coverage,null,2));
-          console.log('ASSERTION_SAMPLE',JSON.stringify(d.criticalOwnershipAssertions.slice(0,4),null,2));
-          const ak=Array.from(new Set(d.criticalOwnershipAssertions.flatMap(x=>Object.keys(x))));
-          console.log('ASSERTION_KEYS',JSON.stringify(ak));
-          const passKey=ak.find(k=>/pass/i.test(k));
-          const surfaceKey=ak.find(k=>/^surface$/i.test(k));
-          const passed=d.criticalOwnershipAssertions.filter(x=>passKey?x[passKey]===true:true).length;
-          const surf={}; for(const x of d.criticalOwnershipAssertions){const s=surfaceKey?x[surfaceKey]:'unknown'; (surf[s]??={total:0,passed:0}).total++; if(!passKey||x[passKey]===true)surf[s].passed++;}
-          console.log('ASSERTION_RECOMPUTED',JSON.stringify({total:d.criticalOwnershipAssertions.length,passed,passKey,surfaceKey,surfaces:surf},null,2));
-          console.log('CONFLICT_RAW_SAMPLE',JSON.stringify(d.conflictTokenCharacterization.slice(0,4),null,2));
-          console.log('CONFLICT_RAW_KEYS',JSON.stringify(Array.from(new Set(d.conflictTokenCharacterization.flatMap(x=>Object.keys(x))))));
-          const tokens=[...new Set(d.conflictTokenCharacterization.map(x=>x.token))].sort();
-          console.log('TOKEN_COUNT',tokens.length);
-          console.log('TOKENS',JSON.stringify(tokens));
-          for(const t of ['--line','--muted','--admin-type-body','--type-body','--course-btn-glow','--dossier-accent','--fo-bg','--layout-section-compact']){
-            console.log('TOKEN_SAMPLE',t,JSON.stringify(d.conflictTokenCharacterization.filter(x=>x.token===t).slice(0,8),null,2));
-          }
-          const candidates=[];
+          const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          console.log('BC0_KEYS',JSON.stringify(Object.keys(d.baselineComparison[0])));
+          const rows=d.baselineComparison.map((v,i)=>({i,...v})).filter(v=>v.route==='/en/'&&v.viewport==='desktop');
+          console.log('EN_DESKTOP',JSON.stringify(rows,null,2));
+          const shots=d.screenshots.map((v,i)=>({i,...v})).filter(v=>v.route==='/en/'&&v.viewport==='desktop');
+          console.log('SHOTS',JSON.stringify(shots,null,2));
+          const matches=[];
           function walk(x,path=''){
             if(!x||typeof x!=='object')return;
             if(!Array.isArray(x)){
-              const str=JSON.stringify(x);
-              if(/unrelated\/unexplained computed-style delta/i.test(str)||/"classification"\s*:\s*5/.test(str)||/"category"\s*:\s*5/.test(str)) candidates.push({path,value:x});
+              const s=JSON.stringify(x);
+              if(s.includes('rgb(205, 183, 116)')||s.includes('rgb(212, 175, 55)')||/unrelated\/unexplained computed-style delta/i.test(s)) matches.push({path,value:x});
             }
-            if(Array.isArray(x))x.forEach((v,i)=>walk(v,`${path}[${i}]`));
-            else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
+            if(Array.isArray(x))x.forEach((v,i)=>walk(v,`${path}[${i}]`)); else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
           }
-          walk(d.baselineComparison,'baselineComparison');
-          console.log('DELTA_CANDIDATES',JSON.stringify(candidates.slice(-12),null,2));
-          const targetRows=d.baselineComparison.map((v,i)=>({i,v})).filter(({v})=>v.route==='/en'&&v.viewport==='desktop');
-          console.log('EN_DESKTOP_BASELINE_ROWS',JSON.stringify(targetRows,null,2));
-          const shots=d.screenshots.filter(x=>x.route==='/en'&&x.viewport==='desktop');
-          console.log('EN_DESKTOP_SCREENSHOTS',JSON.stringify(shots,null,2));
-          console.log('CONFLICT_ANALYSIS_DERIVED',JSON.stringify(d.conflictAnalysis,null,2));
-          const exact84=[];
-          function scan84(x,path=''){
-            if(x===84||x==='84/84')exact84.push({path,value:x});
-            if(!x||typeof x!=='object')return;
-            if(Array.isArray(x))x.forEach((v,i)=>scan84(v,`${path}[${i}]`));
-            else Object.entries(x).forEach(([k,v])=>scan84(v,path?`${path}.${k}`:k));
+          walk(d.baselineComparison,'baselineComparison'); console.log('MATCHES',JSON.stringify(matches.slice(-15),null,2));
+          const groups=new Map(); for(const r of d.conflictTokenCharacterization){if(!groups.has(r.token))groups.set(r.token,[]);groups.get(r.token).push(r)}
+          const table=[];
+          for(const [token,rs] of [...groups].sort((a,b)=>a[0].localeCompare(b[0]))){
+            const obs=rs.filter(r=>r.observed); const values=[...new Set(obs.flatMap(r=>r.values.map(v=>v.normalized??v.computedValue)))]; const surfaces=[...new Set(obs.map(r=>r.surface))];
+            const bp=rs.some(r=>r.viewportChanges===true); const st=rs.some(r=>Array.isArray(r.stateChanges)&&r.stateChanges.length>0);
+            const cls=!obs.length?'UNOBSERVED — NO CONSOLIDATION EVIDENCE':(values.length>1||bp||st?'CONTEXTUAL — MUST NOT GLOBALIZE':'REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION');
+            table.push({token,observed:!!obs.length,distinctValues:values,surfaces,breakpointDependent:bp,stateDependent:st,classification:cls});
           }
-          scan84(d); console.log('EXACT_84_COUNT_HITS',JSON.stringify(exact84,null,2));
+          console.log('RAW_TABLE',JSON.stringify(table,null,2));
+          console.log('PARTITION',JSON.stringify(Object.fromEntries([...new Set(table.map(x=>x.classification))].map(c=>[c,table.filter(x=>x.classification===c).map(x=>x.token)])),null,2));
           NODE
