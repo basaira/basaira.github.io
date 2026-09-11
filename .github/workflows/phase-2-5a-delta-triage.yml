@@ -1,0 +1,52 @@
+name: Phase 2.5A Delta Triage
+on:
+  push:
+    branches: ["basair/phase-2.5a-delta-triage"]
+permissions:
+  contents: read
+jobs:
+  inspect-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect committed raw evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "AUDIT_HEAD=$(git rev-parse HEAD)"
+          echo "AUDIT_TREE=$(git rev-parse HEAD^{tree})"
+          git status --porcelain
+          node <<'NODE'
+          const fs = require('fs');
+          const d = JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          console.log('TOP_KEYS', JSON.stringify(Object.keys(d)));
+          for (const [k,v] of Object.entries(d)) {
+            const kind = Array.isArray(v) ? `array:${v.length}` : (v && typeof v === 'object' ? `object:${Object.keys(v).length}` : typeof v);
+            console.log('TOP', k, kind);
+          }
+          console.log('COVERAGE', JSON.stringify(d.coverage,null,2));
+          console.log('VERDICT', JSON.stringify(d.verdict,null,2));
+          console.log('BASELINE_COMPARISON_LENGTH', Array.isArray(d.baselineComparison) ? d.baselineComparison.length : 'NA');
+          function scan(x,path='') {
+            if (!x || typeof x !== 'object') return;
+            if (!Array.isArray(x)) {
+              const keys = Object.keys(x);
+              const text = JSON.stringify(x);
+              if (/unexplained|category.?5|computed.?style.?delta/i.test(text) && path.startsWith('baselineComparison')) {
+                console.log('CANDIDATE_PATH', path);
+                console.log(JSON.stringify(x,null,2));
+              }
+            }
+            if (Array.isArray(x)) x.forEach((v,i)=>scan(v,`${path}[${i}]`));
+            else Object.entries(x).forEach(([k,v])=>scan(v,path?`${path}.${k}`:k));
+          }
+          scan(d.baselineComparison,'baselineComparison');
+          for (const k of Object.keys(d)) {
+            if (/ownership|conflict|character|state|summary|runtime|observation/i.test(k)) {
+              console.log('SECTION_PREVIEW', k, JSON.stringify(d[k],null,2).slice(0,12000));
+            }
+          }
+          NODE
