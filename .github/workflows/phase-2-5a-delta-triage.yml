@@ -12,41 +12,57 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspect committed raw evidence
+      - name: Inspect committed raw evidence precisely
         shell: bash
         run: |
           set -euo pipefail
           echo "AUDIT_HEAD=$(git rev-parse HEAD)"
           echo "AUDIT_TREE=$(git rev-parse HEAD^{tree})"
-          git status --porcelain
+          test -z "$(git status --porcelain)"
           node <<'NODE'
-          const fs = require('fs');
-          const d = JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log('TOP_KEYS', JSON.stringify(Object.keys(d)));
-          for (const [k,v] of Object.entries(d)) {
-            const kind = Array.isArray(v) ? `array:${v.length}` : (v && typeof v === 'object' ? `object:${Object.keys(v).length}` : typeof v);
-            console.log('TOP', k, kind);
+          const fs=require('fs');
+          const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
+          const kind=v=>Array.isArray(v)?`array:${v.length}`:(v&&typeof v==='object'?`object:${Object.keys(v).length}`:typeof v);
+          console.log('BASELINE_KEYS',Object.keys(d.baselineComparison));
+          console.log('VIEWPORTS',JSON.stringify(d.viewports,null,2));
+          console.log('ROUTES',JSON.stringify(d.routes,null,2));
+          console.log('OBSERVATIONS_SHAPE',kind(d.observations),Object.fromEntries(Object.entries(d.observations).map(([k,v])=>[k,kind(v)])));
+          console.log('OWNERSHIP',JSON.stringify(d.ownership,null,2));
+          console.log('STATE_CHECKS',JSON.stringify(d.stateChecks,null,2));
+          console.log('TOKEN_AUTHORITY',JSON.stringify(d.tokenAuthority,null,2));
+          console.log('CONFLICT_METHOD',JSON.stringify(d.conflictEvaluationMethod,null,2));
+          const cat5=[];
+          function walk(x,path){
+            if(!x||typeof x!=='object') return;
+            if(!Array.isArray(x) && x.category===5) cat5.push({path,value:x});
+            if(Array.isArray(x)) x.forEach((v,i)=>walk(v,`${path}[${i}]`));
+            else Object.entries(x).forEach(([k,v])=>walk(v,path?`${path}.${k}`:k));
           }
-          console.log('COVERAGE', JSON.stringify(d.coverage,null,2));
-          console.log('VERDICT', JSON.stringify(d.verdict,null,2));
-          console.log('BASELINE_COMPARISON_LENGTH', Array.isArray(d.baselineComparison) ? d.baselineComparison.length : 'NA');
-          function scan(x,path='') {
-            if (!x || typeof x !== 'object') return;
-            if (!Array.isArray(x)) {
-              const keys = Object.keys(x);
-              const text = JSON.stringify(x);
-              if (/unexplained|category.?5|computed.?style.?delta/i.test(text) && path.startsWith('baselineComparison')) {
-                console.log('CANDIDATE_PATH', path);
-                console.log(JSON.stringify(x,null,2));
+          walk(d.baselineComparison,'baselineComparison');
+          console.log('CATEGORY5_RECORDS',JSON.stringify(cat5,null,2));
+          const target=cat5[0]?.value;
+          if(target){
+            const matches=[];
+            function findObs(x,path){
+              if(!x||typeof x!=='object') return;
+              if(!Array.isArray(x)){
+                const s=JSON.stringify(x);
+                if(s.includes(target.route)&&s.includes(target.viewport)&&s.includes(target.stableDescriptor)) matches.push({path,value:x});
               }
+              if(Array.isArray(x)) x.forEach((v,i)=>findObs(v,`${path}[${i}]`));
+              else Object.entries(x).forEach(([k,v])=>findObs(v,path?`${path}.${k}`:k));
             }
-            if (Array.isArray(x)) x.forEach((v,i)=>scan(v,`${path}[${i}]`));
-            else Object.entries(x).forEach(([k,v])=>scan(v,path?`${path}.${k}`:k));
+            findObs(d.observations,'observations');
+            console.log('TARGET_OBSERVATION_MATCHES',JSON.stringify(matches.slice(-20),null,2));
           }
-          scan(d.baselineComparison,'baselineComparison');
-          for (const k of Object.keys(d)) {
-            if (/ownership|conflict|character|state|summary|runtime|observation/i.test(k)) {
-              console.log('SECTION_PREVIEW', k, JSON.stringify(d[k],null,2).slice(0,12000));
-            }
+          const eightyFour=[];
+          function find84(x,path){
+            if(x===84 || (typeof x==='string' && /(^|\D)84(?:\/84)?(\D|$)/.test(x))) eightyFour.push({path,value:x});
+            if(!x||typeof x!=='object') return;
+            if(Array.isArray(x)) x.forEach((v,i)=>find84(v,`${path}[${i}]`));
+            else Object.entries(x).forEach(([k,v])=>find84(v,path?`${path}.${k}`:k));
           }
+          find84(d,'');
+          console.log('EIGHTY_FOUR_HITS',JSON.stringify(eightyFour,null,2));
+          console.log('COVERAGE',JSON.stringify(d.coverage,null,2));
           NODE
