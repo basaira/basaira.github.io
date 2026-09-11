@@ -1,0 +1,263 @@
+{
+  "phase": "2.5A",
+  "purpose": "Evidence reconciliation and category-5 delta provenance; audit only",
+  "productionMutation": false,
+  "cssConsolidationStarted": false,
+  "auditBranch": "basair/phase-2.5a-delta-triage",
+  "startingAuditHead": "02bc781aec31c0de199c92b88205cc02ad6dc603",
+  "startingAuditTree": "81f2583430905b6f28876d4caf95b408d31d2bd8",
+  "productionPhase2": {
+    "commit": "1504baad33b2123056877c1e92f4e2d558c00d51",
+    "tree": "1d987040d0158387d0425d6e6ed00fe2a68ec617"
+  },
+  "historicalPhase0": {
+    "commit": "6e46539a02db342838d7c113a45ff558192658e5",
+    "tree": "8c18f5050f4ffa33c2317823e540766a4b2bc9ff"
+  },
+  "authoritativeRawEvidence": {
+    "file": "phase-2.5-browser-characterization.json",
+    "blobSha": "b79d09a7639183665ed23b33dbeca0e6937e3fab",
+    "historicalRawObservationsModified": false,
+    "completedCssStates": 48,
+    "conflictTokenObservationRows": 1920,
+    "baselineComparisonRows": 48,
+    "screenshotRecords": 96
+  },
+  "criticalOwnershipAssertions": {
+    "total": 144,
+    "passed": 144,
+    "failed": 0,
+    "unit": "one atomic {name, pass, evidence} predicate record",
+    "countingSemantics": "per individual ownership/invariant check at its recorded route/viewport/surface scope",
+    "breakdown": {
+      "acquisitionLine": 40,
+      "acquisitionMuted": 40,
+      "adminLine": 4,
+      "adminMuted": 4,
+      "adminIsolationFromAcquisition": 4,
+      "globalGold": 48,
+      "publicDarkGreenChains": 4
+    },
+    "later84Count": {
+      "presentInCommittedJsonAsAssertionCount": false,
+      "recoverableFromCommittedRawEvidence": false,
+      "conclusion": "84/84 was a later prose-summary error, not a machine-readable audit result."
+    }
+  },
+  "category5": {
+    "computedStyleDeltaCount": 1,
+    "exactJsonPath": "baselineComparison[11].categories.mainCardPanel",
+    "record": {
+      "route": "/en/quran-kids/",
+      "viewport": "wide",
+      "width": 1920,
+      "height": 1080,
+      "deviceScaleFactor": 1,
+      "surface": "ACQUISITION",
+      "elementCategory": "mainCardPanel",
+      "stableDescriptor": "div.dashboard.reveal @ section",
+      "property": "color",
+      "phase0Value": "rgb(0, 0, 0)",
+      "phase2Value": "rgb(18, 56, 47)",
+      "numericDelta": null,
+      "geometryDiff": {},
+      "classification": "UNEXPLAINED COMPUTED-STYLE DELTA",
+      "reasonRecordedInHistoricalRow": null,
+      "associatedCustomPropertyAfterProvenance": "--ink",
+      "phase0Screenshot": {
+        "logicalName": "phase0:/en/quran-kids/:wide",
+        "sha256": "e81cca6f20b2499060ff997b1bb3e1a65325e2c4af1bcf70d8794b5f772f579f",
+        "location": "screenshots/phase0/en-quran-kids/wide.png"
+      },
+      "phase2Screenshot": {
+        "logicalName": "phase2:/en/quran-kids/:wide",
+        "sha256": "e81cca6f20b2499060ff997b1bb3e1a65325e2c4af1bcf70d8794b5f772f579f",
+        "location": "screenshots/phase2/en-quran-kids/wide.png"
+      }
+    },
+    "rawClassificationNote": "Twelve additional legacy-alias comparison leaves use the historical label UNEXPLAINED COMPUTED-STYLE DELTA for serialization-only differences (hex alpha / rgba or hex casing). They are not representative element computed-style deltas and are not counted by verdict.unexplainedComputedStyleDeltas, which is 1."
+  },
+  "isolatedReproduction": {
+    "environment": {
+      "browser": "Google Chrome 152.0.7977.82",
+      "puppeteerCore": "24.16.0",
+      "node": "22.23.2",
+      "runner": "Ubuntu 24.04.5 LTS",
+      "deviceScaleFactor": 1,
+      "prefersReducedMotion": "reduce",
+      "colorScheme": "light",
+      "javaScriptEnabled": false,
+      "fontReadyTimeoutMs": 1800,
+      "deterministicCaptureDelayMs": 180
+    },
+    "route": "/en/quran-kids/",
+    "viewport": "wide 1920x1080",
+    "freshBrowserContextPerObservation": true,
+    "stylesheetSettlementAlsoChecked": true,
+    "phase0Measurements": [
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)"
+    ],
+    "phase2Measurements": [
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)",
+      "rgb(18, 56, 47)"
+    ],
+    "beforeExplicitStylesheetSettlement": {
+      "phase0AllFive": "rgb(18, 56, 47)",
+      "phase2AllFive": "rgb(18, 56, 47)"
+    },
+    "afterExplicitStylesheetSettlement": {
+      "phase0AllFive": "rgb(18, 56, 47)",
+      "phase2AllFive": "rgb(18, 56, 47)"
+    },
+    "failedResourcesPerObservation": 0,
+    "stylesheetsSettledPerObservation": true,
+    "stableDescriptorAllObservations": "div.dashboard.reveal @ section",
+    "geometryAllObservations": {
+      "x": 1036.796875,
+      "y": 344.0625,
+      "width": 515.203125,
+      "height": 435
+    },
+    "rerunViewport": {
+      "innerWidth": 1920,
+      "innerHeight": 1080,
+      "clientWidth": 1920,
+      "scrollbarWidth": 0,
+      "devicePixelRatio": 1
+    },
+    "document": {
+      "lang": "en",
+      "dir": "ltr",
+      "readyState": "complete"
+    },
+    "font": {
+      "family": "Manrope, ui-sans-serif, system-ui, sans-serif",
+      "size": "16px",
+      "weight": "400",
+      "lineHeight": "normal",
+      "fontFaceSetStatus": "loaded",
+      "fontCheck": true
+    },
+    "textMetricsAllObservations": {
+      "textLength": 348,
+      "scrollWidth": 531,
+      "clientWidth": 513,
+      "scrollHeight": 433,
+      "clientHeight": 433
+    },
+    "rerunScreenshotSha256BothCommitsAllObservations": "e81cca6e8ead1e1109419c6f2f0ed5c30ca1865b8b95f1ae31d16f8faf5f579f"
+  },
+  "cascadeProvenance": {
+    "affectedElementHasDirectColorRule": false,
+    "inheritsThroughAncestors": true,
+    "phase0": {
+      "computedColor": "rgb(18, 56, 47)",
+      "winningInheritedDeclaration": "body { color: var(--ink) }",
+      "winningDeclarationSource": "acquisition-colorize-v1.css",
+      "specificity": "0,0,1",
+      "important": false,
+      "customPropertyChain": "--ink: #12382f",
+      "customPropertySource": "acquisition-colorize-v1.css",
+      "rootInk": "#12382f"
+    },
+    "phase2": {
+      "computedColor": "rgb(18, 56, 47)",
+      "winningInheritedDeclaration": "body { color: var(--ink) }",
+      "winningDeclarationSource": "acquisition-colorize-v1.css",
+      "specificity": "0,0,1",
+      "important": false,
+      "customPropertyChain": "--ink -> --color-text-primary -> #12382F",
+      "compatBindingSource": "tokens-acquisition-compat.css",
+      "canonicalValueSource": "tokens.css",
+      "rootInk": "#12382F",
+      "rootColorTextPrimary": "#12382F"
+    },
+    "inlineDeclaration": null,
+    "pseudoElementChangesColor": false,
+    "mediaQueryCause": false
+  },
+  "finalDeltaClassification": {
+    "category": "C",
+    "label": "MEASUREMENT / HARNESS FALSE POSITIVE",
+    "explanation": "The historical Phase-0 fingerprint row reporting black is not reproducible. Five independent Phase-0 and five independent Phase-2 fresh-context observations all compute the same #12382F-equivalent color before and after explicit stylesheet settlement; descriptor, geometry, fonts, text metrics and resources are stable. CDP/source provenance shows equivalent inherited body color semantics in both commits. The historical Phase-2.5 capture waited for DOMContentLoaded, document.fonts.ready (bounded), and 180 ms, but did not explicitly record stylesheet-settlement or matched-rule provenance at the anomalous instant. The exact transient mechanism cannot be reconstructed from that historical raw row, so the raw observation is preserved and the derived verdict is superseded by this reconciliation rather than rewritten."
+  },
+  "conflictTokenReconciliation": {
+    "inventoryCount": 40,
+    "contextualCount": 23,
+    "reviewCandidateCount": 4,
+    "unobservedCount": 13,
+    "partitionOverlaps": 0,
+    "breakpointChangingCount": 15,
+    "stateChangingCount": 0,
+    "tokens": [
+      {"token":"--acq-layout-gutter","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--acq-layout-section","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--acq-type-display","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--acq-type-section","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--admin-type-body","observed":true,"distinctValueCount":2,"surfaces":["ADMIN"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent Admin type semantics."},
+      {"token":"--admin-type-panel","observed":true,"distinctValueCount":2,"surfaces":["ADMIN"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent Admin type semantics."},
+      {"token":"--admin-type-support","observed":true,"distinctValueCount":2,"surfaces":["ADMIN"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent Admin type semantics."},
+      {"token":"--admin-type-title","observed":true,"distinctValueCount":2,"surfaces":["ADMIN"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent Admin type semantics."},
+      {"token":"--course-btn-glow","observed":true,"distinctValueCount":1,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION","reason":"One stable sampled value; review evidence only."},
+      {"token":"--course-btn-press","observed":true,"distinctValueCount":1,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION","reason":"One stable sampled value; review evidence only."},
+      {"token":"--dossier-accent","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--dossier-border","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-bg","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-border","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-border-strong","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-danger-bg","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-muted","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-shadow","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-success-bg","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-surface","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-surface-strong","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--fo-text","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--folio-opacity","observed":false,"distinctValueCount":0,"surfaces":[],"breakpointDependent":false,"stateDependent":false,"classification":"UNOBSERVED — NO CONSOLIDATION EVIDENCE","reason":"No rendered-sample value in the 48 CSS states."},
+      {"token":"--home-journey-section","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--layout-gutter","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--layout-section","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--layout-section-compact","observed":true,"distinctValueCount":1,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION","reason":"One stable sampled value; review evidence only."},
+      {"token":"--line","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION","ADMIN"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Acquisition rgba(18,56,47,.12) and Admin rgba(255,255,255,.12) are distinct surface semantics."},
+      {"token":"--mobile-drawer-hidden-x","observed":true,"distinctValueCount":1,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"REVIEW CANDIDATE — NOT YET APPROVED FOR CONSOLIDATION","reason":"One stable sampled value; review evidence only."},
+      {"token":"--muted","observed":true,"distinctValueCount":2,"surfaces":["ACQUISITION","ADMIN"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Acquisition #526860 and Admin rgba(255,255,255,.62) are distinct surface semantics."},
+      {"token":"--pathway-accent","observed":true,"distinctValueCount":3,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Three pathway/context values."},
+      {"token":"--pathway-accent-ink","observed":true,"distinctValueCount":3,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Three pathway/context values."},
+      {"token":"--pathway-summary-bg","observed":true,"distinctValueCount":3,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Three pathway/context values."},
+      {"token":"--pathway-summary-ink","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Multiple pathway/context values."},
+      {"token":"--pathway-summary-line","observed":true,"distinctValueCount":3,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Three pathway/context values."},
+      {"token":"--pathway-summary-muted","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":false,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Multiple pathway/context values."},
+      {"token":"--type-body","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--type-display","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--type-section","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."},
+      {"token":"--type-subsection","observed":true,"distinctValueCount":2,"surfaces":["PUBLIC"],"breakpointDependent":true,"stateDependent":false,"classification":"CONTEXTUAL — MUST NOT GLOBALIZE","reason":"Viewport-dependent computed values."}
+    ]
+  },
+  "verification": {
+    "phase2TreeUntouched": true,
+    "npmCi": "PASS",
+    "npmRunVerify": "PASS",
+    "npmRunBuild": "PASS",
+    "gitDiffCheck": "PASS",
+    "tokenContract": {
+      "canonicalTokens": 106,
+      "aliasClassesABCDE": "1/49/23/23/2",
+      "correctedConflicts": 40,
+      "productionCssFiles": 55,
+      "inlineStyleBlocks": 1
+    },
+    "auditCheckoutCleanAfterRerun": true
+  },
+  "conclusion": {
+    "status": "FALSE POSITIVE CONFIRMED",
+    "closureReviewRequired": true,
+    "productionFixRequired": false,
+    "cssConsolidationStarted": false
+  }
+}
