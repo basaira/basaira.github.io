@@ -5,13 +5,13 @@ on:
 permissions:
   contents: read
 jobs:
-  recover-harness:
+  inspect-target-source:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Decode and gunzip original Phase 2.5 browser harness
+      - name: Recover selector algorithm and source changes around dashboard color
         shell: bash
         run: |
           set -euo pipefail
@@ -19,19 +19,16 @@ jobs:
           python3 <<'PY'
           import re,base64,gzip
           s=open('/tmp/orig.yml',encoding='utf-8').read()
-          m=re.search(r"cat >/tmp/phase25-characterize\.b64 <<'B64'\n(.*?)\n\s*B64\n",s,re.S)
-          assert m
-          payload=''.join(line.strip() for line in m.group(1).splitlines())
-          raw=base64.b64decode(payload,validate=True)
+          m=re.search(r"cat >/tmp/phase25-characterize\.b64 <<'B64'\n(.*?)\n\s*B64\n",s,re.S); assert m
+          raw=base64.b64decode(''.join(line.strip() for line in m.group(1).splitlines()),validate=True)
           open('/tmp/orig.mjs','wb').write(gzip.decompress(raw))
           PY
-          node --check /tmp/orig.mjs
-          echo '--- relevant algorithm lines ---'
-          grep -nE 'mainCardPanel|fonts\.ready|setTimeout|waitFor|delay|sleep|screenshot|representative|fingerprint|categories|dashboard|viewport|networkidle|domcontentloaded' /tmp/orig.mjs | head -280
-          echo '--- target screenshots/fingerprint ---'
-          node <<'NODE'
-          const fs=require('fs'); const d=JSON.parse(fs.readFileSync('phase-2.5-browser-characterization.json','utf8'));
-          console.log('SHOTS',JSON.stringify(d.screenshots.filter(s=>s.logicalName.includes('/en/quran-kids/:wide')),null,2));
-          console.log('FP',JSON.stringify(d.representativeElementFingerprints.find(x=>x.route==='/en/quran-kids/'&&x.viewport==='wide')?.categories?.mainCardPanel,null,2));
-          console.log('BC',JSON.stringify(d.baselineComparison[11],null,2));
-          NODE
+          echo '--- original capture 90-235 ---'
+          sed -n '90,235p' /tmp/orig.mjs
+          echo '--- Phase0 dashboard/ink/color source hits ---'
+          git grep -n -E 'dashboard|--ink|color:[[:space:]]*var\(--ink\)|color:[[:space:]]*#12382f|color:[[:space:]]*#12382F' 6e46539a02db342838d7c113a45ff558192658e5 -- '*.css' 'en/*' | head -300 || true
+          echo '--- Phase2 dashboard/ink/color source hits ---'
+          git grep -n -E 'dashboard|--ink|color:[[:space:]]*var\(--ink\)|color:[[:space:]]*#12382f|color:[[:space:]]*#12382F' 1504baad33b2123056877c1e92f4e2d558c00d51 -- '*.css' 'en/*' | head -300 || true
+          echo '--- production diff acquisition files ---'
+          git diff --unified=8 6e46539a02db342838d7c113a45ff558192658e5 1504baad33b2123056877c1e92f4e2d558c00d51 -- acquisition.css acquisition-colorize-v1.css tokens.css | sed -n '1,700p'
+          test -z "$(git status --porcelain)"
