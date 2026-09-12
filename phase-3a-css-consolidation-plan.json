@@ -1,0 +1,6851 @@
+{
+  "phase": "3A",
+  "mode": "PLANNING ONLY — NO PRODUCTION CSS CHANGES",
+  "branch": "basair/phase-3a-css-consolidation-plan",
+  "authoritativeProductionBase": {
+    "commit": "1504baad33b2123056877c1e92f4e2d558c00d51",
+    "tree": "1d987040d0158387d0425d6e6ed00fe2a68ec617",
+    "cleanAtAudit": true
+  },
+  "auditEvidence": {
+    "phase25": "02bc781aec31c0de199c92b88205cc02ad6dc603",
+    "phase25A": "563d8c8b01b66ad5f744f1102905f756e2fc7b62",
+    "category5Closure": "C — MEASUREMENT / HARNESS FALSE POSITIVE",
+    "phase2ProductionRegressionsRequiringCssCorrection": 0,
+    "states": 48,
+    "conflictTokenRows": 1920,
+    "ownershipAssertions": "144/144",
+    "partition": "23/4/13",
+    "breakpointChanging": 15,
+    "stateChanging": 0
+  },
+  "sourceMetrics": {
+    "productionHtmlEntries": 12,
+    "allCssFiles": 58,
+    "productionCssFiles": 55,
+    "totalProductionCssBytes": 482088,
+    "selectorCount": 4120,
+    "customPropertyDeclarationCount": 458,
+    "duplicateSelectorPropertyValueClusters": 253,
+    "duplicateExactDeclarationBlockClustersAcrossFiles": 122,
+    "localExactDuplicateDeclarations": 0
+  },
+  "surfaceSummary": {
+    "PUBLIC-only": {
+      "files": 32,
+      "bytes": 367274,
+      "selectorOccurrences": 2834
+    },
+    "ACQUISITION-only": {
+      "files": 8,
+      "bytes": 40970,
+      "selectorOccurrences": 535
+    },
+    "ADMIN-only": {
+      "files": 11,
+      "bytes": 40394,
+      "selectorOccurrences": 526
+    },
+    "PUBLIC+ACQUISITION": {
+      "files": 2,
+      "bytes": 25659,
+      "selectorOccurrences": 203
+    },
+    "ALL-THREE": {
+      "files": 2,
+      "bytes": 7791,
+      "selectorOccurrences": 22
+    }
+  },
+  "htmlEntries": [
+    {
+      "path": "admin.html",
+      "surface": "ADMIN",
+      "directStylesheets": [
+        "admin-ui-fixes-v1.css",
+        "admin-v3.css",
+        "admin-typeset-v1.css",
+        "admin-layout-v1.css",
+        "admin-colorize-v1.css",
+        "admin-animate-v1.css",
+        "admin-delight-v1.css",
+        "admin-precision-native-v2.css",
+        "admin-polish-v2.css",
+        "admin-final-polish-v3.css",
+        "harden-v1.css"
+      ],
+      "reachableCssCount": 13,
+      "logicalLoadOccurrences": [
+        {
+          "file": "admin-ui-fixes-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "admin-ui-fixes-v1.css"
+        },
+        {
+          "file": "tokens-admin-compat.css",
+          "via": "admin-ui-fixes-v1.css"
+        },
+        {
+          "file": "admin-v3.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-typeset-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-layout-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-colorize-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-animate-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-delight-v1.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-precision-native-v2.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-polish-v2.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "admin-final-polish-v3.css",
+          "via": "admin.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "admin.html"
+        }
+      ]
+    },
+    {
+      "path": "en/arabic/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "en/arabic/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "en/arabic/index.html"
+        }
+      ]
+    },
+    {
+      "path": "en/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 10,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "en/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "en/index.html"
+        }
+      ]
+    },
+    {
+      "path": "en/quran-adults/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "en/quran-adults/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "en/quran-adults/index.html"
+        }
+      ]
+    },
+    {
+      "path": "en/quran-kids/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "en/quran-kids/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "en/quran-kids/index.html"
+        }
+      ]
+    },
+    {
+      "path": "index.html",
+      "surface": "PUBLIC",
+      "directStylesheets": [
+        "index.css",
+        "styles.css",
+        "guide-v2.css",
+        "premium-v3.css",
+        "premium-v4.css",
+        "typeset-v1.css",
+        "layout-v1.css",
+        "colorize-v1.css",
+        "animate-v1.css",
+        "delight-v1.css",
+        "overdrive-v1.css",
+        "visual-layout-hotfix-v2.css",
+        "precision-native-v2.css",
+        "harden-v1.css",
+        "basair-splash.css",
+        "polish-v2.css",
+        "topbar-overdrive-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "course-cards-overdrive-v1.css",
+        "final-polish-v3.css",
+        "hero-typeset-v2.css",
+        "hero-layout-v2.css",
+        "hero-overdrive-v2.css",
+        "hero-delight-v4.css",
+        "hero-animate-v4.css",
+        "hero-polish-v4.css",
+        "hero-cta-overdrive-v1.css",
+        "homepage-sections-v1.css",
+        "academic-pathways-v1.css",
+        "ui-stability-v1.css",
+        "public-ui-fixes-v1.css",
+        "quick-guide-impeccable-v8.css",
+        "track-buttons-v6.css"
+      ],
+      "reachableCssCount": 36,
+      "logicalLoadOccurrences": [
+        {
+          "file": "index.css",
+          "via": "index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "index.css"
+        },
+        {
+          "file": "tokens-public-compat.css",
+          "via": "index.css"
+        },
+        {
+          "file": "styles.css",
+          "via": "index.html"
+        },
+        {
+          "file": "guide-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "premium-v3.css",
+          "via": "index.html"
+        },
+        {
+          "file": "premium-v4.css",
+          "via": "index.html"
+        },
+        {
+          "file": "typeset-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "layout-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "colorize-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "animate-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "delight-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "overdrive-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "visual-layout-hotfix-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "precision-native-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "basair-splash.css",
+          "via": "index.html"
+        },
+        {
+          "file": "polish-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "topbar-overdrive-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "course-cards-overdrive-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "final-polish-v3.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-typeset-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-layout-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-overdrive-v2.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-delight-v4.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-animate-v4.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-polish-v4.css",
+          "via": "index.html"
+        },
+        {
+          "file": "hero-cta-overdrive-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "homepage-sections-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "academic-pathways-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "ui-stability-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "via": "index.html"
+        },
+        {
+          "file": "quick-guide-impeccable-v8.css",
+          "via": "index.html"
+        },
+        {
+          "file": "track-buttons-v6.css",
+          "via": "index.html"
+        }
+      ]
+    },
+    {
+      "path": "ru/arabic/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "ru/arabic/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "ru/arabic/index.html"
+        }
+      ]
+    },
+    {
+      "path": "ru/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 10,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "ru/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "ru/index.html"
+        }
+      ]
+    },
+    {
+      "path": "ru/quran/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "ru/quran/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "ru/quran/index.html"
+        }
+      ]
+    },
+    {
+      "path": "uz/arabic/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "uz/arabic/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "uz/arabic/index.html"
+        }
+      ]
+    },
+    {
+      "path": "uz/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 10,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "uz/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "uz/index.html"
+        }
+      ]
+    },
+    {
+      "path": "uz/quran/index.html",
+      "surface": "ACQUISITION",
+      "directStylesheets": [
+        "acquisition.css",
+        "acquisition-colorize-v1.css",
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css",
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css",
+        "harden-v1.css",
+        "form-overdrive-v1.css",
+        "form-polish-v2.css",
+        "acquisition-final-polish-v3.css"
+      ],
+      "reachableCssCount": 12,
+      "logicalLoadOccurrences": [
+        {
+          "file": "acquisition.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "tokens.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "tokens-acquisition-compat.css",
+          "via": "acquisition.css"
+        },
+        {
+          "file": "acquisition-colorize-v1.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "acquisition-animate-v1.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "acquisition-delight-v1.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "acquisition-precision-native-v2.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "acquisition-polish-v2.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "harden-v1.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "via": "uz/quran/index.html"
+        },
+        {
+          "file": "acquisition-final-polish-v3.css",
+          "via": "uz/quran/index.html"
+        }
+      ]
+    }
+  ],
+  "importGraph": {
+    "acquisition.css": [
+      "tokens.css",
+      "tokens-acquisition-compat.css"
+    ],
+    "admin-ui-fixes-v1.css": [
+      "tokens.css",
+      "tokens-admin-compat.css"
+    ],
+    "index.css": [
+      "tokens.css",
+      "tokens-public-compat.css"
+    ]
+  },
+  "productionCssInventory": [
+    {
+      "path": "academic-pathways-v1.css",
+      "bytes": 19773,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 106,
+      "customPropertiesDeclaredCount": 27,
+      "customPropertiesDeclared": [
+        "--pathway-accent",
+        "--pathway-accent-ink",
+        "--pathway-summary-bg",
+        "--pathway-summary-ink",
+        "--pathway-summary-line",
+        "--pathway-summary-muted",
+        "--pathways-gold",
+        "--pathways-gold-ink",
+        "--pathways-green",
+        "--pathways-green-deep",
+        "--pathways-ink",
+        "--pathways-ivory",
+        "--pathways-line",
+        "--pathways-line-strong",
+        "--pathways-paper"
+      ],
+      "customPropertiesConsumed": [
+        "--cc-x",
+        "--cc-y",
+        "--pathway-accent",
+        "--pathway-accent-ink",
+        "--pathway-summary-bg",
+        "--pathway-summary-ink",
+        "--pathway-summary-line",
+        "--pathway-summary-muted",
+        "--pathways-gold",
+        "--pathways-gold-ink",
+        "--pathways-green",
+        "--pathways-green-deep",
+        "--pathways-ink",
+        "--pathways-line",
+        "--pathways-paper"
+      ],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(min-width:1180px)",
+        "(min-width:768px) and (max-width:1179px)",
+        "(max-width:767px)",
+        "(forced-colors:active)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "COURSE_CARD"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          104
+        ],
+        [
+          ".pathway-summary",
+          38
+        ],
+        [
+          ".academic-doc",
+          38
+        ],
+        [
+          ".academic-pathway",
+          19
+        ],
+        [
+          ".route-ar",
+          16
+        ],
+        [
+          ".course-dossier-card",
+          10
+        ],
+        [
+          ".academic-pathways-heading",
+          6
+        ],
+        [
+          ".pathway-reading-rail__fill",
+          6
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 15,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-animate-v1.css",
+      "bytes": 3671,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 37,
+      "customPropertiesDeclaredCount": 5,
+      "customPropertiesDeclared": [
+        "--acq-motion-ease",
+        "--acq-motion-feedback",
+        "--acq-motion-focal",
+        "--acq-motion-layout",
+        "--acq-motion-state"
+      ],
+      "customPropertiesConsumed": [
+        "--acq-motion-ease",
+        "--acq-motion-feedback",
+        "--acq-motion-focal",
+        "--acq-motion-layout",
+        "--acq-motion-state"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "ADMIN_PANEL"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".motion-enabled",
+          15
+        ],
+        [
+          ".dashboard",
+          14
+        ],
+        [
+          ".visible",
+          13
+        ],
+        [
+          ".progress-fill",
+          8
+        ],
+        [
+          ".error-item",
+          6
+        ],
+        [
+          ".reveal",
+          5
+        ],
+        [
+          ".btn",
+          5
+        ],
+        [
+          ".show",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-colorize-v1.css",
+      "bytes": 3895,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 67,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [
+        "--gold-ink",
+        "--ink",
+        "--ivory",
+        "--line",
+        "--navy",
+        "--quranic",
+        "--shadow"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-contrast:more)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".field",
+          7
+        ],
+        [
+          ".section-dark",
+          4
+        ],
+        [
+          ".teacher-card",
+          4
+        ],
+        [
+          ".hero",
+          3
+        ],
+        [
+          ".card",
+          3
+        ],
+        [
+          ".method-item",
+          3
+        ],
+        [
+          ".header-nav",
+          2
+        ],
+        [
+          ".btn-primary",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 7,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-delight-v1.css",
+      "bytes": 2225,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 18,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(prefers-reduced-motion: no-preference)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".form-status",
+          9
+        ],
+        [
+          ".show",
+          5
+        ],
+        [
+          ".post-submit",
+          5
+        ],
+        [
+          ".loading",
+          3
+        ],
+        [
+          ".success",
+          2
+        ],
+        [
+          ".form-card",
+          2
+        ],
+        [
+          ".is-recovery",
+          2
+        ],
+        [
+          ".error",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-final-polish-v3.css",
+      "bytes": 2884,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 50,
+      "customPropertiesDeclaredCount": 6,
+      "customPropertiesDeclared": [
+        "--afp-gold",
+        "--afp-green",
+        "--afp-ink",
+        "--afp-line",
+        "--afp-shadow",
+        "--afp-shadow-strong"
+      ],
+      "customPropertiesConsumed": [
+        "--afp-ink",
+        "--afp-line",
+        "--afp-shadow",
+        "--afp-shadow-strong"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:760px)",
+        "(forced-colors:active)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "ADMIN_PANEL",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".btn",
+          6
+        ],
+        [
+          ".card",
+          5
+        ],
+        [
+          ".faq",
+          5
+        ],
+        [
+          ".form-card",
+          4
+        ],
+        [
+          ".hero",
+          3
+        ],
+        [
+          ".cta-panel",
+          3
+        ],
+        [
+          ".overdrive-field",
+          3
+        ],
+        [
+          ".teacher-card",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-polish-v2.css",
+      "bytes": 2677,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 22,
+      "customPropertiesDeclaredCount": 4,
+      "customPropertiesDeclared": [
+        "--aq-gold",
+        "--aq-green",
+        "--aq-green-deep",
+        "--aq-navy"
+      ],
+      "customPropertiesConsumed": [
+        "--aq-green",
+        "--aq-navy"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:520px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO",
+        "ADMIN_PANEL"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".btn",
+          6
+        ],
+        [
+          ".card",
+          5
+        ],
+        [
+          ".dashboard",
+          3
+        ],
+        [
+          ".hero",
+          2
+        ],
+        [
+          ".btn-primary",
+          1
+        ],
+        [
+          ".btn-gold",
+          1
+        ],
+        [
+          ".btn-ghost",
+          1
+        ],
+        [
+          ".status-pill",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition-precision-native-v2.css",
+      "bytes": 807,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 7,
+      "customPropertiesDeclaredCount": 1,
+      "customPropertiesDeclared": [
+        "--pn-acq-ease"
+      ],
+      "customPropertiesConsumed": [
+        "--pn-acq-ease"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 1,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "acquisition.css",
+      "bytes": 23439,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [
+        "tokens.css",
+        "tokens-acquisition-compat.css"
+      ],
+      "selectorCount": 333,
+      "customPropertiesDeclaredCount": 4,
+      "customPropertiesDeclared": [
+        "--acq-layout-gutter",
+        "--acq-layout-section",
+        "--acq-type-display",
+        "--acq-type-section"
+      ],
+      "customPropertiesConsumed": [
+        "--acq-layout-gap",
+        "--acq-layout-gutter",
+        "--acq-layout-section",
+        "--acq-layout-wide",
+        "--acq-measure",
+        "--acq-type-body",
+        "--acq-type-display",
+        "--acq-type-meta",
+        "--acq-type-section",
+        "--acq-type-support",
+        "--gold",
+        "--ink",
+        "--ivory",
+        "--line",
+        "--muted",
+        "--navy",
+        "--quranic",
+        "--quranic-deep",
+        "--radius-lg",
+        "--radius-xl",
+        "--shadow"
+      ],
+      "mediaQueryCount": 10,
+      "mediaQueries": [
+        "(max-width: 940px)",
+        "(max-width: 640px)",
+        "(prefers-reduced-motion: reduce)",
+        "(max-width: 760px)",
+        "(max-width: 640px)",
+        "(max-width: 390px)",
+        "(max-width:760px)",
+        "(max-width:1000px)",
+        "(max-width:760px)",
+        "(max-width:420px)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "ADMIN_PANEL",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".field",
+          19
+        ],
+        [
+          ".btn",
+          18
+        ],
+        [
+          ".hero",
+          15
+        ],
+        [
+          ".trust-item",
+          12
+        ],
+        [
+          ".cta-panel",
+          12
+        ],
+        [
+          ".form-card",
+          8
+        ],
+        [
+          ".brand-copy",
+          7
+        ],
+        [
+          ".section",
+          7
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 21,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-animate-v1.css",
+      "bytes": 1797,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 28,
+      "customPropertiesDeclaredCount": 4,
+      "customPropertiesDeclared": [
+        "--admin-motion-ease",
+        "--admin-motion-feedback",
+        "--admin-motion-panel",
+        "--admin-motion-state"
+      ],
+      "customPropertiesConsumed": [
+        "--admin-motion-ease",
+        "--admin-motion-feedback",
+        "--admin-motion-panel",
+        "--admin-motion-state"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:900px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".nav-btn",
+          9
+        ],
+        [
+          ".item",
+          4
+        ],
+        [
+          ".active",
+          4
+        ],
+        [
+          ".btn",
+          3
+        ],
+        [
+          ".section",
+          2
+        ],
+        [
+          ".status",
+          2
+        ],
+        [
+          ".show",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-colorize-v1.css",
+      "bytes": 4953,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 60,
+      "customPropertiesDeclaredCount": 1,
+      "customPropertiesDeclared": [
+        "--accent"
+      ],
+      "customPropertiesConsumed": [
+        "--admin-bg",
+        "--admin-line"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-contrast:more)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "NAVIGATION",
+        "ADMIN_PANEL"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".nav-btn",
+          4
+        ],
+        [
+          ".btn",
+          4
+        ],
+        [
+          ".item",
+          4
+        ],
+        [
+          ".stat",
+          3
+        ],
+        [
+          ".secondary",
+          3
+        ],
+        [
+          ".danger",
+          3
+        ],
+        [
+          ".google-btn",
+          3
+        ],
+        [
+          ".status",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-delight-v1.css",
+      "bytes": 2159,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 16,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(prefers-reduced-motion: no-preference)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "GENERAL_ADMIN"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".btn",
+          4
+        ],
+        [
+          ".status",
+          3
+        ],
+        [
+          ".status-mark",
+          3
+        ],
+        [
+          ".is-confirmed",
+          3
+        ],
+        [
+          ".show",
+          2
+        ],
+        [
+          ".empty",
+          2
+        ],
+        [
+          ".status-copy",
+          1
+        ],
+        [
+          ".success",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-final-polish-v3.css",
+      "bytes": 2658,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 66,
+      "customPropertiesDeclaredCount": 5,
+      "customPropertiesDeclared": [
+        "--adfp-gold",
+        "--adfp-green",
+        "--adfp-line",
+        "--adfp-shadow",
+        "--adfp-shadow-strong"
+      ],
+      "customPropertiesConsumed": [
+        "--adfp-line",
+        "--adfp-shadow"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:720px)",
+        "(forced-colors:active)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".field",
+          6
+        ],
+        [
+          ".btn",
+          5
+        ],
+        [
+          ".item",
+          4
+        ],
+        [
+          ".capability-item",
+          4
+        ],
+        [
+          ".integrity-meta-card",
+          4
+        ],
+        [
+          ".editor-meta-card",
+          4
+        ],
+        [
+          ".nav-btn",
+          4
+        ],
+        [
+          ".topbar",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-layout-v1.css",
+      "bytes": 3757,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 47,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [
+        "--admin-layout-content-gap",
+        "--admin-layout-gap",
+        "--admin-layout-gutter",
+        "--admin-layout-shell"
+      ],
+      "mediaQueryCount": 4,
+      "mediaQueries": [
+        "(max-width: 1180px)",
+        "(max-width: 900px)",
+        "(max-width: 680px)",
+        "(max-width: 420px)"
+      ],
+      "componentOwnershipSignals": [
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".panel",
+          6
+        ],
+        [
+          ".sidebar",
+          5
+        ],
+        [
+          ".content",
+          5
+        ],
+        [
+          ".shell",
+          4
+        ],
+        [
+          ".topbar",
+          3
+        ],
+        [
+          ".grid-4",
+          3
+        ],
+        [
+          ".top-actions",
+          3
+        ],
+        [
+          ".row-actions",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-polish-v2.css",
+      "bytes": 3966,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 69,
+      "customPropertiesDeclaredCount": 6,
+      "customPropertiesDeclared": [
+        "--ap-gold",
+        "--ap-green",
+        "--ap-green-deep",
+        "--ap-line",
+        "--ap-paper",
+        "--ap-shadow"
+      ],
+      "customPropertiesConsumed": [
+        "--ap-line",
+        "--ap-shadow"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:520px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".btn",
+          10
+        ],
+        [
+          ".main-card",
+          6
+        ],
+        [
+          ".panel",
+          6
+        ],
+        [
+          ".item",
+          6
+        ],
+        [
+          ".login-card",
+          6
+        ],
+        [
+          ".capability-item",
+          4
+        ],
+        [
+          ".integrity-meta-card",
+          4
+        ],
+        [
+          ".editor-meta-card",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-precision-native-v2.css",
+      "bytes": 2047,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 30,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--pn-admin-ease",
+        "--pn-admin-fast",
+        "--pn-admin-state"
+      ],
+      "customPropertiesConsumed": [
+        "--pn-admin-ease",
+        "--pn-admin-state"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".btn",
+          7
+        ],
+        [
+          ".item",
+          7
+        ],
+        [
+          ".nav-btn",
+          6
+        ],
+        [
+          ".status",
+          2
+        ],
+        [
+          ".is-native-pending",
+          2
+        ],
+        [
+          ".basair-admin-tab-transition",
+          2
+        ],
+        [
+          ".pill",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-typeset-v1.css",
+      "bytes": 2965,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 52,
+      "customPropertiesDeclaredCount": 4,
+      "customPropertiesDeclared": [
+        "--admin-type-body",
+        "--admin-type-panel",
+        "--admin-type-support",
+        "--admin-type-title"
+      ],
+      "customPropertiesConsumed": [
+        "--admin-leading-body",
+        "--admin-type-meta",
+        "--admin-type-panel",
+        "--admin-type-support",
+        "--admin-type-title"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(max-width:520px)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".topbar",
+          3
+        ],
+        [
+          ".panel",
+          3
+        ],
+        [
+          ".overview-intro",
+          3
+        ],
+        [
+          ".nav-btn",
+          3
+        ],
+        [
+          ".brand",
+          2
+        ],
+        [
+          ".hint",
+          2
+        ],
+        [
+          ".btn",
+          2
+        ],
+        [
+          ".stat",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-ui-fixes-v1.css",
+      "bytes": 905,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [
+        "tokens.css",
+        "tokens-admin-compat.css"
+      ],
+      "selectorCount": 5,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".content",
+          3
+        ],
+        [
+          ".hidden",
+          3
+        ],
+        [
+          "#login-screen",
+          3
+        ],
+        [
+          "#status",
+          3
+        ],
+        [
+          ".nav-btn",
+          2
+        ],
+        [
+          ".badge",
+          2
+        ],
+        [
+          ".is-hidden",
+          1
+        ],
+        [
+          ".status-mark",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "admin-v3.css",
+      "bytes": 13924,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "HTML:admin.html"
+      ],
+      "imports": [],
+      "selectorCount": 152,
+      "customPropertiesDeclaredCount": 1,
+      "customPropertiesDeclared": [
+        "--accent"
+      ],
+      "customPropertiesConsumed": [
+        "--admin-bg",
+        "--admin-line",
+        "--admin-muted",
+        "--admin-text",
+        "--muted"
+      ],
+      "mediaQueryCount": 6,
+      "mediaQueries": [
+        "(max-width:1100px)",
+        "(max-width:820px)",
+        "(max-width:520px)",
+        "(max-width:980px)",
+        "(max-width:820px)",
+        "(max-width:520px)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".topbar",
+          9
+        ],
+        [
+          ".btn",
+          8
+        ],
+        [
+          ".overview-mark",
+          6
+        ],
+        [
+          ".capability-item",
+          6
+        ],
+        [
+          ".stat",
+          5
+        ],
+        [
+          ".item",
+          5
+        ],
+        [
+          ".integrity-checklist",
+          5
+        ],
+        [
+          ".brand",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "animate-v1.css",
+      "bytes": 7431,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 68,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--accent"
+      ],
+      "customPropertiesConsumed": [
+        "--motion-ease-out",
+        "--motion-exit",
+        "--motion-feedback",
+        "--motion-focal",
+        "--motion-overlay",
+        "--motion-state"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(prefers-reduced-motion:reduce)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO",
+        "NAVIGATION",
+        "VIDEO",
+        "WELCOME"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          27
+        ],
+        [
+          ".motion-entered",
+          16
+        ],
+        [
+          ".max-w-7xl",
+          12
+        ],
+        [
+          ".motion-prep",
+          10
+        ],
+        [
+          ".hero-title__line",
+          6
+        ],
+        [
+          ".nav-link",
+          6
+        ],
+        [
+          ".absolute",
+          6
+        ],
+        [
+          ".bottom-0",
+          6
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 6,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "basair-splash.css",
+      "bytes": 6035,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 31,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width: 640px)",
+        "(max-width:640px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "WELCOME"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#splash-screen",
+          13
+        ],
+        [
+          ".basair-splash",
+          10
+        ],
+        [
+          ".basair-splash__loader",
+          6
+        ],
+        [
+          ".basair-splash__content",
+          5
+        ],
+        [
+          ".splash-hidden",
+          4
+        ],
+        [
+          ".basair-splash__logo",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "colorize-v1.css",
+      "bytes": 8877,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 71,
+      "customPropertiesDeclaredCount": 2,
+      "customPropertiesDeclared": [
+        "--sciences",
+        "--tw-ring-color"
+      ],
+      "customPropertiesConsumed": [
+        "--basair-canvas",
+        "--basair-gold-ink",
+        "--basair-green",
+        "--basair-green-deep",
+        "--basair-green-hover",
+        "--basair-line",
+        "--basair-navy"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-contrast:more)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "VIDEO",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          12
+        ],
+        [
+          "#navbar",
+          8
+        ],
+        [
+          "#contact",
+          7
+        ],
+        [
+          "#tracks",
+          7
+        ],
+        [
+          "#quick-guide",
+          6
+        ],
+        [
+          "#video-library",
+          4
+        ],
+        [
+          "#video-filters",
+          4
+        ],
+        [
+          ".nav-link",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 7,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "course-cards-overdrive-v1.css",
+      "bytes": 6399,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 45,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--course-od-cream",
+        "--course-od-gold",
+        "--course-od-ink"
+      ],
+      "customPropertiesConsumed": [
+        "--cc-x",
+        "--cc-y",
+        "--course-od-gold"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width: 1023px)",
+        "(max-width: 767px)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "COURSE_CARD"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          44
+        ],
+        [
+          ".course-dossier-card",
+          21
+        ],
+        [
+          ".course-dossier-kicker",
+          5
+        ],
+        [
+          ".course-dossier-chip",
+          4
+        ],
+        [
+          ".is-course-card-active",
+          3
+        ],
+        [
+          ".course-dossier-index",
+          3
+        ],
+        [
+          ".course-dossier-status-dot",
+          3
+        ],
+        [
+          ".track-detail-cta-v6",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 3,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "delight-v1.css",
+      "bytes": 3590,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 22,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width: 560px)",
+        "(prefers-reduced-motion: no-preference)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "GENERAL_PUBLIC"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#success-message",
+          5
+        ],
+        [
+          ".assessment-recovery__link",
+          5
+        ],
+        [
+          "#enrollment-form",
+          2
+        ],
+        [
+          ".assessment-recovery",
+          2
+        ],
+        [
+          ".assessment-recovery__actions",
+          2
+        ],
+        [
+          "#error-message",
+          1
+        ],
+        [
+          ".assessment-recovery__lead",
+          1
+        ],
+        [
+          ".assessment-recovery__link--whatsapp",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "final-polish-v3.css",
+      "bytes": 8042,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 93,
+      "customPropertiesDeclaredCount": 11,
+      "customPropertiesDeclared": [
+        "--fp-ease",
+        "--fp-gold",
+        "--fp-green",
+        "--fp-ink",
+        "--fp-ivory",
+        "--fp-line",
+        "--fp-line-soft",
+        "--fp-paper",
+        "--fp-shadow-1",
+        "--fp-shadow-2",
+        "--fp-shadow-dark"
+      ],
+      "customPropertiesConsumed": [
+        "--fp-green",
+        "--fp-ink",
+        "--fp-line-soft",
+        "--fp-shadow-1",
+        "--fp-shadow-2"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:820px)",
+        "(forced-colors:active)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "COURSE_CARD",
+        "VIDEO",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          15
+        ],
+        [
+          "#contact",
+          13
+        ],
+        [
+          "#quick-guide",
+          13
+        ],
+        [
+          "#navbar",
+          8
+        ],
+        [
+          "#home",
+          8
+        ],
+        [
+          ".course-dossier-card",
+          8
+        ],
+        [
+          "#faq",
+          7
+        ],
+        [
+          "#submit-btn",
+          6
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "form-overdrive-v1.css",
+      "bytes": 13735,
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "index.html",
+        "ru/arabic/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 108,
+      "customPropertiesDeclaredCount": 28,
+      "customPropertiesDeclared": [
+        "--fo-bg",
+        "--fo-border",
+        "--fo-border-strong",
+        "--fo-danger-bg",
+        "--fo-muted",
+        "--fo-shadow",
+        "--fo-success-bg",
+        "--fo-surface",
+        "--fo-surface-strong",
+        "--fo-text",
+        "--form-od-danger",
+        "--form-od-gold",
+        "--form-od-gold-soft",
+        "--form-od-ink",
+        "--form-od-neutral",
+        "--form-od-success",
+        "--pulse"
+      ],
+      "customPropertiesConsumed": [
+        "--fo-bg",
+        "--fo-border",
+        "--fo-border-strong",
+        "--fo-danger-bg",
+        "--fo-muted",
+        "--fo-shadow",
+        "--fo-success-bg",
+        "--fo-surface",
+        "--fo-surface-strong",
+        "--fo-text",
+        "--form-od-danger",
+        "--form-od-gold",
+        "--form-od-gold-soft",
+        "--form-od-ink",
+        "--form-od-success"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width: 767px)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".overdrive-field",
+          26
+        ],
+        [
+          ".overdrive-form",
+          19
+        ],
+        [
+          "#assessment-form",
+          9
+        ],
+        [
+          ".field-status-row",
+          6
+        ],
+        [
+          ".form-section-pill",
+          5
+        ],
+        [
+          ".form-submit-caption__state",
+          5
+        ],
+        [
+          "#form-status",
+          5
+        ],
+        [
+          ".show",
+          5
+        ]
+      ],
+      "participatesMultipleSurfaces": true,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 8,
+      "customPropertiesConsumedCount": 15,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "form-polish-v2.css",
+      "bytes": 11924,
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "index.html",
+        "ru/arabic/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:en/arabic/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 95,
+      "customPropertiesDeclaredCount": 1,
+      "customPropertiesDeclared": [
+        "--pulse"
+      ],
+      "customPropertiesConsumed": [
+        "--fo-border",
+        "--fo-muted",
+        "--fo-surface",
+        "--fo-surface-strong"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(min-width:768px)",
+        "(max-width:767px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".overdrive-form",
+          80
+        ],
+        [
+          "#assessment-form",
+          15
+        ],
+        [
+          "#enrollment-form",
+          12
+        ],
+        [
+          ".overdrive-field",
+          12
+        ],
+        [
+          ".form-overdrive-panel",
+          5
+        ],
+        [
+          ".show",
+          5
+        ],
+        [
+          ".is-valid",
+          4
+        ],
+        [
+          ".is-invalid",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": true,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 8,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "guide-v2.css",
+      "bytes": 10495,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 79,
+      "customPropertiesDeclaredCount": 7,
+      "customPropertiesDeclared": [
+        "--arabic",
+        "--primary",
+        "--qg-gold",
+        "--qg-green",
+        "--qg-navy",
+        "--sciences",
+        "--secondary"
+      ],
+      "customPropertiesConsumed": [
+        "--qg-gold",
+        "--qg-green",
+        "--qg-navy"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:980px)",
+        "(max-width:620px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "GENERAL_PUBLIC"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#quick-guide",
+          79
+        ],
+        [
+          ".route-ar",
+          15
+        ],
+        [
+          ".concise-guide__study-flow",
+          11
+        ],
+        [
+          ".concise-guide__feature-grid",
+          11
+        ],
+        [
+          ".concise-guide__header",
+          10
+        ],
+        [
+          ".concise-domain",
+          9
+        ],
+        [
+          ".guide-action",
+          9
+        ],
+        [
+          ".concise-guide__kicker",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 3,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "harden-v1.css",
+      "bytes": 2257,
+      "surfaces": [
+        "ACQUISITION",
+        "ADMIN",
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "admin.html",
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "HTML:admin.html",
+        "HTML:en/arabic/index.html",
+        "HTML:en/index.html",
+        "HTML:en/quran-adults/index.html",
+        "HTML:en/quran-kids/index.html",
+        "HTML:index.html",
+        "HTML:ru/arabic/index.html",
+        "HTML:ru/index.html",
+        "HTML:ru/quran/index.html",
+        "HTML:uz/arabic/index.html",
+        "HTML:uz/index.html",
+        "HTML:uz/quran/index.html"
+      ],
+      "imports": [],
+      "selectorCount": 21,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:640px)",
+        "(forced-colors:active)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "COURSE_CARD",
+        "VIDEO"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".basair-network-status",
+          6
+        ],
+        [
+          ".item",
+          2
+        ],
+        [
+          ".card",
+          2
+        ],
+        [
+          ".form-card",
+          2
+        ],
+        [
+          ".status-copy",
+          2
+        ],
+        [
+          ".btn",
+          2
+        ],
+        [
+          ".nav-btn",
+          2
+        ],
+        [
+          ".container",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": true,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 12,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-animate-v4.css",
+      "bytes": 6484,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 83,
+      "customPropertiesDeclaredCount": 7,
+      "customPropertiesDeclared": [
+        "--accent",
+        "--hero-motion-ease"
+      ],
+      "customPropertiesConsumed": [
+        "--hero-motion-ease"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:1023px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          82
+        ],
+        [
+          ".motion-entered",
+          52
+        ],
+        [
+          ".motion-prep",
+          30
+        ],
+        [
+          ".hero-visual-stage",
+          9
+        ],
+        [
+          ".hero-title__line",
+          9
+        ],
+        [
+          ".hero-kicker",
+          7
+        ],
+        [
+          ".hero-copy-column",
+          7
+        ],
+        [
+          ".hero-primary-cta",
+          7
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 1,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-cta-overdrive-v1.css",
+      "bytes": 8067,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 50,
+      "customPropertiesDeclaredCount": 6,
+      "customPropertiesDeclared": [
+        "--hero-cta-gold",
+        "--hero-cta-green",
+        "--hero-cta-green-deep",
+        "--hero-cta-ink",
+        "--hero-cta-x",
+        "--hero-cta-y"
+      ],
+      "customPropertiesConsumed": [
+        "--hero-cta-ink",
+        "--hero-cta-x",
+        "--hero-cta-y"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:1023px)",
+        "(max-width:640px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          44
+        ],
+        [
+          ".hero-cta",
+          15
+        ],
+        [
+          ".hero-secondary-cta",
+          14
+        ],
+        [
+          ".hero-primary-cta",
+          9
+        ],
+        [
+          ".route-ar",
+          8
+        ],
+        [
+          ".motion-entered",
+          6
+        ],
+        [
+          ".hero-cta-group",
+          5
+        ],
+        [
+          ".motion-prep",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 3,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-delight-v4.css",
+      "bytes": 2959,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 30,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--1",
+        "--2",
+        "--3"
+      ],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          18
+        ],
+        [
+          ".motion-entered",
+          7
+        ],
+        [
+          ".hero-visual-node",
+          4
+        ],
+        [
+          ".hero-kicker",
+          3
+        ],
+        [
+          ".hero-title__line--accent",
+          3
+        ],
+        [
+          ".hero-visual-seal",
+          3
+        ],
+        [
+          ".hero-primary-cta",
+          2
+        ],
+        [
+          ".is-acknowledged",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-layout-v2.css",
+      "bytes": 3070,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 29,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:1120px)",
+        "(max-width:1023px)",
+        "(max-width:640px)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          29
+        ],
+        [
+          ".hero-copy-column",
+          9
+        ],
+        [
+          ".route-ar",
+          6
+        ],
+        [
+          ".hero-kicker",
+          5
+        ],
+        [
+          ".hero-visual-stage",
+          5
+        ],
+        [
+          ".hero-shell",
+          4
+        ],
+        [
+          ".hero-primary-cta",
+          4
+        ],
+        [
+          ".hero-title",
+          1
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-overdrive-v2.css",
+      "bytes": 8203,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 49,
+      "customPropertiesDeclaredCount": 7,
+      "customPropertiesDeclared": [
+        "--accent",
+        "--hero-glow-x",
+        "--hero-glow-y",
+        "--hero-stage-rx",
+        "--hero-stage-ry",
+        "--hero-vx",
+        "--hero-vy"
+      ],
+      "customPropertiesConsumed": [
+        "--hero-cta-x",
+        "--hero-cta-y",
+        "--hero-glow-x",
+        "--hero-glow-y",
+        "--hero-stage-rx",
+        "--hero-stage-ry",
+        "--hero-vx",
+        "--hero-vy"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:1023px)",
+        "(max-width:640px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          43
+        ],
+        [
+          ".hero-primary-cta",
+          11
+        ],
+        [
+          ".hero-visual-plate",
+          7
+        ],
+        [
+          ".hero-visual-stage",
+          4
+        ],
+        [
+          ".hero-kicker",
+          3
+        ],
+        [
+          ".hero-visual-seal",
+          3
+        ],
+        [
+          ".hero-title__line--accent",
+          2
+        ],
+        [
+          ".route-ar",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 8,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-polish-v4.css",
+      "bytes": 5698,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 56,
+      "customPropertiesDeclaredCount": 1,
+      "customPropertiesDeclared": [
+        "--accent"
+      ],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(max-width:1120px)",
+        "(max-width:1023px)",
+        "(max-width:640px)",
+        "(max-width:390px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          56
+        ],
+        [
+          ".hero-copy-column",
+          9
+        ],
+        [
+          ".hero-primary-cta",
+          8
+        ],
+        [
+          ".hero-visual-stage",
+          6
+        ],
+        [
+          ".hero-kicker",
+          5
+        ],
+        [
+          ".hero-shell",
+          4
+        ],
+        [
+          ".route-ar",
+          4
+        ],
+        [
+          ".hero-visual-plate",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "hero-typeset-v2.css",
+      "bytes": 3575,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 27,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:1023px)",
+        "(max-width:640px)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          27
+        ],
+        [
+          ".route-ar",
+          10
+        ],
+        [
+          ".hero-title__line",
+          8
+        ],
+        [
+          ".hero-title",
+          5
+        ],
+        [
+          ".hero-title__line--accent",
+          5
+        ],
+        [
+          ".hero-copy-column",
+          4
+        ],
+        [
+          ".hero-kicker",
+          2
+        ],
+        [
+          ".hero-primary-cta",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "homepage-sections-v1.css",
+      "bytes": 10246,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 100,
+      "customPropertiesDeclaredCount": 12,
+      "customPropertiesDeclared": [
+        "--home-journey-gold",
+        "--home-journey-green",
+        "--home-journey-gutter",
+        "--home-journey-ink",
+        "--home-journey-ivory",
+        "--home-journey-line",
+        "--home-journey-paper",
+        "--home-journey-reading",
+        "--home-journey-section",
+        "--home-journey-stack",
+        "--home-journey-wide"
+      ],
+      "customPropertiesConsumed": [
+        "--home-journey-green",
+        "--home-journey-gutter",
+        "--home-journey-ink",
+        "--home-journey-line",
+        "--home-journey-paper",
+        "--home-journey-reading",
+        "--home-journey-section",
+        "--home-journey-wide"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:1023px)",
+        "(max-width:767px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "VIDEO",
+        "TESTIMONIAL",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#quick-guide",
+          17
+        ],
+        [
+          ".text-center",
+          15
+        ],
+        [
+          "#about",
+          13
+        ],
+        [
+          ".home-chapter",
+          12
+        ],
+        [
+          "#faq",
+          12
+        ],
+        [
+          "#testimonials",
+          12
+        ],
+        [
+          "#video-library",
+          12
+        ],
+        [
+          "#contact",
+          11
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 8,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "index.css",
+      "bytes": 345,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [
+        "tokens.css",
+        "tokens-public-compat.css"
+      ],
+      "selectorCount": 0,
+      "customPropertiesDeclaredCount": 6,
+      "customPropertiesDeclared": [
+        "--color-gold",
+        "--color-ivory",
+        "--color-navy",
+        "--color-quranic",
+        "--font-arabic",
+        "--font-latin"
+      ],
+      "customPropertiesConsumed": [
+        "--color-accent-gold",
+        "--color-brand-green",
+        "--color-structural-navy",
+        "--font-family-arabic",
+        "--font-family-latin"
+      ],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "GENERAL_PUBLIC"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "layout-v1.css",
+      "bytes": 6460,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 76,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--layout-gutter",
+        "--layout-section"
+      ],
+      "customPropertiesConsumed": [
+        "--layout-content",
+        "--layout-form",
+        "--layout-gutter",
+        "--layout-reading",
+        "--layout-section",
+        "--layout-stack",
+        "--layout-wide"
+      ],
+      "mediaQueryCount": 4,
+      "mediaQueries": [
+        "(min-width: 1024px) and (max-width: 1179px)",
+        "(max-width: 1023px)",
+        "(max-width: 767px)",
+        "(max-width: 420px)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO",
+        "VIDEO",
+        "TESTIMONIAL",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          17
+        ],
+        [
+          "#home",
+          14
+        ],
+        [
+          "#contact",
+          13
+        ],
+        [
+          "#faq",
+          8
+        ],
+        [
+          "#quick-guide",
+          8
+        ],
+        [
+          "#testimonials",
+          6
+        ],
+        [
+          "#about",
+          4
+        ],
+        [
+          "#video-library",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 7,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "overdrive-v1.css",
+      "bytes": 8523,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 55,
+      "customPropertiesDeclaredCount": 12,
+      "customPropertiesDeclared": [
+        "--folio-opacity",
+        "--od-ease",
+        "--od-emerald",
+        "--od-gold",
+        "--od-gold-soft",
+        "--od-ink",
+        "--od-pointer-x",
+        "--od-pointer-y",
+        "--od-reading-progress",
+        "--od-shift-x",
+        "--od-shift-y"
+      ],
+      "customPropertiesConsumed": [
+        "--folio-opacity",
+        "--od-ease",
+        "--od-pointer-x",
+        "--od-pointer-y",
+        "--od-reading-progress",
+        "--od-shift-x",
+        "--od-shift-y"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(hover: none), (pointer: coarse)",
+        "(max-width: 760px)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO",
+        "VIDEO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          13
+        ],
+        [
+          ".overdrive-manuscript",
+          10
+        ],
+        [
+          ".overdrive-folio-marker",
+          7
+        ],
+        [
+          ".video-card__media",
+          5
+        ],
+        [
+          ".overdrive-reading-progress__bar",
+          4
+        ],
+        [
+          ".video-card",
+          3
+        ],
+        [
+          "#navbar",
+          2
+        ],
+        [
+          ".overdrive-folio",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 7,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "polish-v2.css",
+      "bytes": 10373,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 80,
+      "customPropertiesDeclaredCount": 12,
+      "customPropertiesDeclared": [
+        "--polish-gold",
+        "--polish-gold-2",
+        "--polish-green",
+        "--polish-green-2",
+        "--polish-ivory",
+        "--polish-line",
+        "--polish-navy",
+        "--polish-navy-soft",
+        "--polish-paper",
+        "--polish-shadow",
+        "--polish-shadow-soft",
+        "--secondary"
+      ],
+      "customPropertiesConsumed": [
+        "--polish-green",
+        "--polish-navy",
+        "--polish-shadow",
+        "--polish-shadow-soft"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:820px)",
+        "(max-width:520px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "VIDEO",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".premium-action",
+          12
+        ],
+        [
+          ".filter-btn",
+          11
+        ],
+        [
+          "#video-filters",
+          11
+        ],
+        [
+          "#tracks",
+          11
+        ],
+        [
+          "#quick-guide",
+          11
+        ],
+        [
+          "#submit-btn",
+          9
+        ],
+        [
+          "#contact",
+          9
+        ],
+        [
+          "#lang-btn",
+          8
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "precision-native-v2.css",
+      "bytes": 4401,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 53,
+      "customPropertiesDeclaredCount": 5,
+      "customPropertiesDeclared": [
+        "--pn-ease",
+        "--pn-fast",
+        "--pn-focus",
+        "--pn-overlay",
+        "--pn-state"
+      ],
+      "customPropertiesConsumed": [
+        "--pn-ease",
+        "--pn-fast",
+        "--pn-focus",
+        "--pn-overlay",
+        "--pn-state"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(hover: none), (pointer: coarse)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "FORM",
+        "VIDEO"
+      ],
+      "topSelectorAnchors": [
+        [
+          ".basair-action",
+          4
+        ],
+        [
+          "#submit-btn",
+          4
+        ],
+        [
+          "#slider-prev-btn",
+          4
+        ],
+        [
+          "#slider-next-btn",
+          4
+        ],
+        [
+          "#mobile-menu-close",
+          4
+        ],
+        [
+          ".video-card__media",
+          4
+        ],
+        [
+          ".video-card__poster",
+          4
+        ],
+        [
+          "#enrollment-form",
+          4
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "premium-v3.css",
+      "bytes": 15797,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 159,
+      "customPropertiesDeclaredCount": 7,
+      "customPropertiesDeclared": [
+        "--arabic",
+        "--basair-ivory",
+        "--basair-radius",
+        "--basair-soft",
+        "--primary",
+        "--sciences",
+        "--secondary"
+      ],
+      "customPropertiesConsumed": [
+        "--basair-gold",
+        "--basair-green",
+        "--basair-green-deep",
+        "--basair-ivory",
+        "--basair-line",
+        "--basair-navy",
+        "--basair-soft"
+      ],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(prefers-reduced-motion:no-preference)",
+        "(max-width:1100px)",
+        "(max-width:720px)",
+        "(max-width:390px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO",
+        "VIDEO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          20
+        ],
+        [
+          "#home",
+          17
+        ],
+        [
+          ".academic-inquiry-btn",
+          17
+        ],
+        [
+          ".route-ar",
+          16
+        ],
+        [
+          ".domain-card",
+          14
+        ],
+        [
+          ".basair-guide__sequence",
+          12
+        ],
+        [
+          ".advantages-list",
+          9
+        ],
+        [
+          ".premium-action",
+          9
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 7,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "premium-v4.css",
+      "bytes": 13903,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 109,
+      "customPropertiesDeclaredCount": 11,
+      "customPropertiesDeclared": [
+        "--arabic",
+        "--b4-gold",
+        "--b4-green",
+        "--b4-green-2",
+        "--b4-ivory",
+        "--b4-line",
+        "--b4-muted",
+        "--b4-navy",
+        "--b4-paper",
+        "--learning",
+        "--sciences"
+      ],
+      "customPropertiesConsumed": [
+        "--b4-gold",
+        "--b4-green",
+        "--b4-line",
+        "--b4-muted",
+        "--b4-navy"
+      ],
+      "mediaQueryCount": 3,
+      "mediaQueries": [
+        "(max-width:1120px)",
+        "(max-width:720px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#quick-guide",
+          90
+        ],
+        [
+          "#tracks",
+          17
+        ],
+        [
+          ".outcome-panel",
+          14
+        ],
+        [
+          ".academic-inquiry-btn",
+          14
+        ],
+        [
+          ".route-ar",
+          12
+        ],
+        [
+          ".learning-compass",
+          12
+        ],
+        [
+          ".learning-outcomes__heading",
+          11
+        ],
+        [
+          ".learning-evidence__grid",
+          10
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 5,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "public-ui-fixes-v1.css",
+      "bytes": 24143,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 195,
+      "customPropertiesDeclaredCount": 9,
+      "customPropertiesDeclared": [
+        "--dossier-accent",
+        "--dossier-border",
+        "--pathway-summary-ink",
+        "--pathway-summary-line",
+        "--pathway-summary-muted"
+      ],
+      "customPropertiesConsumed": [
+        "--dossier-accent",
+        "--dossier-border"
+      ],
+      "mediaQueryCount": 11,
+      "mediaQueries": [
+        "(max-width: 640px)",
+        "(min-width:1024px)",
+        "(max-width:1023px)",
+        "(max-width:767px)",
+        "(prefers-reduced-motion:reduce)",
+        "(max-width:1179px)",
+        "(min-width:1280px)",
+        "(min-width:1024px) and (max-width:1279px)",
+        "(min-width:1440px)",
+        "(min-width:1024px) and (max-width:1439px)",
+        "(max-width:640px)"
+      ],
+      "componentOwnershipSignals": [
+        "FORM",
+        "HERO",
+        "NAVIGATION",
+        "COURSE_CARD"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          63
+        ],
+        [
+          ".pathway-summary",
+          52
+        ],
+        [
+          ".course-dossier-card",
+          37
+        ],
+        [
+          "#home",
+          36
+        ],
+        [
+          ".route-uz",
+          30
+        ],
+        [
+          "#navbar",
+          30
+        ],
+        [
+          "#enrollment-form",
+          27
+        ],
+        [
+          ".route-ar",
+          20
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 2,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "quick-guide-impeccable-v8.css",
+      "bytes": 11370,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 76,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 4,
+      "mediaQueries": [
+        "(max-width:1279px)",
+        "(max-width:1023px)",
+        "(max-width:767px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "GENERAL_PUBLIC"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#quick-guide",
+          76
+        ],
+        [
+          ".outcome-panel",
+          20
+        ],
+        [
+          ".basair-guide__intro--learning",
+          19
+        ],
+        [
+          ".learning-outcomes__heading",
+          16
+        ],
+        [
+          ".route-ar",
+          7
+        ],
+        [
+          ".route-fr",
+          7
+        ],
+        [
+          ".route-ru",
+          7
+        ],
+        [
+          ".route-uz",
+          7
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "styles.css",
+      "bytes": 112413,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 788,
+      "customPropertiesDeclaredCount": 10,
+      "customPropertiesDeclared": [
+        "--accent",
+        "--mobile-drawer-hidden-x",
+        "--primary",
+        "--secondary",
+        "--video"
+      ],
+      "customPropertiesConsumed": [
+        "--mobile-drawer-hidden-x",
+        "--motion-ease-out",
+        "--motion-overlay"
+      ],
+      "mediaQueryCount": 39,
+      "mediaQueries": [
+        "(max-width: 640px)",
+        "(prefers-reduced-motion: reduce)",
+        "(prefers-reduced-motion: reduce)",
+        "(max-width: 768px)",
+        "(max-width: 768px)",
+        "(max-width: 1023px)",
+        "(max-width: 640px)",
+        "(max-width: 1023px)",
+        "(max-width: 768px)",
+        "(max-width: 768px)",
+        "(max-width: 1023px)",
+        "(max-width: 768px)",
+        "(max-width: 768px)",
+        "(prefers-reduced-motion: reduce)",
+        "(max-width: 768px)",
+        "(max-width: 768px)",
+        "(orientation: landscape) and (max-height: 600px)",
+        "(prefers-reduced-motion: reduce)",
+        "(min-width:1024px) and (max-width:1279px)",
+        "(max-width:420px)",
+        "(prefers-reduced-motion:reduce)",
+        "(min-width: 1024px) and (max-width: 1180px)",
+        "(max-width: 1180px)",
+        "(max-width: 1023px)",
+        "(max-width: 700px)",
+        "(max-width: 380px)",
+        "(orientation: landscape) and (max-height: 520px)",
+        "(max-width: 840px)",
+        "(max-width: 640px)",
+        "(max-width: 980px)",
+        "(max-width: 640px)",
+        "(prefers-reduced-motion: reduce)",
+        "(max-width: 760px)",
+        "(max-width: 900px)",
+        "(max-width: 560px)",
+        "(max-width: 1023px)",
+        "(max-width: 980px)",
+        "(max-width: 620px)",
+        "(prefers-reduced-motion: reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO",
+        "NAVIGATION",
+        "VIDEO",
+        "WELCOME",
+        "FAQ"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          116
+        ],
+        [
+          "#video-grid",
+          55
+        ],
+        [
+          "#home",
+          52
+        ],
+        [
+          ".academic-inquiry-btn",
+          48
+        ],
+        [
+          "#navbar",
+          42
+        ],
+        [
+          ".route-ar",
+          33
+        ],
+        [
+          "#testimonials",
+          30
+        ],
+        [
+          "#submit-btn",
+          24
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 3,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "tokens-acquisition-compat.css",
+      "bytes": 1372,
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "entryOwners": [
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "acquisition.css"
+      ],
+      "imports": [],
+      "selectorCount": 1,
+      "customPropertiesDeclaredCount": 25,
+      "customPropertiesDeclared": [
+        "--acq-layout-gap",
+        "--acq-layout-gutter",
+        "--acq-layout-section",
+        "--acq-layout-stack",
+        "--acq-layout-wide",
+        "--acq-measure",
+        "--acq-type-body",
+        "--acq-type-card",
+        "--acq-type-display",
+        "--acq-type-meta",
+        "--acq-type-section",
+        "--acq-type-support",
+        "--gold-ink",
+        "--ink",
+        "--ivory",
+        "--line",
+        "--muted",
+        "--navy",
+        "--quranic",
+        "--quranic-deep",
+        "--radius-lg",
+        "--radius-md",
+        "--radius-xl",
+        "--shadow",
+        "--surface"
+      ],
+      "customPropertiesConsumed": [
+        "--color-accent-gold-ink",
+        "--color-acquisition-text-muted",
+        "--color-border-subtle",
+        "--color-brand-green",
+        "--color-brand-green-deep",
+        "--color-structural-navy",
+        "--color-surface-ivory",
+        "--color-surface-paper",
+        "--color-text-primary",
+        "--font-size-acquisition-body",
+        "--font-size-acquisition-card",
+        "--font-size-acquisition-display",
+        "--font-size-acquisition-meta",
+        "--font-size-acquisition-section",
+        "--font-size-acquisition-support",
+        "--layout-acquisition-gutter",
+        "--layout-acquisition-wide",
+        "--measure-reading-default",
+        "--radius-acquisition-lg",
+        "--radius-acquisition-md",
+        "--radius-acquisition-xl",
+        "--shadow-acquisition-panel",
+        "--space-acquisition-gap",
+        "--space-acquisition-section",
+        "--space-acquisition-stack"
+      ],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 10,
+      "customPropertiesConsumedCount": 25,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "tokens-admin-compat.css",
+      "bytes": 1263,
+      "surfaces": [
+        "ADMIN"
+      ],
+      "entryOwners": [
+        "admin.html"
+      ],
+      "importers": [
+        "admin-ui-fixes-v1.css"
+      ],
+      "imports": [],
+      "selectorCount": 1,
+      "customPropertiesDeclaredCount": 23,
+      "customPropertiesDeclared": [
+        "--admin-bg",
+        "--admin-card",
+        "--admin-danger",
+        "--admin-gold",
+        "--admin-green",
+        "--admin-green-2",
+        "--admin-info",
+        "--admin-ivory",
+        "--admin-layout-content-gap",
+        "--admin-layout-gap",
+        "--admin-layout-gutter",
+        "--admin-layout-shell",
+        "--admin-leading-body",
+        "--admin-line",
+        "--admin-muted",
+        "--admin-surface",
+        "--admin-surface-2",
+        "--admin-text",
+        "--admin-type-body",
+        "--admin-type-meta",
+        "--admin-type-panel",
+        "--admin-type-support",
+        "--admin-type-title"
+      ],
+      "customPropertiesConsumed": [
+        "--color-accent-gold",
+        "--color-admin-action",
+        "--color-admin-action-bright",
+        "--color-admin-border",
+        "--color-admin-canvas",
+        "--color-admin-card",
+        "--color-admin-danger",
+        "--color-admin-info",
+        "--color-admin-ivory",
+        "--color-admin-surface",
+        "--color-admin-surface-raised",
+        "--color-admin-text",
+        "--color-admin-text-muted",
+        "--font-size-admin-body",
+        "--font-size-admin-meta",
+        "--font-size-admin-panel",
+        "--font-size-admin-support",
+        "--font-size-admin-title",
+        "--layout-admin-content-gap",
+        "--layout-admin-gap",
+        "--layout-admin-gutter",
+        "--layout-admin-shell",
+        "--line-height-admin-body"
+      ],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 23,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "tokens-public-compat.css",
+      "bytes": 2487,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "index.css"
+      ],
+      "imports": [],
+      "selectorCount": 1,
+      "customPropertiesDeclaredCount": 49,
+      "customPropertiesDeclared": [
+        "--basair-canvas",
+        "--basair-danger",
+        "--basair-gold",
+        "--basair-gold-ink",
+        "--basair-gold-soft",
+        "--basair-green",
+        "--basair-green-bright",
+        "--basair-green-deep",
+        "--basair-green-hover",
+        "--basair-green-night",
+        "--basair-ink",
+        "--basair-ink-soft",
+        "--basair-line",
+        "--basair-line-gold",
+        "--basair-navy",
+        "--basair-paper",
+        "--basair-paper-gold",
+        "--basair-paper-green",
+        "--basair-success",
+        "--basair-white",
+        "--layout-cluster",
+        "--layout-content",
+        "--layout-form",
+        "--layout-gutter",
+        "--layout-reading",
+        "--layout-section",
+        "--layout-section-compact",
+        "--layout-stack",
+        "--layout-wide",
+        "--leading-arabic",
+        "--leading-body",
+        "--leading-display",
+        "--leading-section",
+        "--measure-compact",
+        "--measure-reading",
+        "--motion-ease-out",
+        "--motion-ease-state",
+        "--motion-exit",
+        "--motion-feedback",
+        "--motion-focal",
+        "--motion-overlay",
+        "--motion-state",
+        "--type-body",
+        "--type-card-title",
+        "--type-display",
+        "--type-label",
+        "--type-section",
+        "--type-subsection",
+        "--type-support"
+      ],
+      "customPropertiesConsumed": [
+        "--color-accent-gold",
+        "--color-accent-gold-ink",
+        "--color-accent-gold-soft",
+        "--color-border-gold",
+        "--color-border-subtle",
+        "--color-brand-green",
+        "--color-brand-green-deep",
+        "--color-danger",
+        "--color-public-evergreen-surface",
+        "--color-public-green-bright",
+        "--color-public-green-night",
+        "--color-structural-navy",
+        "--color-success",
+        "--color-surface-gold-paper",
+        "--color-surface-green-paper",
+        "--color-surface-ivory",
+        "--color-surface-paper",
+        "--color-text-primary",
+        "--color-text-secondary",
+        "--color-white",
+        "--duration-exit",
+        "--duration-feedback",
+        "--duration-focal",
+        "--duration-overlay",
+        "--duration-state",
+        "--ease-arrival",
+        "--ease-state",
+        "--font-size-body",
+        "--font-size-card-title",
+        "--font-size-display",
+        "--font-size-label",
+        "--font-size-section",
+        "--font-size-subsection",
+        "--font-size-support",
+        "--layout-assessment",
+        "--layout-public-content",
+        "--layout-public-gutter",
+        "--layout-public-wide",
+        "--line-height-display",
+        "--line-height-public-arabic",
+        "--line-height-public-body",
+        "--line-height-section",
+        "--measure-compact-default",
+        "--measure-reading-default",
+        "--space-layout-cluster",
+        "--space-layout-section-compact",
+        "--space-layout-stack",
+        "--space-section"
+      ],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 48,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "tokens.css",
+      "bytes": 5534,
+      "surfaces": [
+        "ACQUISITION",
+        "ADMIN",
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "admin.html",
+        "en/arabic/index.html",
+        "en/index.html",
+        "en/quran-adults/index.html",
+        "en/quran-kids/index.html",
+        "index.html",
+        "ru/arabic/index.html",
+        "ru/index.html",
+        "ru/quran/index.html",
+        "uz/arabic/index.html",
+        "uz/index.html",
+        "uz/quran/index.html"
+      ],
+      "importers": [
+        "acquisition.css",
+        "admin-ui-fixes-v1.css",
+        "index.css"
+      ],
+      "imports": [],
+      "selectorCount": 1,
+      "customPropertiesDeclaredCount": 107,
+      "customPropertiesDeclared": [
+        "--color-accent-gold",
+        "--color-accent-gold-ink",
+        "--color-accent-gold-soft",
+        "--color-acquisition-text-muted",
+        "--color-admin-action",
+        "--color-admin-action-bright",
+        "--color-admin-border",
+        "--color-admin-canvas",
+        "--color-admin-card",
+        "--color-admin-danger",
+        "--color-admin-info",
+        "--color-admin-ivory",
+        "--color-admin-surface",
+        "--color-admin-surface-raised",
+        "--color-admin-text",
+        "--color-admin-text-muted",
+        "--color-border-gold",
+        "--color-border-subtle",
+        "--color-brand-green",
+        "--color-brand-green-deep",
+        "--color-danger",
+        "--color-public-evergreen-surface",
+        "--color-public-green-bright",
+        "--color-public-green-night",
+        "--color-structural-navy",
+        "--color-success",
+        "--color-surface-gold-paper",
+        "--color-surface-green-paper",
+        "--color-surface-ivory",
+        "--color-surface-paper",
+        "--color-text-primary",
+        "--color-text-secondary",
+        "--color-white",
+        "--duration-exit",
+        "--duration-feedback",
+        "--duration-focal",
+        "--duration-overlay",
+        "--duration-state",
+        "--ease-arrival",
+        "--ease-state",
+        "--font-family-arabic",
+        "--font-family-latin",
+        "--font-family-quranic",
+        "--font-size-acquisition-body",
+        "--font-size-acquisition-card",
+        "--font-size-acquisition-display",
+        "--font-size-acquisition-meta",
+        "--font-size-acquisition-section",
+        "--font-size-acquisition-support",
+        "--font-size-admin-body",
+        "--font-size-admin-meta",
+        "--font-size-admin-panel",
+        "--font-size-admin-support",
+        "--font-size-admin-title",
+        "--font-size-body",
+        "--font-size-card-title",
+        "--font-size-display",
+        "--font-size-label",
+        "--font-size-section",
+        "--font-size-subsection",
+        "--font-size-support",
+        "--font-weight-body",
+        "--font-weight-display-arabic",
+        "--font-weight-display-latin",
+        "--gold",
+        "--layout-acquisition-gutter",
+        "--layout-acquisition-wide",
+        "--layout-admin-content-gap",
+        "--layout-admin-gap",
+        "--layout-admin-gutter",
+        "--layout-admin-shell",
+        "--layout-assessment",
+        "--layout-public-content",
+        "--layout-public-gutter",
+        "--layout-public-wide",
+        "--line-height-admin-body",
+        "--line-height-body-arabic",
+        "--line-height-body-latin",
+        "--line-height-display",
+        "--line-height-public-arabic",
+        "--line-height-public-body",
+        "--line-height-section",
+        "--measure-compact-default",
+        "--measure-reading-default",
+        "--radius-acquisition-lg",
+        "--radius-acquisition-md",
+        "--radius-acquisition-xl",
+        "--radius-system-lg",
+        "--radius-system-md",
+        "--radius-system-pill",
+        "--radius-system-sm",
+        "--radius-system-xl",
+        "--shadow-acquisition-panel",
+        "--space-2xl",
+        "--space-3xl",
+        "--space-acquisition-gap",
+        "--space-acquisition-section",
+        "--space-acquisition-stack",
+        "--space-layout-cluster",
+        "--space-layout-section-compact",
+        "--space-layout-stack",
+        "--space-lg",
+        "--space-md",
+        "--space-section",
+        "--space-sm",
+        "--space-xl",
+        "--space-xs"
+      ],
+      "customPropertiesConsumed": [
+        "--color-accent-gold"
+      ],
+      "mediaQueryCount": 0,
+      "mediaQueries": [],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY"
+      ],
+      "topSelectorAnchors": [],
+      "participatesMultipleSurfaces": true,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 12,
+      "customPropertiesConsumedCount": 1,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "topbar-overdrive-v1.css",
+      "bytes": 11660,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 68,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--bar-glow-x",
+        "--bar-rail-w",
+        "--bar-rail-x"
+      ],
+      "customPropertiesConsumed": [
+        "--bar-glow-x",
+        "--bar-rail-w",
+        "--bar-rail-x"
+      ],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(max-width:1180px)",
+        "(max-width:700px)",
+        "(min-width:1024px)",
+        "(min-width:1024px) and (max-width:1220px)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "NAVIGATION"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#navbar",
+          68
+        ],
+        [
+          ".route-uz",
+          19
+        ],
+        [
+          ".flex-shrink-0",
+          16
+        ],
+        [
+          ".lg",
+          16
+        ],
+        [
+          ".hidden",
+          14
+        ],
+        [
+          ".max-w-7xl",
+          9
+        ],
+        [
+          ".nav-link",
+          8
+        ],
+        [
+          "#lang-btn",
+          8
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 3,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "track-buttons-v6.css",
+      "bytes": 10277,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 57,
+      "customPropertiesDeclaredCount": 7,
+      "customPropertiesDeclared": [
+        "--course-btn-glow",
+        "--course-btn-press",
+        "--course-btn-x",
+        "--course-btn-y"
+      ],
+      "customPropertiesConsumed": [
+        "--course-btn-glow",
+        "--course-btn-press",
+        "--course-btn-x",
+        "--course-btn-y"
+      ],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(max-width:720px)",
+        "(prefers-reduced-motion:reduce)",
+        "(max-width:720px)",
+        "(hover:none)",
+        "(prefers-reduced-motion:reduce)"
+      ],
+      "componentOwnershipSignals": [
+        "COURSE_CARD"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#tracks",
+          53
+        ],
+        [
+          ".track-detail-cta-v6",
+          43
+        ],
+        [
+          ".track-detail-cta-v6__mark",
+          12
+        ],
+        [
+          ".route-ar",
+          5
+        ],
+        [
+          ".course-btn-delight-activating",
+          5
+        ],
+        [
+          ".track-detail-cta-v6__label",
+          4
+        ],
+        [
+          ".course-btn-delight-hovered",
+          4
+        ],
+        [
+          ".course-btn-delight-discovered",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 4,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "typeset-v1.css",
+      "bytes": 6146,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 68,
+      "customPropertiesDeclaredCount": 4,
+      "customPropertiesDeclared": [
+        "--type-body",
+        "--type-display",
+        "--type-section",
+        "--type-subsection"
+      ],
+      "customPropertiesConsumed": [
+        "--leading-arabic",
+        "--leading-body",
+        "--leading-display",
+        "--leading-section",
+        "--measure-reading",
+        "--type-body",
+        "--type-card-title",
+        "--type-display",
+        "--type-label",
+        "--type-section",
+        "--type-subsection"
+      ],
+      "mediaQueryCount": 1,
+      "mediaQueries": [
+        "(max-width:640px)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO",
+        "VIDEO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          20
+        ],
+        [
+          "#quick-guide",
+          17
+        ],
+        [
+          "#tracks",
+          15
+        ],
+        [
+          ".route-ar",
+          14
+        ],
+        [
+          "#contact",
+          10
+        ],
+        [
+          "#testimonials",
+          9
+        ],
+        [
+          "#about",
+          8
+        ],
+        [
+          ".basair-guide__intro",
+          7
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 11,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "ui-stability-v1.css",
+      "bytes": 3746,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 36,
+      "customPropertiesDeclaredCount": 0,
+      "customPropertiesDeclared": [],
+      "customPropertiesConsumed": [],
+      "mediaQueryCount": 5,
+      "mediaQueries": [
+        "(min-width:1024px)",
+        "(min-width:1280px)",
+        "(min-width:1180px)",
+        "(max-width:640px)",
+        "(min-width:1180px)"
+      ],
+      "componentOwnershipSignals": [
+        "HERO",
+        "NAVIGATION",
+        "COURSE_CARD",
+        "WELCOME"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          13
+        ],
+        [
+          "#tracks",
+          8
+        ],
+        [
+          ".home-chapter",
+          7
+        ],
+        [
+          ".hero-visual-seal",
+          4
+        ],
+        [
+          ".academic-pathway",
+          4
+        ],
+        [
+          "#navbar",
+          4
+        ],
+        [
+          ".basair-splash",
+          2
+        ],
+        [
+          "#splash-screen",
+          2
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 0,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    },
+    {
+      "path": "visual-layout-hotfix-v2.css",
+      "bytes": 6286,
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "entryOwners": [
+        "index.html"
+      ],
+      "importers": [
+        "HTML:index.html"
+      ],
+      "imports": [],
+      "selectorCount": 74,
+      "customPropertiesDeclaredCount": 3,
+      "customPropertiesDeclared": [
+        "--layout-section",
+        "--layout-section-compact"
+      ],
+      "customPropertiesConsumed": [
+        "--layout-section"
+      ],
+      "mediaQueryCount": 2,
+      "mediaQueries": [
+        "(max-width:1120px)",
+        "(max-width:767px)"
+      ],
+      "componentOwnershipSignals": [
+        "TOKEN_AUTHORITY",
+        "HERO"
+      ],
+      "topSelectorAnchors": [
+        [
+          "#home",
+          30
+        ],
+        [
+          ".hero-title__line",
+          12
+        ],
+        [
+          "#quick-guide",
+          11
+        ],
+        [
+          "#tracks",
+          10
+        ],
+        [
+          "#contact",
+          6
+        ],
+        [
+          ".route-ar",
+          5
+        ],
+        [
+          "#video-library",
+          5
+        ],
+        [
+          ".basair-guide__intro--learning",
+          3
+        ]
+      ],
+      "participatesMultipleSurfaces": false,
+      "removalWouldAlterCascadeOrder": true,
+      "entryOwnerCount": 1,
+      "customPropertiesConsumedCount": 1,
+      "ownershipBasis": "actual HTML reachability + parsed @import graph + selector/custom-property scan"
+    }
+  ],
+  "nonProductionTrackedCss": [
+    "hero-animate-v3.css",
+    "hero-delight-v3.css",
+    "hero-polish-v3.css"
+  ],
+  "protectedOwners": [
+    "tokens.css",
+    "tokens-public-compat.css",
+    "tokens-acquisition-compat.css",
+    "tokens-admin-compat.css",
+    "track-buttons-v6.css",
+    "admin-ui-fixes-v1.css",
+    "harden-v1.css"
+  ],
+  "protectedContextualContracts": [
+    {
+      "token": "--acq-layout-gutter",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "acquisition.css",
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--acq-layout-section",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "acquisition.css",
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--acq-type-display",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "acquisition.css",
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--acq-type-section",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "acquisition.css",
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--admin-type-body",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "admin-typeset-v1.css",
+        "tokens-admin-compat.css"
+      ],
+      "consumerFiles": [],
+      "inlineOwners": []
+    },
+    {
+      "token": "--admin-type-panel",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "admin-typeset-v1.css",
+        "tokens-admin-compat.css"
+      ],
+      "consumerFiles": [
+        "admin-typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--admin-type-support",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "admin-typeset-v1.css",
+        "tokens-admin-compat.css"
+      ],
+      "consumerFiles": [
+        "admin-typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--admin-type-title",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "admin-typeset-v1.css",
+        "tokens-admin-compat.css"
+      ],
+      "consumerFiles": [
+        "admin-typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--home-journey-section",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "homepage-sections-v1.css"
+      ],
+      "consumerFiles": [
+        "homepage-sections-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--layout-gutter",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "layout-v1.css",
+        "tokens-public-compat.css"
+      ],
+      "consumerFiles": [
+        "layout-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--layout-section",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "layout-v1.css",
+        "tokens-public-compat.css",
+        "visual-layout-hotfix-v2.css"
+      ],
+      "consumerFiles": [
+        "layout-v1.css",
+        "visual-layout-hotfix-v2.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--line",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition-colorize-v1.css",
+        "acquisition.css"
+      ],
+      "inlineOwners": [
+        {
+          "file": "admin.html",
+          "owner": "inline <style> :root",
+          "value": "rgba(255,255,255,.12)"
+        }
+      ]
+    },
+    {
+      "token": "--muted",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-acquisition-compat.css"
+      ],
+      "consumerFiles": [
+        "acquisition.css",
+        "admin-v3.css"
+      ],
+      "inlineOwners": [
+        {
+          "file": "admin.html",
+          "owner": "inline <style> :root",
+          "value": "rgba(255,255,255,.62)"
+        }
+      ]
+    },
+    {
+      "token": "--pathway-accent",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--pathway-accent-ink",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--pathway-summary-bg",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--pathway-summary-ink",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css",
+        "public-ui-fixes-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--pathway-summary-line",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css",
+        "public-ui-fixes-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--pathway-summary-muted",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "academic-pathways-v1.css",
+        "public-ui-fixes-v1.css"
+      ],
+      "consumerFiles": [
+        "academic-pathways-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--type-body",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-public-compat.css",
+        "typeset-v1.css"
+      ],
+      "consumerFiles": [
+        "typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--type-display",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-public-compat.css",
+        "typeset-v1.css"
+      ],
+      "consumerFiles": [
+        "typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--type-section",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-public-compat.css",
+        "typeset-v1.css"
+      ],
+      "consumerFiles": [
+        "typeset-v1.css"
+      ],
+      "inlineOwners": []
+    },
+    {
+      "token": "--type-subsection",
+      "classification": "CONTEXTUAL — MUST NOT GLOBALIZE",
+      "declarationOwners": [
+        "tokens-public-compat.css",
+        "typeset-v1.css"
+      ],
+      "consumerFiles": [
+        "typeset-v1.css"
+      ],
+      "inlineOwners": []
+    }
+  ],
+  "protectedGreenChains": {
+    "--basair-green-deep": "--color-public-evergreen-surface -> #073B31",
+    "--basair-green-hover": "--color-brand-green-deep -> #044637",
+    "rule": "Never collapse or equate these semantics."
+  },
+  "reviewCandidateFindings": [
+    {
+      "token": "--course-btn-glow",
+      "declarationOwners": [
+        "track-buttons-v6.css"
+      ],
+      "consumers": [
+        "track-buttons-v6.css"
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "stateMedia": [
+        "base 0",
+        "course-btn-delight-hovered -> 1",
+        "@media (hover:none) hovered -> .45"
+      ],
+      "runtime": [
+        "course-buttons-delight-v1.js toggles course-btn-delight-hovered on pointerenter/leave and focus/blur"
+      ],
+      "fallback": "No fallback at consumption; base declaration is required.",
+      "semantic": "Dynamic component-local interaction intensity.",
+      "disposition": "KEEP CURRENT OWNER — NOT APPROVED FOR CONSOLIDATION"
+    },
+    {
+      "token": "--course-btn-press",
+      "declarationOwners": [
+        "track-buttons-v6.css"
+      ],
+      "consumers": [
+        "track-buttons-v6.css"
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "stateMedia": [
+        "base 0",
+        "course-btn-delight-pressed -> 1"
+      ],
+      "runtime": [
+        "course-buttons-delight-v1.js toggles course-btn-delight-pressed on pointerdown/up/cancel/leave/blur"
+      ],
+      "fallback": "No fallback at consumption; base declaration is required.",
+      "semantic": "Transient tactile press state.",
+      "disposition": "KEEP CURRENT OWNER — NOT APPROVED FOR CONSOLIDATION"
+    },
+    {
+      "token": "--layout-section-compact",
+      "declarationOwners": [
+        "tokens-public-compat.css",
+        "visual-layout-hotfix-v2.css"
+      ],
+      "consumers": [],
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "stateMedia": [
+        "late visual-layout-hotfix-v2.css root override is unconditional"
+      ],
+      "runtime": [],
+      "fallback": "Without the late override the public alias resolves to --space-layout-section-compact.",
+      "semantic": "Hotfix value clamp(3.25rem,4.7vw,4.65rem) differs from canonical clamp(3.75rem,6vw,5.75rem); no current var() consumer, but owner removal changes the computed custom-property contract.",
+      "disposition": "CHARACTERIZE / SEMANTIC DECISION REQUIRED — NOT APPROVED"
+    },
+    {
+      "token": "--mobile-drawer-hidden-x",
+      "declarationOwners": [
+        "styles.css"
+      ],
+      "consumers": [
+        "styles.css"
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "stateMedia": [
+        ".mobile-drawer -> -100%",
+        "html[dir=\"rtl\"] .mobile-drawer -> 100%"
+      ],
+      "runtime": [
+        "Consumed by translateX(); .mobile-drawer.active overrides transform to 0"
+      ],
+      "fallback": "No fallback at consumption.",
+      "semantic": "Direction-sensitive hidden offset.",
+      "disposition": "KEEP DIRECTIONAL OWNER — NOT APPROVED"
+    }
+  ],
+  "unobservedTokenFindings": [
+    {
+      "token": "--dossier-accent",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Current #tracks dossier-card selectors declare and consume the token with pathway/state/pseudo-element behavior.",
+      "declarations": [
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 250,
+          "text": "--dossier-accent:#0B6A52;"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 269,
+          "text": "--dossier-accent:#8A6D14;"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 273,
+          "text": "--dossier-accent:#315C7D;"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 288,
+          "text": "background:var(--dossier-accent)!important;"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 378,
+          "text": "border-color:var(--dossier-accent)!important;"
+        }
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--dossier-border",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Current #tracks dossier-card selectors declare and consume the token with pathway/state/pseudo-element behavior.",
+      "declarations": [
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 251,
+          "text": "--dossier-border:rgba(11,106,82,.24);"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 270,
+          "text": "--dossier-border:rgba(138,109,20,.24);"
+        },
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 274,
+          "text": "--dossier-border:rgba(49,92,125,.24);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "public-ui-fixes-v1.css",
+          "line": 256,
+          "text": "border:1px solid var(--dossier-border)!important;"
+        }
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-bg",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 15,
+          "text": "--fo-bg:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 28,
+          "text": "--fo-bg:linear-gradient(180deg, rgba(253,253,245,.92), rgba(255,255,255,.86));"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 47,
+          "text": "background:var(--fo-bg);"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-border",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 20,
+          "text": "--fo-border:rgba(212,175,55,.18);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 33,
+          "text": "--fo-border:rgba(10,31,68,.08);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 48,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 100,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 142,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 183,
+          "text": "border:1px dashed var(--fo-border-strong);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 211,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 236,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 257,
+          "text": "border-color:var(--fo-border-strong);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 266,
+          "text": "border-color:color-mix(in srgb, var(--form-od-success) 44%, var(--fo-border));"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 270,
+          "text": "border-color:color-mix(in srgb, var(--form-od-danger) 45%, var(--fo-border));"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 281,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 345,
+          "text": "border:1px solid var(--fo-border);"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 37,
+          "text": "border-color:var(--fo-border)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 64,
+          "text": "border-color:var(--fo-border)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 103,
+          "text": "border-color:var(--fo-border)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 122,
+          "text": "border-block-start:1px solid var(--fo-border)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 166,
+          "text": "border-color:var(--fo-border)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 291,
+          "text": "border-color:var(--fo-border)!important;"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-border-strong",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 21,
+          "text": "--fo-border-strong:rgba(212,175,55,.3);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 34,
+          "text": "--fo-border-strong:rgba(212,175,55,.35);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 183,
+          "text": "border:1px dashed var(--fo-border-strong);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 257,
+          "text": "border-color:var(--fo-border-strong);"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-danger-bg",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 24,
+          "text": "--fo-danger-bg:rgba(239,68,68,.13);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 37,
+          "text": "--fo-danger-bg:rgba(239,68,68,.08);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 271,
+          "text": "background:color-mix(in srgb, var(--fo-danger-bg) 100%, var(--fo-surface));"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-muted",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 19,
+          "text": "--fo-muted:rgba(255,255,255,.72);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 32,
+          "text": "--fo-muted:#5f6f83;"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 166,
+          "text": "color:var(--fo-muted);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 185,
+          "text": "color:var(--fo-muted);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 230,
+          "text": ".form-section-pill__copy small{color:var(--fo-muted);font-size:.74rem;font-weight:700}"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 283,
+          "text": "color:var(--fo-muted);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 304,
+          "text": "color:var(--fo-muted);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 333,
+          "text": "color:var(--fo-muted);"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 106,
+          "text": "color:var(--fo-muted)!important;"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-shadow",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 22,
+          "text": "--fo-shadow:0 30px 70px -40px rgba(0,0,0,.55);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 35,
+          "text": "--fo-shadow:0 28px 60px -42px rgba(10,31,68,.28);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 49,
+          "text": "box-shadow:var(--fo-shadow);"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-success-bg",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 23,
+          "text": "--fo-success-bg:rgba(20,184,106,.12);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 36,
+          "text": "--fo-success-bg:rgba(20,184,106,.09);"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 267,
+          "text": "background:color-mix(in srgb, var(--fo-success-bg) 100%, var(--fo-surface));"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-surface",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 16,
+          "text": "--fo-surface:rgba(255,255,255,.06);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 29,
+          "text": "--fo-surface:#ffffff;"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 99,
+          "text": "background:var(--fo-surface-strong);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 141,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 74%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 184,
+          "text": "background:color-mix(in srgb, var(--fo-surface) 82%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 210,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 237,
+          "text": "background:color-mix(in srgb, var(--fo-surface) 93%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 267,
+          "text": "background:color-mix(in srgb, var(--fo-success-bg) 100%, var(--fo-surface));"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 271,
+          "text": "background:color-mix(in srgb, var(--fo-danger-bg) 100%, var(--fo-surface));"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 282,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 346,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 39,
+          "text": "background:color-mix(in srgb,var(--fo-surface) 86%,transparent)!important;"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 82,
+          "text": "background:color-mix(in srgb,var(--fo-surface-strong) 68%,transparent)!important;"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-surface-strong",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 17,
+          "text": "--fo-surface-strong:rgba(255,255,255,.10);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 30,
+          "text": "--fo-surface-strong:#fffdf6;"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 99,
+          "text": "background:var(--fo-surface-strong);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 141,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 74%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 210,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 282,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 346,
+          "text": "background:color-mix(in srgb, var(--fo-surface-strong) 90%, transparent);"
+        },
+        {
+          "file": "form-polish-v2.css",
+          "line": 82,
+          "text": "background:color-mix(in srgb,var(--fo-surface-strong) 68%,transparent)!important;"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--fo-text",
+      "classification": "KEEP — ACTIVE/CONDITIONAL",
+      "reason": "Scoped enrollment/assessment form values are directly consumed by form-overdrive/form-polish; form and validation/submission paths are conditional.",
+      "declarations": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 18,
+          "text": "--fo-text:#fdfdf5;"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 31,
+          "text": "--fo-text:#132a46;"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 76,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 103,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 131,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 196,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 212,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 310,
+          "text": ".overdrive-field.is-valid .field-status-row{color:color-mix(in srgb, var(--form-od-success) 60%, var(--fo-text))}"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 311,
+          "text": ".overdrive-field.is-invalid .field-status-row{color:color-mix(in srgb, var(--form-od-danger) 72%, var(--fo-text))}"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 347,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 408,
+          "text": "color:var(--fo-text);"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 439,
+          "text": ".overdrive-form[data-overdrive-submit-state=\"success\"] .form-submit-caption__hint{color:color-mix(in srgb, var(--form-od-success) 70%, var(--fo-text))}"
+        },
+        {
+          "file": "form-overdrive-v1.css",
+          "line": 440,
+          "text": ".overdrive-form[data-overdrive-submit-state=\"error\"] .form-submit-caption__hint{color:color-mix(in srgb, var(--form-od-danger) 72%, var(--fo-text))}"
+        }
+      ],
+      "surfaces": [
+        "ACQUISITION",
+        "PUBLIC"
+      ]
+    },
+    {
+      "token": "--folio-opacity",
+      "classification": "CHARACTERIZE BEFORE DECISION",
+      "reason": "CSS consumer exists, but initFolioMarkers() is intentionally dormant in initOverdrive() and no static marker is present; stronger whole-source/runtime proof is required before deletion.",
+      "declarations": [
+        {
+          "file": "overdrive-v1.css",
+          "line": 96,
+          "text": "--folio-opacity: .52;"
+        },
+        {
+          "file": "overdrive-v1.css",
+          "line": 120,
+          "text": ".overdrive-folio.is-folio-current .overdrive-folio-marker { --folio-opacity: .82; }"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "overdrive-v1.css",
+          "line": 104,
+          "text": "opacity: var(--folio-opacity);"
+        }
+      ],
+      "surfaces": [
+        "PUBLIC"
+      ]
+    }
+  ],
+  "stylesheetConsolidationCandidates": [
+    {
+      "id": "SHEET-ACQ-PRECISION-POLISH",
+      "source": [
+        "acquisition-precision-native-v2.css",
+        "acquisition-polish-v2.css"
+      ],
+      "target": "acquisition-polish-v2.css; precision rules first",
+      "reason": "Acquisition-only, adjacent and co-loaded in the same order on all 10 Acquisition entries.",
+      "selectors": 29,
+      "cascade": "Can be order-neutral only under verbatim concatenation between acquisition-delight-v1.css and harden-v1.css.",
+      "specificity": "No change if verbatim.",
+      "media": "3 @media blocks total; preserve order.",
+      "customProperties": "5 declarations; no globalization.",
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "browserEvidence": "Phase2.5 gives current 10×4 Acquisition baseline, but the transformed merge itself has not been browser-compared.",
+      "risk": "LOW-CONDITIONAL",
+      "checks": [
+        "filename/CSSOM consumer scan",
+        "npm ci/verify/build/diff-check",
+        "10 Acquisition routes × 4 viewports",
+        "focus/hover/reduced-motion/view-transition checks"
+      ],
+      "status": "NOT IMPLEMENTATION-APPROVED IN 3A"
+    },
+    {
+      "id": "SHEET-ACQ-INTERACTION",
+      "source": [
+        "acquisition-animate-v1.css",
+        "acquisition-delight-v1.css"
+      ],
+      "target": "acquisition-animate-v1.css; append delight rules",
+      "reason": "Acquisition-only adjacent interaction layers.",
+      "selectors": 55,
+      "cascade": "Potentially preservable by exact concatenation between colorize and precision-native.",
+      "specificity": "No intended change.",
+      "media": "3 @media blocks plus keyframes/states.",
+      "customProperties": "5 motion declarations.",
+      "surfaces": [
+        "ACQUISITION"
+      ],
+      "browserEvidence": "Route/viewport baseline exists; interactive discovery/form states are not exhaustive.",
+      "risk": "MEDIUM",
+      "checks": [
+        "all Acquisition routes/viewports",
+        "hover/focus/active",
+        "status/recovery",
+        "RTL",
+        "reduced motion"
+      ],
+      "status": "CHARACTERIZE INTERACTION STATES FIRST"
+    },
+    {
+      "id": "SHEET-FORM-COMPONENT",
+      "source": [
+        "form-overdrive-v1.css",
+        "form-polish-v2.css"
+      ],
+      "target": "form-overdrive-v1.css; append polish rules",
+      "reason": "Adjacent and always co-loaded wherever either appears; coherent shared Public+Acquisition form component.",
+      "selectors": 203,
+      "cascade": "Potentially preservable by exact concatenation; surrounding sheets differ by surface.",
+      "specificity": "No intended change; many state/important rules increase sensitivity.",
+      "media": "5 @media blocks.",
+      "customProperties": "29 declarations, including the 10 unobserved --fo-* family.",
+      "surfaces": [
+        "PUBLIC",
+        "ACQUISITION"
+      ],
+      "browserEvidence": "Full validation/submission/focus state graph was not characterized.",
+      "risk": "MEDIUM",
+      "checks": [
+        "Public assessment/enrollment",
+        "Acquisition forms",
+        "valid/invalid/submitting/success/error/focus",
+        "4 viewports",
+        "reduced motion"
+      ],
+      "status": "STATE CHARACTERIZATION REQUIRED"
+    },
+    {
+      "id": "SHEET-ADMIN-PRECISION-POLISH",
+      "source": [
+        "admin-precision-native-v2.css",
+        "admin-polish-v2.css"
+      ],
+      "target": "admin-polish-v2.css; precision rules first",
+      "reason": "Admin-only and adjacent.",
+      "selectors": 99,
+      "cascade": "Potentially order-neutral under verbatim concatenation.",
+      "specificity": "No intended change.",
+      "media": "3 @media blocks.",
+      "customProperties": "9 declarations; Admin semantics remain isolated.",
+      "surfaces": [
+        "ADMIN"
+      ],
+      "browserEvidence": "Authenticated Admin interior was not characterized in Phase2.5.",
+      "risk": "HIGH",
+      "checks": [
+        "authorized authenticated Admin matrix",
+        "tabs/forms/statuses",
+        "RTL",
+        "responsive",
+        "reduced motion",
+        "inline --line/--muted provenance"
+      ],
+      "status": "BLOCKED — AUTHENTICATED ADMIN CHARACTERIZATION REQUIRED"
+    },
+    {
+      "id": "SHEET-PUBLIC-HERO-CLUSTER",
+      "source": [
+        "hero-typeset-v2.css",
+        "hero-layout-v2.css",
+        "hero-overdrive-v2.css",
+        "hero-delight-v4.css",
+        "hero-animate-v4.css",
+        "hero-polish-v4.css",
+        "hero-cta-overdrive-v1.css"
+      ],
+      "target": "future hero component owner; exact name deferred",
+      "reason": "Seven contiguous Public-only sheets own one hero component but separate type/layout/runtime/polish responsibilities.",
+      "selectors": 324,
+      "cascade": "High sensitivity; preserve seven internal boundaries relative to final-polish and homepage-sections.",
+      "specificity": "No intended change; layered state/important selectors raise risk.",
+      "media": "19 @media blocks plus keyframes.",
+      "customProperties": "24 declarations and JS-driven variables.",
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "browserEvidence": "Public baseline exists; transformed interactive equivalence not proven.",
+      "risk": "HIGH",
+      "checks": [
+        "4 viewports",
+        "all locales/RTL",
+        "entrance lifecycle",
+        "CTA pointer/focus/active",
+        "reduced motion",
+        "computed provenance"
+      ],
+      "status": "DEFER / PAIRWISE ONLY"
+    },
+    {
+      "id": "SHEET-PREMIUM-V3-V4",
+      "source": [
+        "premium-v3.css",
+        "premium-v4.css"
+      ],
+      "target": "premium-v4.css with v3 content first if proven",
+      "reason": "Adjacent Public historical layers with broad overlap.",
+      "selectors": 268,
+      "cascade": "Potentially preservable by concatenation but feeds many later override layers.",
+      "specificity": "No intended change; broad scope raises hidden dependency risk.",
+      "media": "8 @media blocks.",
+      "customProperties": "18 historical local declarations.",
+      "surfaces": [
+        "PUBLIC"
+      ],
+      "browserEvidence": "Current browser baseline does not isolate independent necessity.",
+      "risk": "HIGH",
+      "checks": [
+        "full Public page all sections/locales/viewports",
+        "cascade provenance",
+        "screenshots",
+        "all checks"
+      ],
+      "status": "DEFER"
+    }
+  ],
+  "rejectedConsolidationOpportunities": [
+    {
+      "proposal": "Globalize --line or --muted",
+      "status": "REJECTED",
+      "reason": "Phase2.5A proves distinct Acquisition/Admin values and semantics."
+    },
+    {
+      "proposal": "Collapse tokens.css + compatibility bridges",
+      "status": "REJECTED",
+      "reason": "Would undo Phase2 surface isolation and risk Admin inline ownership."
+    },
+    {
+      "proposal": "Fold track-buttons-v6.css into another Public sheet",
+      "status": "REJECTED",
+      "reason": "Protected final sheet with JS-driven states and required cascade position."
+    },
+    {
+      "proposal": "Merge acquisition-polish-v2.css directly with acquisition-final-polish-v3.css",
+      "status": "REJECTED",
+      "reason": "harden-v1.css and, on form entries, form sheets intervene; naive merge changes cascade."
+    },
+    {
+      "proposal": "Merge admin-ui-fixes-v1.css into admin-v3.css/tokens.css",
+      "status": "REJECTED",
+      "reason": "It is the Admin token/compat gateway after inline style; boundary is semantic."
+    },
+    {
+      "proposal": "Delete the 13 unobserved tokens",
+      "status": "REJECTED",
+      "reason": "12 have direct active/conditional consumers; folio path requires characterization."
+    },
+    {
+      "proposal": "Treat three unreferenced hero-v3 sheets as production-55 consolidation",
+      "status": "OUT OF SCOPE",
+      "reason": "They are not reachable from production HTML; repository cleanup is separate."
+    }
+  ],
+  "migrationDAG": [
+    {
+      "id": "3B-0",
+      "name": "Consolidation preflight contract",
+      "dependsOn": [],
+      "scope": "Snapshot stylesheet URL/CSSOM consumers, exact load order, Phase2 token contract/build/browser baseline.",
+      "rollback": "one preflight commit",
+      "gate": "Reproduce Phase2.5 baseline and 144 ownership assertions."
+    },
+    {
+      "id": "3B-1",
+      "name": "Acquisition adjacent precision/polish exact-order merge",
+      "dependsOn": [
+        "3B-0"
+      ],
+      "scope": "Only the adjacent Acquisition pair and link/check references; no selector rewrite.",
+      "rollback": "one surgical commit",
+      "gate": "10 routes ×4 viewports + interaction capability; zero computed/geometry deltas."
+    },
+    {
+      "id": "3B-2C",
+      "name": "Form-state characterization",
+      "dependsOn": [
+        "3B-0"
+      ],
+      "scope": "Characterize enrollment/assessment + --fo-* states.",
+      "rollback": "audit-only",
+      "gate": "valid/invalid/focus/submitting/success/error across owning surfaces/viewports."
+    },
+    {
+      "id": "3B-2",
+      "name": "Shared form sheet merge",
+      "dependsOn": [
+        "3B-2C"
+      ],
+      "scope": "Exact-order form pair merge only if 3B-2C passes.",
+      "rollback": "one component commit",
+      "gate": "zero delta across characterized form matrix."
+    },
+    {
+      "id": "3B-3C",
+      "name": "Authenticated Admin characterization",
+      "dependsOn": [
+        "3B-0"
+      ],
+      "scope": "Authorized interior audit; no auth weakening.",
+      "rollback": "audit-only",
+      "gate": "all Admin panels/forms/tabs; inline --line/--muted preserved."
+    },
+    {
+      "id": "3B-3",
+      "name": "Admin adjacent precision/polish merge",
+      "dependsOn": [
+        "3B-3C"
+      ],
+      "scope": "Exact-order pair only if authenticated evidence exists.",
+      "rollback": "one Admin commit",
+      "gate": "zero Admin state/geometry/computed deltas."
+    },
+    {
+      "id": "3B-4",
+      "name": "Review-candidate token disposition",
+      "dependsOn": [
+        "3B-0"
+      ],
+      "scope": "Keep glow/press/mobile drawer; separately resolve layout-section-compact authority.",
+      "rollback": "isolated token decision",
+      "gate": "LTR/RTL drawer + pointer/focus/touch/reduced-motion; compact token needs dedicated characterization."
+    },
+    {
+      "id": "3B-5C",
+      "name": "Hero ownership characterization",
+      "dependsOn": [
+        "3B-1"
+      ],
+      "scope": "Winning-declaration + runtime-state graph for seven hero sheets.",
+      "rollback": "audit-only",
+      "gate": "all locales/RTL/viewports/entrance/CTA/reduced-motion."
+    },
+    {
+      "id": "3B-5",
+      "name": "Hero pairwise consolidation",
+      "dependsOn": [
+        "3B-5C"
+      ],
+      "scope": "Only proven adjacent pairs, one merge per commit; no giant rewrite.",
+      "rollback": "one pair per commit",
+      "gate": "full Public visual/computed comparison after every pair."
+    }
+  ],
+  "successMetrics": {
+    "current": {
+      "productionCssFiles": 55,
+      "productionCssBytes": 482088,
+      "selectorOccurrences": 4120,
+      "customPropertyDeclarations": 458,
+      "duplicateSelectorPropertyValueClusters": 253,
+      "duplicateExactDeclarationBlockClustersAcrossFiles": 122,
+      "localExactDuplicateDeclarations": 0
+    },
+    "lowRiskApprovedInPhase3A": {
+      "approvedProductionMerges": 0,
+      "reason": "No transformed candidate has yet passed browser equivalence; structural plausibility is not implementation approval.",
+      "projectedProductionCssFiles": 55,
+      "projectedProductionCssBytes": 482088,
+      "projectedRemovableDeclarations": 0
+    },
+    "firstConditionalLowRiskOpportunity": {
+      "candidate": "SHEET-ACQ-PRECISION-POLISH",
+      "ifFuture3BVerificationPasses": {
+        "productionCssFiles": 54,
+        "productionCssBytesApprox": 482088,
+        "removableDeclarations": 0
+      }
+    }
+  },
+  "duplicateMetricSemantics": {
+    "duplicateSelectorPropertyValueClusters": "Same normalized selector/property/value in >=2 production files; overlap metric, not safe-removal count.",
+    "duplicateExactDeclarationBlockClustersAcrossFiles": "Same normalized declaration block in >=2 files regardless of selector; not automatically redundant.",
+    "localExactDuplicateDeclarations": "Exact property/value repeated within one parsed rule; zero."
+  },
+  "unresolvedQuestions": [
+    "Authenticated Admin interior is not browser-characterized; Admin consolidation remains blocked.",
+    "--layout-section-compact has two owners with different values and no production var() consumer; semantic authority remains unresolved.",
+    "Form validation/submission/runtime states and --fo-* must be characterized before a form-sheet merge.",
+    "Before any stylesheet-path removal, scan runtime/test code for filename or document.styleSheets/CSSOM dependencies.",
+    "Three tracked hero-v3 CSS files are outside production reachability; repository cleanup is separate.",
+    "No token from the contextual 23 may be globalized to reduce declarations."
+  ],
+  "phase3aDecision": "Architecture/sequence defined; implementation not started."
+}
