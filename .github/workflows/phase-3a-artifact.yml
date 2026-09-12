@@ -1,0 +1,47 @@
+name: Phase 3A Audit Artifact Export
+on:
+  push:
+    branches: ["basair/phase-3a-css-consolidation-plan"]
+    paths: [".github/workflows/phase-3a-artifact.yml"]
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reproduce exact Phase-2 source audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1504baad33b2123056877c1e92f4e2d558c00d51
+          TREE=1d987040d0158387d0425d6e6ed00fe2a68ec617
+          rm -rf /tmp/prod
+          git worktree add --detach /tmp/prod "$BASE" >/dev/null
+          test "$(git -C /tmp/prod rev-parse HEAD)" = "$BASE"
+          test "$(git -C /tmp/prod rev-parse HEAD^{tree})" = "$TREE"
+          test -z "$(git -C /tmp/prod status --porcelain)"
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          p=Path('.github/workflows/phase-3a-audit.yml').read_text()
+          marker="cat >/tmp/audit.py <<'PY'"
+          start=p.index(marker)+len(marker)
+          rest=p[start:].lstrip('\n')
+          end=rest.index('\n          PY\n')
+          Path('/tmp/audit.py').write_text(textwrap.dedent(rest[:end]))
+          PY
+          python3 /tmp/audit.py >/tmp/phase3a-source-audit.log
+          test -s /tmp/phase3a-source-audit.json
+          git -C /tmp/prod diff --check
+          test -z "$(git -C /tmp/prod status --porcelain)"
+          sha256sum /tmp/phase3a-source-audit.json
+          echo PRODUCTION_CHECKOUT_UNCHANGED=YES
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3a-source-audit
+          path: /tmp/phase3a-source-audit.json
+          if-no-files-found: error
+          retention-days: 1
