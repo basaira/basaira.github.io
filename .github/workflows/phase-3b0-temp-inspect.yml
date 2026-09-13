@@ -1,4 +1,4 @@
-name: Phase 3B-0 Temp Evidence Inspect
+name: Phase 3B-0 Temp Harness History Inspect
 on:
   push:
     branches: ["basair/phase-3b-0-consolidation-preflight"]
@@ -12,22 +12,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspect closed Phase 2.5 evidence schema
+      - name: Locate historical Phase 2.5 browser harness
         shell: bash
         run: |
           set -euo pipefail
-          git show 02bc781aec31c0de199c92b88205cc02ad6dc603:phase-2.5-browser-characterization.json > /tmp/p25.json
-          git show 563d8c8b01b66ad5f744f1102905f756e2fc7b62:phase-2.5a-delta-triage.json > /tmp/p25a.json
-          python3 - <<'PY'
-          import json
-          p=json.load(open('/tmp/p25.json'))
-          a=json.load(open('/tmp/p25a.json'))
-          print('P25_KEYS',sorted(p.keys()))
-          for k,v in p.items():
-            if isinstance(v,list): print('LIST',k,len(v),'FIRST',json.dumps(v[0] if v else None,ensure_ascii=False)[:5000])
-            elif isinstance(v,dict): print('DICT',k,sorted(v.keys())[:80])
-          print('BASELINE_SAMPLE',json.dumps(p.get('baselineComparison',[None])[0],ensure_ascii=False)[:12000])
-          print('CSS_SAMPLE',json.dumps(p.get('cssCharacterization',[None])[0],ensure_ascii=False)[:12000])
-          print('P25A_FINAL',json.dumps(a.get('finalDeltaClassification'),ensure_ascii=False))
-          print('P25A_ASSERTIONS',json.dumps(a.get('criticalOwnershipAssertions'),ensure_ascii=False))
-          PY
+          echo '=== commits touching workflows with puppeteer/browser strings ==='
+          git log --all --format='%H %s' -S'puppeteer-core' -- .github/workflows || true
+          git log --all --format='%H %s' -S'phase-2.5-browser' -- .github/workflows || true
+          echo '=== phase-2.5 first-parent history ==='
+          git log --format='%H %s' --all --ancestry-path 1504baad33b2123056877c1e92f4e2d558c00d51..02bc781aec31c0de199c92b88205cc02ad6dc603 | head -30
+          echo '=== candidate workflow names in historical commits ==='
+          for c in $(git log --format='%H' --all --ancestry-path 1504baad33b2123056877c1e92f4e2d558c00d51..02bc781aec31c0de199c92b88205cc02ad6dc603); do
+            git ls-tree -r --name-only "$c" .github/workflows 2>/dev/null | sed "s#^#$c #" || true
+          done | sort -u | tail -80
