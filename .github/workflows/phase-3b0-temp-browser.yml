@@ -1,0 +1,124 @@
+name: Phase 3B-0 Corrected Browser Baseline
+on:
+  push:
+    branches: ["basair/phase-3b-0-consolidation-preflight"]
+    paths: [".github/workflows/phase-3b0-temp-browser.yml"]
+permissions:
+  contents: write
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - name: Verify exact Phase 2 and structural preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1504baad33b2123056877c1e92f4e2d558c00d51; TREE=1d987040d0158387d0425d6e6ed00fe2a68ec617
+          rm -rf /tmp/p2 && git worktree add --detach /tmp/p2 "$BASE" >/dev/null
+          test "$(git -C /tmp/p2 rev-parse HEAD)" = "$BASE"; test "$(git -C /tmp/p2 rev-parse HEAD^{tree})" = "$TREE"; test -z "$(git -C /tmp/p2 status --porcelain)"
+          cd /tmp/p2
+          npm ci
+          npm run verify
+          npm run build
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=no)"
+          node "$GITHUB_WORKSPACE/scripts/verify-css-consolidation-preflight.mjs" --out=/tmp/structural.json
+          node token-authority-check.mjs | tee /tmp/token.log
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/49/23/23/2; corrected conflicts=40; production CSS=55; inline styles=1.' /tmp/token.log
+      - name: Prepare original Phase 2.5 real-browser capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$BROWSER_BIN" || { echo NO_REAL_BROWSER_ENGINE >&2; exit 78; }
+          echo "BROWSER_BIN=$BROWSER_BIN" >> "$GITHUB_ENV"; "$BROWSER_BIN" --version
+          rm -rf /tmp/browser-tool && mkdir /tmp/browser-tool && cd /tmp/browser-tool
+          npm init -y >/dev/null 2>&1; npm install --no-save --package-lock=false puppeteer-core@24.16.0 >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/orig.yml').read_text(); m="cat >/tmp/phase25-characterize.b64 <<'B64'"; tail=s[s.index(m)+len(m):].lstrip('\n'); j=tail.index('\n          B64')
+          Path('/tmp/orig.b64').write_text('\n'.join(x[10:] if x.startswith('          ') else x for x in tail[:j].splitlines())+'\n')
+          PY
+          base64 -d /tmp/orig.b64 >/tmp/orig.gz; gzip -dc /tmp/orig.gz >/tmp/browser-tool/capture.mjs; node --check /tmp/browser-tool/capture.mjs
+          git show 02bc781aec31c0de199c92b88205cc02ad6dc603:phase-2.5-browser-characterization.json >/tmp/closed.json
+          git show 563d8c8b01b66ad5f744f1102905f756e2fc7b62:phase-2.5a-delta-triage.json >/tmp/triage.json
+      - name: Run 12 x 4 browser baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/p2/dist >/tmp/s1.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/p2/dist >/tmp/s2.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:4173/ >/dev/null 2>&1 && curl -fsS http://127.0.0.1:4174/ >/dev/null 2>&1; then break; fi; sleep 1; done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null; curl -fsS http://127.0.0.1:4174/ >/dev/null
+          rm -rf /tmp/browser-root && mkdir /tmp/browser-root && cp /tmp/p2/token-authority-manifest.json /tmp/browser-root/
+          cd /tmp/browser-tool
+          GITHUB_WORKSPACE=/tmp/browser-root BROWSER_BIN="$BROWSER_BIN" PHASE2_BASE_URL=http://127.0.0.1:4173/ PHASE0_BASE_URL=http://127.0.0.1:4174/ node capture.mjs | tee /tmp/browser-summary.log
+          test -f /tmp/browser-root/phase-2.5-browser-characterization.json
+      - name: Reconcile closed evidence and write Phase 3B-0 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          BASE='1504baad33b2123056877c1e92f4e2d558c00d51'; TREE='1d987040d0158387d0425d6e6ed00fe2a68ec617'
+          cur=json.load(open('/tmp/browser-root/phase-2.5-browser-characterization.json')); old=json.load(open('/tmp/closed.json')); tri=json.load(open('/tmp/triage.json')); st=json.load(open('/tmp/structural.json'))
+          def K(r): return (r['route'],r['viewport'])
+          def I(a): return {K(x):x for x in a}
+          diffs=[]
+          for field in ('surfaceDetection','rootTokenObservations','aliasObservations'):
+            a,b=I(cur[field]),I(old[field]);
+            if set(a)!=set(b): diffs.append({'kind':field,'reason':'state-set'}); continue
+            for k in a:
+              if field=='surfaceDetection':
+                for p in ('surface','bridge','authorityPresent','inlineStyleBlockCount'):
+                  if a[k].get(p)!=b[k].get(p): diffs.append({'kind':field,'state':k,'property':p,'current':a[k].get(p),'closed':b[k].get(p)})
+              elif field=='rootTokenObservations':
+                for t,v in a[k]['tokens'].items():
+                  ov=b[k]['tokens'].get(t,{}); 
+                  if v.get('normalized')!=ov.get('normalized'): diffs.append({'kind':'canonical','state':k,'token':t,'current':v.get('normalized'),'closed':ov.get('normalized')})
+              else:
+                for t,v in a[k]['aliases'].items():
+                  ov=b[k]['aliases'].get(t,{})
+                  if (v.get('normalized'),v.get('present'))!=(ov.get('normalized'),ov.get('present')): diffs.append({'kind':'alias','state':k,'token':t,'current':v.get('normalized'),'closed':ov.get('normalized')})
+          a,b=I(cur['representativeElementFingerprints']),I(old['representativeElementFingerprints'])
+          for k in a:
+            for cat,c in a[k]['categories'].items():
+              o=b.get(k,{}).get('categories',{}).get(cat)
+              if c is None and o is None: continue
+              if c is None or o is None: diffs.append({'kind':'fingerprint','state':k,'category':cat,'reason':'presence'}); continue
+              sd={p:{'current':v,'closed':o['styles'].get(p)} for p,v in c['styles'].items() if v!=o['styles'].get(p)}
+              gd={p:{'current':v,'closed':o['geometry'].get(p)} for p,v in c['geometry'].items() if abs(float(v or 0)-float(o['geometry'].get(p) or 0))>.51}
+              if c.get('descriptor')!=o.get('descriptor') or sd or gd: diffs.append({'kind':'fingerprint','state':k,'category':cat,'descriptorCurrent':c.get('descriptor'),'descriptorClosed':o.get('descriptor'),'styleDiff':sd,'geometryDiff':gd})
+          assertions=cur['criticalOwnershipAssertions']; failed=[x for x in assertions if not x['pass']]
+          if cur['coverage']['totalStatesCompleted']!=48 or cur['coverage']['failures']: raise SystemExit('browser coverage incomplete: '+json.dumps(cur['coverage']))
+          if len(assertions)!=144 or failed: raise SystemExit(f'ownership assertions {len(assertions)}, failed {len(failed)}')
+          if tri['finalDeltaClassification']['category']!='C': raise SystemExit('closed category-5 classification drift')
+          if diffs:
+            Path('/tmp/browser-diffs.json').write_text(json.dumps(diffs,indent=2,ensure_ascii=False)); raise SystemExit(f'{len(diffs)} unexplained current-vs-closed Phase2.5 deltas')
+          acq=[e for e in st['structuralSnapshot']['entries'] if e['surface']=='ACQUISITION']; assert len(acq)==10
+          refs=st['filenameCssomAudit']['candidatePairFilenameReferences']; meta=cur['metadata']; runtime_errors=sum(len(x.get('consoleErrors',[]))+len(x.get('pageErrors',[])) for x in cur['runtimeSmoke'])
+          out={'schemaVersion':1,'phase':'3B-0','mode':'AUDIT / GUARDRAILS ONLY — NO CSS MERGE','branch':'basair/phase-3b-0-consolidation-preflight','authoritativeProductionBase':{'commit':BASE,'tree':TREE,'cleanIsolatedWorktree':True},'evidenceSources':{'phase25':'02bc781aec31c0de199c92b88205cc02ad6dc603','phase25A':'563d8c8b01b66ad5f744f1102905f756e2fc7b62','phase3A':'0c2e42f8abd3e48fbd38c61a55f13b42fb1b3e37','closedCategory5':'C — MEASUREMENT / HARNESS FALSE POSITIVE'},'structuralSnapshot':st['structuralSnapshot'],'structuralChecks':{'pass':st['pass'],'failures':st['failures'],'counts':st['counts'],'protectedContracts':st['protectedContracts'],'importCycles':st['importCycles'],'duplicateAudit':st['duplicateAudit']},'stylesheetFilenameCssomAudit':st['filenameCssomAudit'],'tokenContract':{'canonicalTokens':106,'aliasClassesABCDE':'1/49/23/23/2','correctedConflicts':40,'productionCssFiles':55,'inlineStyleBlocks':1,'status':'PASS'},'browserBaseline':{'engine':meta['browserVersion'],'automation':meta['automationTool'],'node':meta['nodeVersion'],'os':meta['os'],'routes':cur['coverage']['routes'],'viewports':cur['coverage']['viewports'],'statesExpected':48,'statesCompleted':48,'coverageFailures':[],'closedPhase25CurrentSideComparison':{'unexplainedComputedStyleOrGeometryDeltas':0,'canonicalTokenDeltas':0,'aliasDeltas':0,'surfaceAuthorityDeltas':0,'status':'PASS'},'criticalOwnershipAssertions':{'total':144,'passed':144,'failed':0,'breakdown':tri['criticalOwnershipAssertions']['breakdown']},'runtimeSmokeStates':len(cur['runtimeSmoke']),'runtimeConsoleOrPageErrorsRecorded':runtime_errors,'limitations':cur['limitations']},'acquisition3B1':{'routes':[e['route'] for e in acq],'requiredRouteViewportStates':40,'candidateFiles':['acquisition-precision-native-v2.css','acquisition-polish-v2.css'],'filenameReferencesFound':refs,'interactionStateMatrix':st['future3B1']['affectedStateMatrix'],'capabilityDimensions':st['future3B1']['capabilityDimensions'],'concatenationInvariant':st['future3B1']['concatenationInvariant'],'safeMergeContract':['zero unexpected computed-style deltas','zero geometry deltas','zero custom-property resolution deltas','zero interaction-state deltas','zero reduced-motion behavior deltas','identical selector/declaration order after logical concatenation','identical media-query ordering','identical CSS specificity','no stylesheet-filename runtime dependency break']},'verification':{'npmCi':'PASS','npmRunVerify':'PASS','npmRunBuild':'PASS','gitDiffCheck':'PASS','preflightChecker':'PASS','realBrowserBaseline':'PASS','productionSourceChanged':False,'cssMergeStarted':False}}
+          Path('phase-3b-0-consolidation-preflight.json').write_text(json.dumps(out,indent=2,ensure_ascii=False)+'\n')
+          L=['# BASAIR — PHASE 3B-0 CONSOLIDATION PREFLIGHT','','**AUDIT / GUARDRAILS ONLY — no CSS merge was performed.**','',f'- Production base: `{BASE}`',f'- Production tree: `{TREE}`','- Branch created directly from Phase 2; Phase 3A/2.5/2.5A are evidence only.','', '## Structural contract','',f"- **{st['counts']['productionHtmlEntries']}** production HTML entries; **{st['counts']['productionCssFiles']}** production CSS files; **{st['counts']['productionCssBytes']:,}** CSS bytes.",'- Exact per-entry link/import order is snapshotted in the JSON.','- Import cycles: **0**; duplicate links/imports: **0**.','- Correct surface bridge is present on every entry; no bridge leakage.','- `track-buttons-v6.css` remains terminal on Public.','', '## Filename / CSSOM audit','',f'- Candidate-pair filename references in JS/MJS/TS: **{len(refs)}**.',f"- Generic CSSOM/source dependency hits recorded: **{len(st['filenameCssomAudit']['cssomApiHits'])}**; exact records are in JSON.",'', '## Token contract','', '- **PASS:** 106 canonical; aliases A/B/C/D/E = **1/49/23/23/2**; 40 conflicts; 55 production CSS; 1 inline style block.','- `--line` and `--muted` remain surface-specific; Admin inline ownership is preserved.','- `--basair-green-deep → #073B31` remains distinct from `--basair-green-hover → #044637`.','', '## Real-browser baseline','',f"- Browser: **{meta['browserVersion']}**; **{meta['automationTool']}**; Node **{meta['nodeVersion']}**; OS **{meta['os']}**.",'- Coverage: **48/48** required states.','- Comparison against the closed Phase-2.5 Phase-2 side: **0 unexplained computed/geometry deltas; 0 canonical-token deltas; 0 alias deltas; 0 surface/authority deltas.**','- Critical ownership assertions: **144/144 PASS**.','- Historical Category-5 remains closed as **C — MEASUREMENT / HARNESS FALSE POSITIVE**.','', '## Future 3B-1 candidate','', 'Exact 10 Acquisition routes: '+', '.join(f'`{e["route"]}`' for e in acq)+'.','Required route/viewport matrix: **40** states, plus interaction capabilities below.','']
+          for sel,states in st['future3B1']['affectedStateMatrix']: L.append(f'- `{sel}` — '+', '.join(f'`{x}`' for x in states)+'.')
+          L += ['', 'Capability dimensions: '+', '.join(f'`{x}`' for x in st['future3B1']['capabilityDimensions'])+'.','', 'Concatenation invariant: precision-native content first, then polish content immediately; no selector rewrite, declaration deduplication, media movement, specificity change, formatting normalization that changes parsing, or custom-property consolidation.','', '3B-1 passes only with zero unexpected computed-style, geometry, custom-property, interaction, reduced-motion, order, media-order, specificity, and stylesheet-filename dependency deltas. Screenshots are supporting evidence; computed cascade + geometry are authoritative.','', '## Verification','', '- `npm ci` — PASS','- `npm run verify` — PASS','- `npm run build` — PASS','- reusable preflight checker — PASS','- real-browser 48-state baseline — PASS','- `git diff --check` — PASS','- production source changed — **NO**','- CSS merge started — **NO**','', 'PHASE 3B-0 = COMPLETE','READY FOR PHASE 3B-1 CANDIDATE','CSS MERGE NOT STARTED']
+          Path('PHASE-3B-0-CONSOLIDATION-PREFLIGHT.md').write_text('\n'.join(L)+'\n')
+          PY
+          git diff --check -- PHASE-3B-0-CONSOLIDATION-PREFLIGHT.md phase-3b-0-consolidation-preflight.json scripts/verify-css-consolidation-preflight.mjs
+      - name: Commit final audit artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name basair; git config user.email osamakhaled01010@gmail.com
+          git add PHASE-3B-0-CONSOLIDATION-PREFLIGHT.md phase-3b-0-consolidation-preflight.json
+          git diff --cached --check
+          git commit -m 'Phase 3B-0: establish CSS consolidation preflight contract'
+          git push origin HEAD:basair/phase-3b-0-consolidation-preflight
