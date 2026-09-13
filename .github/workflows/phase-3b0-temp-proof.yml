@@ -1,0 +1,105 @@
+name: Phase 3B-0 Browser Proof Artifact
+on:
+  push:
+    branches: ["basair/phase-3b-0-consolidation-preflight"]
+    paths: [".github/workflows/phase-3b0-temp-proof.yml"]
+permissions:
+  contents: read
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify exact Phase 2 and structural preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=1504baad33b2123056877c1e92f4e2d558c00d51
+          TREE=1d987040d0158387d0425d6e6ed00fe2a68ec617
+          rm -rf /tmp/p2 /tmp/evidence
+          mkdir -p /tmp/evidence
+          git worktree add --detach /tmp/p2 "$BASE" >/dev/null
+          test "$(git -C /tmp/p2 rev-parse HEAD)" = "$BASE"
+          test "$(git -C /tmp/p2 rev-parse HEAD^{tree})" = "$TREE"
+          test -z "$(git -C /tmp/p2 status --porcelain)"
+          cd /tmp/p2
+          npm ci
+          npm run verify
+          npm run build
+          git diff --check
+          test -z "$(git status --porcelain --untracked-files=no)"
+          node "$GITHUB_WORKSPACE/scripts/verify-css-consolidation-preflight.mjs" --out=/tmp/evidence/structural.json
+          node token-authority-check.mjs | tee /tmp/evidence/token-contract.log
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/49/23/23/2; corrected conflicts=40; production CSS=55; inline styles=1.' /tmp/evidence/token-contract.log
+      - name: Prepare historical capture environment exactly
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROWSER_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser || true)"
+          test -n "$BROWSER_BIN" || { echo NO_REAL_BROWSER_ENGINE >&2; exit 78; }
+          echo "BROWSER_BIN=$BROWSER_BIN" >> "$GITHUB_ENV"
+          "$BROWSER_BIN" --version | tee /tmp/evidence/browser-version.txt
+          rm -rf /tmp/browser-tool /tmp/basair-browser-tooling
+          mkdir -p /tmp/browser-tool
+          cd /tmp/browser-tool
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false puppeteer-core@24.16.0 >/dev/null
+          ln -s /tmp/browser-tool /tmp/basair-browser-tooling
+          node -p "require('puppeteer-core/package.json').version" | tee /tmp/evidence/puppeteer-version.txt
+          cd "$GITHUB_WORKSPACE"
+          git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/orig.yml').read_text()
+          marker="cat >/tmp/phase25-characterize.b64 <<'B64'"
+          tail=s[s.index(marker)+len(marker):].lstrip('\n')
+          j=tail.index('\n          B64')
+          Path('/tmp/orig.b64').write_text('\n'.join(x[10:] if x.startswith('          ') else x for x in tail[:j].splitlines())+'\n')
+          PY
+          base64 -d /tmp/orig.b64 >/tmp/orig.gz
+          gzip -dc /tmp/orig.gz >/tmp/browser-tool/capture.mjs
+          node --check /tmp/browser-tool/capture.mjs
+          git show 02bc781aec31c0de199c92b88205cc02ad6dc603:phase-2.5-browser-characterization.json >/tmp/evidence/closed-phase25.json
+          git show 563d8c8b01b66ad5f744f1102905f756e2fc7b62:phase-2.5a-delta-triage.json >/tmp/evidence/closed-phase25a.json
+      - name: Run original 12 x 4 real-browser capture on exact Phase 2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/p2/dist >/tmp/s1.log 2>&1 &
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/p2/dist >/tmp/s2.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null 2>&1 && curl -fsS http://127.0.0.1:4174/ >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null
+          curl -fsS http://127.0.0.1:4174/ >/dev/null
+          rm -rf /tmp/browser-root
+          mkdir -p /tmp/browser-root
+          cp /tmp/p2/token-authority-manifest.json /tmp/browser-root/
+          cd /tmp/browser-tool
+          GITHUB_WORKSPACE=/tmp/browser-root BROWSER_BIN="$BROWSER_BIN" PHASE2_BASE_URL=http://127.0.0.1:4173/ PHASE0_BASE_URL=http://127.0.0.1:4174/ node capture.mjs | tee /tmp/evidence/browser-summary.log
+          test -f /tmp/browser-root/phase-2.5-browser-characterization.json
+          cp /tmp/browser-root/phase-2.5-browser-characterization.json /tmp/evidence/current-phase2-browser.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/evidence/current-phase2-browser.json'))
+          assert p['coverage']['totalStatesCompleted']==48, p['coverage']
+          assert not p['coverage']['failures'], p['coverage']['failures']
+          a=p['criticalOwnershipAssertions']
+          assert len(a)==144, len(a)
+          assert not [x for x in a if not x['pass']]
+          print('BROWSER_PROOF_PASS states=48 assertions=144')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b0-browser-proof
+          path: /tmp/evidence
+          if-no-files-found: error
+          retention-days: 1
