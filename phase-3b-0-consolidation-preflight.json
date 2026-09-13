@@ -1,6 +1,6 @@
 {
   "phase": "3B-0",
-  "status": "COMPLETE",
+  "status": "BLOCKED_FINAL_CLEAN_BRANCH_EXECUTION_NOT_RUN",
   "branch": "basair/phase-3b-0-consolidation-preflight-clean",
   "productionBase": {
     "commit": "1504baad33b2123056877c1e92f4e2d558c00d51",
@@ -143,6 +143,25 @@
     "tokenChangesAllowed": 0,
     "packageChangesAllowed": 0,
     "generatedArtifactsAllowed": 0
+  },
+  "finalVerification": {
+    "freshCleanBranchCommandRun": false,
+    "requiredCommands": [
+      "node scripts/verify-css-consolidation-preflight.mjs",
+      "npm ci",
+      "npm run verify",
+      "npm run build",
+      "git diff --check"
+    ],
+    "executedEvidenceAgainstExactProductionBaseAndSameChecker": {
+      "runId": 34754810028,
+      "checker": "PASS",
+      "npmCi": "PASS",
+      "npmRunVerify": "PASS",
+      "npmRunBuild": "PASS",
+      "gitDiffCheck": "PASS"
+    },
+    "blocker": "The current shell environment cannot resolve GitHub/npm and no workflow may be added to the clean closure branch; therefore the required fresh final-branch command run was not executed."
   },
   "unresolvedItems": [
     "authenticated Admin characterization",
