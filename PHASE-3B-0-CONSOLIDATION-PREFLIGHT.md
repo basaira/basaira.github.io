@@ -1,6 +1,6 @@
 # BASAIR — PHASE 3B-0 CONSOLIDATION PREFLIGHT
 
-**Status: COMPLETE — audit/guardrails only. CSS merge not started.**
+**Status: BLOCKED — final clean-branch command execution was not completed in the current environment. CSS merge not started.**
 
 ## Production authority
 
@@ -15,11 +15,11 @@ The reusable checker is reused unchanged from checker-only commit:
 - path: `scripts/verify-css-consolidation-preflight.mjs`
 - blob: `3dfc0605151abd9a9e6514a492a9b94137c96c63`
 
-The historical branch `basair/phase-3b-0-consolidation-preflight` is evidence infrastructure only and is not part of this clean closure branch.
+The historical branch `basair/phase-3b-0-consolidation-preflight` is evidence infrastructure only and was left untouched by this clean closure attempt.
 
 ## Structural contract
 
-The executed structural checker established:
+The executed structural evidence established:
 
 - production HTML entries: **12**
 - production CSS files: **55**
@@ -68,9 +68,6 @@ Evidence result:
 - critical ownership assertions: **144/144 PASS**
 - failed ownership assertions: **0**
 - screenshots: **96**
-
-Comparison against the closed Phase-2.5 Phase-2 observations:
-
 - unexplained computed/geometry deltas: **0**
 - canonical-token deltas: **0**
 - alias deltas: **0**
@@ -82,9 +79,23 @@ The historical Category-5 finding remains closed as:
 
 It is not reopened by Phase 3B-0.
 
+## Final clean-branch verification gate
+
+The required final commands are:
+
+- `node scripts/verify-css-consolidation-preflight.mjs`
+- `npm ci`
+- `npm run verify`
+- `npm run build`
+- `git diff --check`
+
+Run `34754810028` already executed those source-verification operations successfully against the exact Phase-2 production content and the same checker blob. The clean closure branch changes only the unchanged checker plus two evidence/report files, and no production source or package file.
+
+However, the current shell environment cannot resolve GitHub/npm, the clean branch contains no workflow by design, and the repository has no existing `main` workflow that can be reused. Therefore a fresh execution of all five commands on the final clean branch was **not** performed. Under the explicit hard gate, this prevents declaration of COMPLETE even though the executable production inputs are unchanged.
+
 ## Future Phase 3B-1 candidate — not implemented
 
-The proposed future candidate pair is:
+The proposed future candidate pair remains:
 
 1. `acquisition-precision-native-v2.css`
 2. `acquisition-polish-v2.css`
@@ -97,26 +108,13 @@ Required concatenation invariant: the complete contents of the first file follow
 - no specificity change
 - no custom-property consolidation
 
-Acquisition routes to characterize:
-
-- `/en/`
-- `/en/quran-kids/`
-- `/en/quran-adults/`
-- `/en/arabic/`
-- `/ru/`
-- `/ru/quran/`
-- `/ru/arabic/`
-- `/uz/`
-- `/uz/quran/`
-- `/uz/arabic/`
-
-The future structural matrix is **10 routes × 4 viewports = 40 states**, plus applicable interaction/capability states: hover, active, focus-visible, `aria-busy`, reduced-motion, fine pointer, coarse pointer / `hover:none`, `<=520px`, and `>520px`.
+The future structural matrix is **10 Acquisition routes × 4 viewports = 40 states**, plus applicable hover, active, focus-visible, `aria-busy`, reduced-motion, fine-pointer, coarse-pointer / `hover:none`, `<=520px`, and `>520px` characterization.
 
 **PHASE 3B-1 HAS NOT STARTED.**
 
 ## Unresolved future items
 
-These remain open and are not silently closed by this phase:
+These remain open:
 
 - authenticated Admin characterization
 - `--layout-section-compact` semantic ownership
@@ -124,13 +122,11 @@ These remain open and are not silently closed by this phase:
 - hero consolidation characterization
 - independent treatment of tracked-but-production-unreachable hero-v3 files
 
-None blocks Phase 3B-0 closure.
+## Net-diff contract
 
-## Closure contract
+The authoritative comparison remains Phase-2 commit `1504baad33b2123056877c1e92f4e2d558c00d51` to the clean branch final HEAD.
 
-The authoritative final comparison is always Phase-2 commit `1504baad33b2123056877c1e92f4e2d558c00d51` to the clean branch final HEAD.
-
-The final net changed-file list must contain exactly:
+The only permitted changed paths are:
 
 - `PHASE-3B-0-CONSOLIDATION-PREFLIGHT.md`
 - `phase-3b-0-consolidation-preflight.json`
@@ -138,6 +134,5 @@ The final net changed-file list must contain exactly:
 
 No workflow, CSS, HTML, production JavaScript, Firebase, token, package, screenshot, generated `dist`, or other production-source change is permitted.
 
-PHASE 3B-0 = COMPLETE
-READY FOR PHASE 3B-1 CANDIDATE
-CSS MERGE NOT STARTED
+PHASE 3B-0 = BLOCKED
+DO NOT START PHASE 3B-1
