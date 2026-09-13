@@ -16,7 +16,18 @@ jobs:
         run: |
           set -euo pipefail
           git show d02415a3144d6e991adb8386278244cad7fc4e0f:.github/workflows/phase-2-5-browser-characterization-rerun.yml >/tmp/orig.yml
-          awk '/phase25-characterize.b64/{flag=1;next}/^          B64$/{flag=0}flag{gsub(/^          /,"");print}' /tmp/orig.yml >/tmp/orig.b64
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('/tmp/orig.yml').read_text()
+          marker="cat >/tmp/phase25-characterize.b64 <<'B64'"
+          i=s.index(marker)+len(marker)
+          tail=s[i:].lstrip('\n')
+          j=tail.index('\n          B64')
+          lines=[]
+          for line in tail[:j].splitlines():
+              lines.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/orig.b64').write_text('\n'.join(lines)+'\n')
+          PY
           base64 -d /tmp/orig.b64 >/tmp/orig.mjs
           node --check /tmp/orig.mjs
           echo '=== HEAD 180 ==='
@@ -24,4 +35,4 @@ jobs:
           echo '=== BOTTOM 220 ==='
           tail -220 /tmp/orig.mjs
           echo '=== URL/OUT/ARGS/PORT REFERENCES ==='
-          grep -nE 'process\.(env|argv)|4173|4174|writeFile|REPORT|OUTPUT|route|viewports|baselineComparison|criticalOwnershipAssertions' /tmp/orig.mjs | tail -240
+          grep -nE 'process\.(env|argv)|4173|4174|writeFile|REPORT|OUTPUT|route|viewports|baselineComparison|criticalOwnershipAssertions' /tmp/orig.mjs | tail -240 || true
