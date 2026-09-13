@@ -1,0 +1,33 @@
+name: Phase 3B-0 Temp Evidence Inspect
+on:
+  push:
+    branches: ["basair/phase-3b-0-consolidation-preflight"]
+    paths: [".github/workflows/phase-3b0-temp-inspect.yml"]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inspect closed Phase 2.5 evidence schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 02bc781aec31c0de199c92b88205cc02ad6dc603:phase-2.5-browser-characterization.json > /tmp/p25.json
+          git show 563d8c8b01b66ad5f744f1102905f756e2fc7b62:phase-2.5a-delta-triage.json > /tmp/p25a.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/p25.json'))
+          a=json.load(open('/tmp/p25a.json'))
+          print('P25_KEYS',sorted(p.keys()))
+          for k,v in p.items():
+            if isinstance(v,list): print('LIST',k,len(v),'FIRST',json.dumps(v[0] if v else None,ensure_ascii=False)[:5000])
+            elif isinstance(v,dict): print('DICT',k,sorted(v.keys())[:80])
+          print('BASELINE_SAMPLE',json.dumps(p.get('baselineComparison',[None])[0],ensure_ascii=False)[:12000])
+          print('CSS_SAMPLE',json.dumps(p.get('cssCharacterization',[None])[0],ensure_ascii=False)[:12000])
+          print('P25A_FINAL',json.dumps(a.get('finalDeltaClassification'),ensure_ascii=False))
+          print('P25A_ASSERTIONS',json.dumps(a.get('criticalOwnershipAssertions'),ensure_ascii=False))
+          PY
