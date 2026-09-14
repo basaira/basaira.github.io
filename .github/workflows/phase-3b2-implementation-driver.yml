@@ -1,0 +1,285 @@
+name: Phase 3B-2 Exact-Concat Implementation Driver
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-2-shared-form-merge-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-2-shared-form-merge
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact authoritative base
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6de74b2271b937823d63ac33909cc36fe8e73662
+          TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c
+          PARENT=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          SOURCE_BRANCH=basair/phase-3b-2c-form-state-characterization
+          IMPL_BRANCH=basair/phase-3b-2-shared-form-merge
+          git fetch --all --prune
+          test "$(git rev-parse HEAD)" = "$BASE"
+          test "$(git rev-parse HEAD^{tree})" = "$TREE"
+          test "$(git rev-parse HEAD^1)" = "$PARENT"
+          test "$(git merge-base HEAD "$BASE")" = "$BASE"
+          test "$(git rev-parse origin/$SOURCE_BRANCH)" = "$BASE"
+          test "$(git rev-parse origin/$IMPL_BRANCH)" = "$BASE"
+          test -z "$(git status --porcelain)"
+          echo BRANCH_IDENTITY_PASS
+          echo BRANCH=$(git branch --show-current)
+          echo HEAD=$(git rev-parse HEAD)
+          echo TREE=$(git rev-parse HEAD^{tree})
+          echo PARENT=$(git rev-parse HEAD^1)
+          echo MERGE_BASE=$(git merge-base HEAD "$BASE")
+          echo REMOTE_SOURCE_HEAD=$(git rev-parse origin/$SOURCE_BRANCH)
+          echo WORKTREE_CLEAN_PASS
+
+      - name: Apply exact-concat production implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6de74b2271b937823d63ac33909cc36fe8e73662
+          EXPECTED_SHA=04c21ded0670ae15f90257965b7dc37a7b1b43dfc2981ad3cef4e764dd2235cd
+          EXPECTED_BYTES=25659
+          cp form-overdrive-v1.css /tmp/base-form-overdrive-v1.css
+          cp form-polish-v2.css /tmp/base-form-polish-v2.css
+          echo BASE_OVERDRIVE_SHA=$(sha256sum /tmp/base-form-overdrive-v1.css | awk '{print $1}')
+          echo BASE_OVERDRIVE_BYTES=$(wc -c < /tmp/base-form-overdrive-v1.css)
+          echo BASE_POLISH_SHA=$(sha256sum /tmp/base-form-polish-v2.css | awk '{print $1}')
+          echo BASE_POLISH_BYTES=$(wc -c < /tmp/base-form-polish-v2.css)
+          cat /tmp/base-form-overdrive-v1.css /tmp/base-form-polish-v2.css > /tmp/exact-concat.css
+          test "$(sha256sum /tmp/exact-concat.css | awk '{print $1}')" = "$EXPECTED_SHA"
+          test "$(wc -c < /tmp/exact-concat.css)" = "$EXPECTED_BYTES"
+          cp /tmp/exact-concat.css form-overdrive-v1.css
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          routes = [
+              Path('index.html'),
+              Path('en/arabic/index.html'),
+              Path('en/quran-adults/index.html'),
+              Path('en/quran-kids/index.html'),
+              Path('ru/arabic/index.html'),
+              Path('ru/quran/index.html'),
+              Path('uz/arabic/index.html'),
+              Path('uz/quran/index.html'),
+          ]
+          polish = b'form-polish-v2.css'
+          over = b'form-overdrive-v1.css'
+          patterns = [
+              re.compile(rb'<link\b[^>]*href=["\'][^"\']*form-polish-v2\.css[^"\']*["\'][^>]*>\s*', re.I),
+              re.compile(rb'<link\b[^>]*rel=["\']?stylesheet["\']?[^>]*href=["\'][^"\']*form-polish-v2\.css[^"\']*["\'][^>]*>\s*', re.I),
+          ]
+          for p in routes:
+              original = p.read_bytes()
+              data = original
+              for rx in patterns:
+                  data = rx.sub(b'', data)
+              if data == original:
+                  raise SystemExit(f'Could not remove form-polish-v2.css link from {p}')
+              if polish in data:
+                  raise SystemExit(f'Retired stylesheet reference remains in {p}')
+              if data.count(over) != 1:
+                  raise SystemExit(f'Expected exactly one survivor reference in {p}, got {data.count(over)}')
+              p.write_bytes(data)
+
+          manifest = Path('token-authority-manifest.json')
+          raw = manifest.read_bytes()
+          needle = b'"productionCssFileCount": 54'
+          if raw.count(needle) != 1:
+              raise SystemExit(f'Expected exactly one manifest 54 count, got {raw.count(needle)}')
+          manifest.write_bytes(raw.replace(needle, b'"productionCssFileCount": 53', 1))
+          PY
+
+          rm form-polish-v2.css
+          cmp -s /tmp/exact-concat.css form-overdrive-v1.css
+          echo EXACT_CONCAT_PASS
+          echo CONCAT_SHA=$(sha256sum /tmp/exact-concat.css | awk '{print $1}')
+          echo CANDIDATE_SURVIVOR_SHA=$(sha256sum form-overdrive-v1.css | awk '{print $1}')
+          echo CANDIDATE_SURVIVOR_BYTES=$(wc -c < form-overdrive-v1.css)
+
+      - name: Prove exact synthetic correspondence and path surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6de74b2271b937823d63ac33909cc36fe8e73662
+          EXPECTED_SHA=04c21ded0670ae15f90257965b7dc37a7b1b43dfc2981ad3cef4e764dd2235cd
+          ROUTES=(index.html en/arabic/index.html en/quran-adults/index.html en/quran-kids/index.html ru/arabic/index.html ru/quran/index.html uz/arabic/index.html uz/quran/index.html)
+
+          test "$(sha256sum form-overdrive-v1.css | awk '{print $1}')" = "$EXPECTED_SHA"
+          test ! -e form-polish-v2.css
+
+          mkdir -p /tmp/expected-html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          base='6de74b2271b937823d63ac33909cc36fe8e73662'
+          routes=[
+              'index.html','en/arabic/index.html','en/quran-adults/index.html','en/quran-kids/index.html',
+              'ru/arabic/index.html','ru/quran/index.html','uz/arabic/index.html','uz/quran/index.html'
+          ]
+          patterns=[
+              re.compile(rb'<link\b[^>]*href=["\'][^"\']*form-polish-v2\.css[^"\']*["\'][^>]*>\s*',re.I),
+              re.compile(rb'<link\b[^>]*rel=["\']?stylesheet["\']?[^>]*href=["\'][^"\']*form-polish-v2\.css[^"\']*["\'][^>]*>\s*',re.I),
+          ]
+          root=Path('/tmp/expected-html')
+          for r in routes:
+              raw=subprocess.check_output(['git','show',f'{base}:{r}'])
+              expected=raw
+              for rx in patterns:
+                  expected=rx.sub(b'',expected)
+              out=root/r
+              out.parent.mkdir(parents=True,exist_ok=True)
+              out.write_bytes(expected)
+          PY
+          for f in "${ROUTES[@]}"; do
+            cmp -s "$f" "/tmp/expected-html/$f"
+            echo SYNTHETIC_HTML_MATCH=$f
+          done
+
+          cat > /tmp/allowed-paths <<'EOF'
+          en/arabic/index.html
+          en/quran-adults/index.html
+          en/quran-kids/index.html
+          form-overdrive-v1.css
+          form-polish-v2.css
+          index.html
+          ru/arabic/index.html
+          ru/quran/index.html
+          token-authority-manifest.json
+          uz/arabic/index.html
+          uz/quran/index.html
+          EOF
+          git diff --name-only "$BASE" | sort > /tmp/actual-paths
+          diff -u /tmp/allowed-paths /tmp/actual-paths
+          test "$(wc -l < /tmp/actual-paths)" = 11
+          echo EXPECTED_CORE_DIFF_11_PATHS_PASS
+          echo CHANGED_PATHS_BEGIN
+          cat /tmp/actual-paths
+          echo CHANGED_PATHS_END
+
+          test -z "$(git diff --name-only "$BASE" -- '*.js' '*.mjs' '*.ts' 'package.json' 'package-lock.json' 'firebase*' 'assets/**')"
+          echo NO_JS_ASSETS_PACKAGE_FIREBASE_CHANGE_PASS
+          echo RUNTIME_FILENAME_REFERENCE_AUDIT_BEGIN
+          git grep -n 'form-polish-v2\.css' -- '*.js' '*.mjs' '*.ts' '*.html' '*.css' || true
+          echo RUNTIME_FILENAME_REFERENCE_AUDIT_END
+          echo BROWSER_CARRY_FORWARD_INPUT_MATCH_PASS
+
+      - name: Structural preflight before dependency install
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=53
+          echo PREFLIGHT_53_PASS
+
+      - name: Install exact dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          echo NPM_CI_PASS
+
+      - name: Static contract metrics
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const postcss=require('postcss');
+          const a=fs.readFileSync('/tmp/base-form-overdrive-v1.css','utf8');
+          const b=fs.readFileSync('/tmp/base-form-polish-v2.css','utf8');
+          const c=fs.readFileSync('form-overdrive-v1.css','utf8');
+          const ra=postcss.parse(a), rb=postcss.parse(b), rc=postcss.parse(c);
+          const decls=root=>{let n=0;root.walkDecls(()=>n++);return n};
+          const map=root=>{const m=new Map();root.walkRules(r=>{for(const s of (r.selectors||[r.selector])){if(!m.has(s))m.set(s,new Set());r.walkDecls(d=>m.get(s).add(d.prop));}});return m};
+          const A=map(ra),B=map(rb);
+          const overlaps=[...A.keys()].filter(s=>B.has(s)).sort();
+          let pairs=0;for(const s of overlaps)for(const p of A.get(s))if(B.get(s).has(p))pairs++;
+          const cp=new Set();
+          for(const root of [ra,rb]) root.walkDecls(d=>{
+            if(d.prop.startsWith('--fo-')||d.prop.startsWith('--form-od-'))cp.add(d.prop);
+            for(const m of d.value.matchAll(/var\((--[\w-]+)/g)) if(m[1].startsWith('--fo-')||m[1].startsWith('--form-od-'))cp.add(m[1]);
+          });
+          const before=decls(ra)+decls(rb), after=decls(rc);
+          console.log(`BASE_OVERDRIVE_DECLARATIONS=${decls(ra)}`);
+          console.log(`BASE_POLISH_DECLARATIONS=${decls(rb)}`);
+          console.log(`DECLARATIONS_BEFORE=${before}`);
+          console.log(`DECLARATIONS_AFTER=${after}`);
+          console.log(`DECLARATION_REMOVALS=${before-after}`);
+          console.log(`OVERLAP_SELECTORS=${overlaps.length}`);
+          console.log(`OVERLAP_PROPERTY_PAIRS=${pairs}`);
+          console.log(`FORM_LOCAL_CUSTOM_PROPERTIES=${cp.size}`);
+          if(before!==after)process.exit(21);
+          if(overlaps.length!==6)process.exit(22);
+          if(pairs!==13)process.exit(23);
+          if(cp.size!==16)process.exit(24);
+          NODE
+          echo STATIC_CONTRACT_METRICS_PASS
+
+      - name: Commit candidate locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name basair-phase-3b2
+          git config user.email actions@users.noreply.github.com
+          git add form-overdrive-v1.css form-polish-v2.css index.html en/arabic/index.html en/quran-adults/index.html en/quran-kids/index.html ru/arabic/index.html ru/quran/index.html uz/arabic/index.html uz/quran/index.html token-authority-manifest.json
+          git commit -m "Phase 3B-2: exact-concat shared form styles"
+          echo LOCAL_CANDIDATE_HEAD=$(git rev-parse HEAD)
+          echo LOCAL_CANDIDATE_TREE=$(git rev-parse HEAD^{tree})
+          echo LOCAL_CANDIDATE_PARENT=$(git rev-parse HEAD^1)
+
+      - name: Full command gate on exact candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=6de74b2271b937823d63ac33909cc36fe8e73662
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=53
+          echo FINAL_PREFLIGHT_PASS
+          npm ci
+          echo FINAL_NPM_CI_PASS
+          npm run verify
+          echo FINAL_NPM_VERIFY_PASS
+          npm run build
+          echo FINAL_NPM_BUILD_PASS
+          git diff --check "$BASE"..HEAD
+          git diff --check
+          echo FINAL_DIFF_CHECK_PASS
+          git diff --exit-code
+          echo FINAL_DIFF_EXIT_PASS
+          test -z "$(git status --porcelain)"
+          echo FINAL_STATUS_CLEAN_PASS
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          test "$(git rev-parse HEAD^1)" = "$BASE"
+          echo FINAL_MERGE_BASE_PASS=$(git merge-base "$BASE" HEAD)
+          echo FINAL_HEAD=$(git rev-parse HEAD)
+          echo FINAL_TREE=$(git rev-parse HEAD^{tree})
+          echo FINAL_PARENT=$(git rev-parse HEAD^1)
+          echo FINAL_PATH_COUNT=$(git diff --name-only "$BASE"..HEAD | wc -l)
+          echo FINAL_PATHS_BEGIN
+          git diff --name-only "$BASE"..HEAD
+          echo FINAL_PATHS_END
+          echo TOKEN_AUTHORITY_CONFIRM_BEGIN
+          node token-authority-check.mjs
+          echo TOKEN_AUTHORITY_CONFIRM_END
+
+      - name: Push verified implementation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin HEAD:basair/phase-3b-2-shared-form-merge
+          echo IMPLEMENTATION_PUSH_PASS
+          echo PUSHED_HEAD=$(git rev-parse HEAD)
