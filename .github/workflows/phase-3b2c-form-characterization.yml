@@ -1,0 +1,117 @@
+name: Phase 3B-2C Form-State Characterization
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-2c-form-state-characterization-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify authoritative source and source gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=6de74b2271b937823d63ac33909cc36fe8e73662
+          SOURCE_TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c
+          SOURCE_BRANCH=basair/phase-3b-2c-form-state-characterization
+          CLOSED_BRANCH=basair/phase-3b-1-acquisition-precision-polish-merge
+          IMPLEMENTATION_PARENT=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          git fetch --all --prune
+          test "$(git rev-parse origin/$SOURCE_BRANCH)" = "$SOURCE_SHA"
+          test "$(git rev-parse origin/$CLOSED_BRANCH)" = "$SOURCE_SHA"
+          test "$(git rev-parse "$SOURCE_SHA^{tree}")" = "$SOURCE_TREE"
+          test "$(git rev-parse "$SOURCE_SHA^1")" = "$IMPLEMENTATION_PARENT"
+          test "$(git merge-base "origin/$SOURCE_BRANCH" "origin/$CLOSED_BRANCH")" = "$SOURCE_SHA"
+          rm -rf /tmp/basair-3b2c-source /tmp/basair-3b2c-synth /tmp/phase3b2c-out /tmp/phase3b2c-harness
+          git worktree add --detach /tmp/basair-3b2c-source "$SOURCE_SHA"
+          cd /tmp/basair-3b2c-source
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test -z "$(git status --porcelain)"
+          echo SOURCE_IDENTITY_PASS_HEAD=$(git rev-parse HEAD)
+          echo SOURCE_IDENTITY_PASS_TREE=$(git rev-parse HEAD^{tree})
+          echo SOURCE_IDENTITY_PASS_PARENT=$(git rev-parse HEAD^1)
+          echo SOURCE_MERGE_BASE_PASS=$(git merge-base HEAD "origin/$CLOSED_BRANCH")
+          echo SOURCE_PREFLIGHT_BEGIN
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54
+          echo SOURCE_PREFLIGHT_PASS
+          echo SOURCE_NPM_CI_BEGIN
+          npm ci
+          echo SOURCE_NPM_CI_PASS
+          echo SOURCE_VERIFY_BEGIN
+          npm run verify
+          echo SOURCE_VERIFY_PASS
+          echo SOURCE_BUILD_BEGIN
+          npm run build
+          echo SOURCE_BUILD_PASS
+          git diff --check
+          echo SOURCE_DIFF_CHECK_PASS
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          echo SOURCE_TRACKED_CLEAN_PASS
+          echo SOURCE_IGNORED_BEGIN
+          git status --short --ignored -- node_modules dist || true
+          echo SOURCE_IGNORED_END
+          git clean -fdX
+          test -z "$(git status --porcelain)"
+          echo SOURCE_CLEAN_FOR_CHARACTERIZATION_PASS
+
+      - name: Install isolated harness dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/phase3b2c-harness
+          cd /tmp/phase3b2c-harness
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund puppeteer-core@24.16.0 postcss@8.5.6 postcss-selector-parser@7.1.0
+          cp "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-characterize.mjs" ./characterize.mjs
+
+      - name: Run source vs synthetic exact-concat characterization
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/basair-3b2c-synth /tmp/phase3b2c-out
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/basair-3b2c-source >/tmp/source-server.log 2>&1 &
+          SOURCE_SERVER=$!
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-3b2c-synth >/tmp/synth-server.log 2>&1 &
+          SYNTH_SERVER=$!
+          trap 'kill $SOURCE_SERVER $SYNTH_SERVER 2>/dev/null || true' EXIT
+          sleep 1
+          cd /tmp/phase3b2c-harness
+          SOURCE_DIR=/tmp/basair-3b2c-source \
+          SYNTH_DIR=/tmp/basair-3b2c-synth \
+          OUT_DIR=/tmp/phase3b2c-out \
+          SOURCE_SHA=6de74b2271b937823d63ac33909cc36fe8e73662 \
+          SOURCE_TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c \
+          node characterize.mjs | tee /tmp/phase3b2c-out/console-summary.json
+          echo CHARACTERIZATION_PASS
+          cd /tmp/basair-3b2c-source
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          echo SOURCE_REMAINS_TRACKED_CLEAN_PASS
+
+      - name: Upload characterization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b2c-form-characterization
+          path: /tmp/phase3b2c-out/
+          if-no-files-found: error
+          retention-days: 30
