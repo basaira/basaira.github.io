@@ -1,0 +1,152 @@
+name: Phase 3B-1 Exact-Order Implementation
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-1-verification-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply one exact-order consolidation commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=07477307402857cb73ff80eb726a43faa5e72ad3
+          SOURCE_TREE=ff6b9fade02f4c7311c9ea9692a7e89790039767
+          PHASE2=1504baad33b2123056877c1e92f4e2d558c00d51
+          IMPL_BRANCH=basair/phase-3b-1-acquisition-precision-polish-merge
+          CHECKER_BLOB=3dfc0605151abd9a9e6514a492a9b94137c96c63
+          EXPECTED_CONCAT_SHA=667481b25363148f8a9ded4d696e54fa862a99131eb62e1cd90530ac491fd875
+
+          git fetch --all --prune
+          CURRENT="$(git rev-parse "origin/$IMPL_BRANCH")"
+          if [ "$CURRENT" != "$SOURCE" ]; then
+            echo "Implementation branch already advanced to $CURRENT; no second implementation commit will be created."
+            exit 0
+          fi
+          test "$(git rev-parse "$CURRENT^{tree}")" = "$SOURCE_TREE"
+          test "$(git merge-base "$PHASE2" "$CURRENT")" = "$PHASE2"
+          test "$(git merge-base "$SOURCE" "$CURRENT")" = "$SOURCE"
+
+          rm -rf /tmp/basair-3b1-impl
+          git worktree add -B phase3b1-impl /tmp/basair-3b1-impl "origin/$IMPL_BRANCH"
+          cd /tmp/basair-3b1-impl
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "$SOURCE"
+          test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test "$(git hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+
+          node scripts/verify-css-consolidation-preflight.mjs --out=/tmp/phase3b1-before.json
+
+          python3 <<'PY'
+          from pathlib import Path
+          import hashlib, json, re
+          root=Path('/tmp/basair-3b1-impl')
+          first=root/'acquisition-precision-native-v2.css'
+          second=root/'acquisition-polish-v2.css'
+          first_bytes=first.read_bytes(); second_bytes=second.read_bytes(); merged=first_bytes+second_bytes
+          expected='667481b25363148f8a9ded4d696e54fa862a99131eb62e1cd90530ac491fd875'
+          assert hashlib.sha256(merged).hexdigest()==expected
+          first.write_bytes(merged)
+          second.unlink()
+          htmls=[
+            'en/index.html','en/quran-kids/index.html','en/quran-adults/index.html','en/arabic/index.html',
+            'ru/index.html','ru/quran/index.html','ru/arabic/index.html',
+            'uz/index.html','uz/quran/index.html','uz/arabic/index.html'
+          ]
+          proof=[]
+          line_re=re.compile(rb'(?m)^[ \t]*<link\b[^>\n]*acquisition-polish-v2\.css[^>\n]*>\r?\n?')
+          for rel in htmls:
+            p=root/rel; data=p.read_bytes()
+            assert data.count(b'acquisition-precision-native-v2.css')==1, rel
+            assert data.count(b'acquisition-polish-v2.css')==1, rel
+            new,n=line_re.subn(b'',data)
+            assert n==1, (rel,n)
+            assert new.count(b'acquisition-precision-native-v2.css')==1
+            assert b'acquisition-polish-v2.css' not in new
+            p.write_bytes(new)
+            proof.append({'html':rel,'removedPolishLinkCount':n})
+          Path('/tmp/phase3b1-implementation-proof.json').write_text(json.dumps({
+            'survivingStylesheet':'acquisition-precision-native-v2.css',
+            'removedStylesheet':'acquisition-polish-v2.css',
+            'firstBytes':len(first_bytes),'secondBytes':len(second_bytes),'mergedBytes':len(merged),
+            'mergedSha256':hashlib.sha256(merged).hexdigest(),'htmlEdits':proof
+          },indent=2)+'\n')
+          PY
+
+          ACTUAL_SHA="$(sha256sum acquisition-precision-native-v2.css | awk '{print $1}')"
+          test "$ACTUAL_SHA" = "$EXPECTED_CONCAT_SHA"
+
+          EXPECTED_PATHS=$(cat <<'EOF'
+          acquisition-polish-v2.css
+          acquisition-precision-native-v2.css
+          en/arabic/index.html
+          en/index.html
+          en/quran-adults/index.html
+          en/quran-kids/index.html
+          ru/arabic/index.html
+          ru/index.html
+          ru/quran/index.html
+          uz/arabic/index.html
+          uz/index.html
+          uz/quran/index.html
+          EOF
+          )
+          ACTUAL_PATHS="$(git diff --name-only | sort)"
+          test "$ACTUAL_PATHS" = "$EXPECTED_PATHS"
+
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54 --out=/tmp/phase3b1-after.json
+
+          node <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const before=JSON.parse(fs.readFileSync('/tmp/phase3b1-before.json','utf8'));
+          const after=JSON.parse(fs.readFileSync('/tmp/phase3b1-after.json','utf8'));
+          const removed='acquisition-polish-v2.css', surviving='acquisition-precision-native-v2.css';
+          const required=['/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/'];
+          if(before.counts.productionCssFiles!==55||after.counts.productionCssFiles!==54)throw new Error('CSS count mismatch');
+          if(after.structuralSnapshot.productionCssFiles.includes(removed))throw new Error('removed CSS still production reachable');
+          const bm=new Map(before.structuralSnapshot.entries.map(e=>[e.route,e])), am=new Map(after.structuralSnapshot.entries.map(e=>[e.route,e]));
+          for(const route of required){const b=bm.get(route),a=am.get(route);if(!b||!a)throw new Error('route missing '+route);const expected=b.effectiveImportedOrder.filter(x=>x!==removed);if(JSON.stringify(expected)!==JSON.stringify(a.effectiveImportedOrder))throw new Error('logical order drift '+route);if(a.effectiveImportedOrder.filter(x=>x===surviving).length!==1)throw new Error('survivor count '+route);const nu=a.undefinedCustomPropertiesWithoutFallback.filter(x=>!b.undefinedCustomPropertiesWithoutFallback.includes(x));if(nu.length)throw new Error('new undefined vars '+route+':'+nu.join(','));}
+          if(after.importCycles.length||after.duplicateAudit.directLinks.length||after.duplicateAudit.imports.length)throw new Error('structural duplicate/cycle regression');
+          if(!after.pass)throw new Error('checker failed');
+          console.log('STRUCTURAL_POST_MERGE_PASS');
+          NODE
+
+          git diff --check
+          test "$(git hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+          git config user.name basair
+          git config user.email osamakhaled01010@gmail.com
+          git add acquisition-precision-native-v2.css acquisition-polish-v2.css en/index.html en/quran-kids/index.html en/quran-adults/index.html en/arabic/index.html ru/index.html ru/quran/index.html ru/arabic/index.html uz/index.html uz/quran/index.html uz/arabic/index.html
+          git commit -m "Phase 3B-1: consolidate acquisition precision and polish"
+          test "$(git rev-parse HEAD^1)" = "$SOURCE"
+          git push origin HEAD:"$IMPL_BRANCH"
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+          echo "CANDIDATE_PARENT=$(git rev-parse HEAD^1)"
+
+      - name: Upload implementation proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b1-implementation-proof
+          path: |
+            /tmp/phase3b1-before.json
+            /tmp/phase3b1-after.json
+            /tmp/phase3b1-implementation-proof.json
+          if-no-files-found: error
+          retention-days: 7
