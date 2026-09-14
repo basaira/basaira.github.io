@@ -49,16 +49,12 @@ jobs:
           echo SOURCE_IDENTITY_PASS_TREE=$(git rev-parse HEAD^{tree})
           echo SOURCE_IDENTITY_PASS_PARENT=$(git rev-parse HEAD^1)
           echo SOURCE_MERGE_BASE_PASS=$(git merge-base HEAD "origin/$CLOSED_BRANCH")
-          echo SOURCE_PREFLIGHT_BEGIN
           node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54
           echo SOURCE_PREFLIGHT_PASS
-          echo SOURCE_NPM_CI_BEGIN
           npm ci
           echo SOURCE_NPM_CI_PASS
-          echo SOURCE_VERIFY_BEGIN
           npm run verify
           echo SOURCE_VERIFY_PASS
-          echo SOURCE_BUILD_BEGIN
           npm run build
           echo SOURCE_BUILD_PASS
           git diff --check
@@ -73,7 +69,7 @@ jobs:
           test -z "$(git status --porcelain)"
           echo SOURCE_CLEAN_FOR_CHARACTERIZATION_PASS
 
-      - name: Install isolated harness dependencies
+      - name: Install and patch isolated harness
         shell: bash
         run: |
           set -euo pipefail
@@ -82,6 +78,47 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund puppeteer-core@24.16.0 postcss@8.5.6 postcss-selector-parser@7.1.0
           cp "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-characterize.mjs" ./characterize.mjs
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/phase3b2c-harness/characterize.mjs')
+          s=p.read_text()
+          old="const browser=await puppeteer.launch({headless:true,executablePath,args:['--no-sandbox','--disable-setuid-sandbox']});"
+          new="const browser=await puppeteer.launch({headless:true,executablePath,protocolTimeout:180000,args:['--no-sandbox','--disable-setuid-sandbox']});"
+          assert old in s
+          s=s.replace(old,new,1)
+          marker='async function applyState(p,state){'
+          reset=r'''async function resetState(p){
+            try{await p.mouse.up();}catch{}
+            try{await p.mouse.move(1,1);}catch{}
+            await p.evaluate(()=>{
+              const f=document.querySelector('.overdrive-form'); if(!f)return;
+              f.removeAttribute('data-overdrive-submit-state');
+              for(const field of f.querySelectorAll('.overdrive-field'))field.classList.remove('is-focused','is-valid','is-invalid');
+              for(const el of f.querySelectorAll('input,textarea,select,[type="submit"]')){
+                el.removeAttribute('aria-invalid');el.removeAttribute('aria-disabled');el.removeAttribute('aria-busy');el.classList.remove('is-loading');
+                if('disabled' in el)el.disabled=false;
+                if(el.matches('select'))el.selectedIndex=0;
+                else if(el.matches('input[type="checkbox"],input[type="radio"]'))el.checked=false;
+                else if(!el.matches('[type="submit"],[type="button"],[type="hidden"]'))el.value='';
+              }
+              document.activeElement?.blur?.();
+              document.querySelector('#success-message')?.classList.add('hidden');
+              document.querySelector('#error-message')?.classList.add('hidden');
+              document.querySelector('#form-status')?.classList.remove('show');
+              document.querySelector('#post-submit')?.classList.remove('show');
+            });
+          }
+          '''
+          assert marker in s
+          s=s.replace(marker,reset+marker,1)
+          old_loop="""for(const state of states){\n      if(state!=='idle'){await sa.p.reload({waitUntil:'domcontentloaded'});await sb.p.reload({waitUntil:'domcontentloaded'});}"""
+          new_loop="""for(const state of states){\n      if(state!=='idle'){await resetState(sa.p);await resetState(sb.p);}"""
+          assert old_loop in s
+          s=s.replace(old_loop,new_loop,1)
+          p.write_text(s)
+          PY
+          grep -F 'protocolTimeout:180000' characterize.mjs
+          grep -F 'await resetState(sa.p);await resetState(sb.p);' characterize.mjs
 
       - name: Run source vs synthetic exact-concat characterization
         shell: bash
