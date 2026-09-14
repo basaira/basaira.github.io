@@ -12,7 +12,11 @@ permissions:
 jobs:
   characterize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - name: Checkout evidence infrastructure
         uses: actions/checkout@v4
@@ -44,11 +48,14 @@ jobs:
           cd /tmp/basair-3b2c-source
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(git rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$IMPLEMENTATION_PARENT"
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/$SOURCE_BRANCH)"
           test -z "$(git status --porcelain)"
           echo SOURCE_IDENTITY_PASS_HEAD=$(git rev-parse HEAD)
           echo SOURCE_IDENTITY_PASS_TREE=$(git rev-parse HEAD^{tree})
           echo SOURCE_IDENTITY_PASS_PARENT=$(git rev-parse HEAD^1)
           echo SOURCE_MERGE_BASE_PASS=$(git merge-base HEAD "origin/$CLOSED_BRANCH")
+          echo SOURCE_LOCAL_REMOTE_EQUAL_PASS
           node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54
           echo SOURCE_PREFLIGHT_PASS
           npm ci
@@ -62,9 +69,6 @@ jobs:
           git diff --exit-code
           test -z "$(git status --porcelain)"
           echo SOURCE_TRACKED_CLEAN_PASS
-          echo SOURCE_IGNORED_BEGIN
-          git status --short --ignored -- node_modules dist || true
-          echo SOURCE_IGNORED_END
           git clean -fdX
           test -z "$(git status --porcelain)"
           echo SOURCE_CLEAN_FOR_CHARACTERIZATION_PASS
@@ -130,16 +134,30 @@ jobs:
           new_hover='''  if(state==='hover-submit'){await freeze(p); const pt=await pointFor(p,'.overdrive-form [type="submit"]'); if(pt) await p.mouse.move(pt.x,pt.y);}\n  if(state==='hover-control'){await freeze(p); const pt=await pointFor(p,'.overdrive-form input:not([type="hidden"]),.overdrive-form textarea,.overdrive-form select'); if(pt) await p.mouse.move(pt.x,pt.y);}\n  if(state==='active-submit'){await freeze(p); const pt=await pointFor(p,'.overdrive-form [type="submit"]'); if(pt){await p.mouse.move(pt.x,pt.y);await p.mouse.down();}}\n'''
           assert old_hover in s
           s=s.replace(old_hover,new_hover,1)
+
+          old='const browserResult={routeCount:routes.length,'
+          new="const browserRoutes=routes.filter((_,i)=>i % Number(process.env.SHARD_COUNT||1) === Number(process.env.SHARD_INDEX||0));\nconsole.log(`SHARD ${process.env.SHARD_INDEX||0}/${process.env.SHARD_COUNT||1} routes=${browserRoutes.map(r=>r.route).join(',')}`);\nconst browserResult={routeCount:browserRoutes.length,"
+          assert old in s
+          s=s.replace(old,new,1)
+          idx=s.index('const browserResult=')
+          tail=s[idx:]
+          assert 'for(const r of routes){' in tail
+          tail=tail.replace('for(const r of routes){','for(const r of browserRoutes){',1)
+          s=s[:idx]+tail
           p.write_text(s)
           PY
           grep -F 'protocolTimeout:600000' characterize.mjs
-          grep -F 'pointFor(p' characterize.mjs
+          grep -F 'browserRoutes=routes.filter' characterize.mjs
+          grep -F 'for(const r of browserRoutes)' characterize.mjs
           grep -F 'PROGRESS ${r.route} ${vp.name} ${state}' characterize.mjs
           if grep -F 'await el.hover()' characterize.mjs; then exit 1; fi
           if grep -F 'await el.boundingBox()' characterize.mjs; then exit 1; fi
 
-      - name: Run source vs synthetic exact-concat characterization
+      - name: Run source vs synthetic exact-concat characterization shard
         shell: bash
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: 4
         run: |
           set -euo pipefail
           mkdir -p /tmp/basair-3b2c-synth /tmp/phase3b2c-out
@@ -155,18 +173,20 @@ jobs:
           OUT_DIR=/tmp/phase3b2c-out \
           SOURCE_SHA=6de74b2271b937823d63ac33909cc36fe8e73662 \
           SOURCE_TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c \
+          SHARD_INDEX="$SHARD_INDEX" \
+          SHARD_COUNT="$SHARD_COUNT" \
           node characterize.mjs | tee /tmp/phase3b2c-out/console-summary.json
-          echo CHARACTERIZATION_PASS
+          echo CHARACTERIZATION_SHARD_PASS=$SHARD_INDEX
           cd /tmp/basair-3b2c-source
           git diff --exit-code
           test -z "$(git status --porcelain)"
           echo SOURCE_REMAINS_TRACKED_CLEAN_PASS
 
-      - name: Upload characterization evidence
+      - name: Upload characterization evidence shard
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-3b2c-form-characterization
+          name: phase-3b2c-form-characterization-shard-${{ matrix.shard }}
           path: /tmp/phase3b2c-out/
           if-no-files-found: error
           retention-days: 30
