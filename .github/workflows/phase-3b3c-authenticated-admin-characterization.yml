@@ -82,7 +82,7 @@ jobs:
           echo SOURCE_DIFF_EXIT_PASS
           echo SOURCE_TRACKED_CLEAN_PASS
 
-      - name: Install evidence-only browser analysis dependencies
+      - name: Install and synchronize evidence-only browser harness
         shell: bash
         run: |
           set -euo pipefail
@@ -93,8 +93,20 @@ jobs:
           npm init -y >/dev/null
           npm install --no-package-lock puppeteer-core postcss postcss-selector-parser
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs" "$HARNESS_DIR/characterize.mjs"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path(__import__('os').environ['RUNNER_TEMP'])/'phase3b3c-harness'/'characterize.mjs'
+          text=p.read_text()
+          old='async function setSection(pair,tab){await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:3000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:3000})]);}'
+          new='async function setSection(pair,tab){const waitIdle=(p)=>p.waitForFunction(()=>!document.documentElement.classList.contains("basair-admin-tab-transition"),{timeout:8000});await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:8000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:8000})]);await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);}'
+          if text.count(old)!=1:
+              raise SystemExit('setSection timing anchor changed unexpectedly')
+          p.write_text(text.replace(old,new,1))
+          PY
+          node --check "$HARNESS_DIR/characterize.mjs"
           test -z "$(git -C "${GITHUB_WORKSPACE}/evidence" status --porcelain)"
           echo EVIDENCE_DEPENDENCIES_PASS
+          echo TAB_TRANSITION_SYNCHRONIZATION_PASS
 
       - name: Run isolated authenticated source-vs-synthetic matrix
         shell: bash
