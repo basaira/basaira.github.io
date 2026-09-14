@@ -1,0 +1,150 @@
+name: Phase 3B-3C Authenticated Admin Characterization
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-3c-authenticated-admin-characterization-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      BASE_SHA: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+      BASE_TREE: 9ad6d3078f73d6cc88bb1f02c6f8f3d76fea9037
+      BASE_PARENT: 6de74b2271b937823d63ac33909cc36fe8e73662
+      SOURCE_BRANCH: basair/phase-3b-3c-authenticated-admin-characterization
+      EVIDENCE_BRANCH: basair/phase-3b-3c-authenticated-admin-characterization-evidence
+
+    steps:
+      - name: Checkout evidence harness
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-3c-authenticated-admin-characterization-evidence
+          fetch-depth: 0
+          path: evidence
+
+      - name: Checkout authoritative characterization source
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-3c-authenticated-admin-characterization
+          fetch-depth: 0
+          path: source
+
+      - name: Verify branch identity and evidence isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C source fetch origin "$SOURCE_BRANCH" "$EVIDENCE_BRANCH"
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git -C source merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test "$(git -C source rev-parse origin/$SOURCE_BRANCH)" = "$BASE_SHA"
+          test -z "$(git -C source status --porcelain)"
+          printf '%s\n' \
+            .github/workflows/phase-3b3c-authenticated-admin-characterization.yml \
+            scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs \
+            | sort > /tmp/allowed-evidence-paths
+          git -C evidence diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-evidence-paths
+          diff -u /tmp/allowed-evidence-paths /tmp/actual-evidence-paths
+          echo BRANCH_IDENTITY_PASS
+          echo SOURCE_HEAD=$(git -C source rev-parse HEAD)
+          echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree})
+          echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1)
+          echo MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA")
+          echo REMOTE_SOURCE_HEAD=$(git -C source rev-parse origin/$SOURCE_BRANCH)
+          echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD)
+          echo EVIDENCE_ISOLATION_PASS
+
+      - name: Authoritative source verification gate
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=53
+          echo SOURCE_PREFLIGHT_53_PASS
+          npm ci
+          echo SOURCE_NPM_CI_PASS
+          npm run verify
+          echo SOURCE_NPM_VERIFY_PASS
+          npm run build
+          echo SOURCE_NPM_BUILD_PASS
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          node token-authority-check.mjs
+          echo SOURCE_DIFF_CHECK_PASS
+          echo SOURCE_DIFF_EXIT_PASS
+          echo SOURCE_TRACKED_CLEAN_PASS
+
+      - name: Install evidence-only browser analysis dependencies
+        shell: bash
+        working-directory: evidence
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false puppeteer-core postcss postcss-selector-parser
+          test -z "$(git status --porcelain)"
+          echo EVIDENCE_DEPENDENCIES_PASS
+
+      - name: Run isolated authenticated source-vs-synthetic matrix
+        shell: bash
+        working-directory: evidence
+        env:
+          SOURCE_DIR: ${{ github.workspace }}/source
+          SYNTH_DIR: ${{ runner.temp }}/phase3b3c-synthetic
+          OUT_DIR: ${{ runner.temp }}/phase3b3c-out
+          SOURCE_SHA: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+          SOURCE_TREE: 9ad6d3078f73d6cc88bb1f02c6f8f3d76fea9037
+          EVIDENCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          node scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs | tee "$OUT_DIR/console-summary.json"
+
+      - name: Final source immutability and cleanliness gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C source fetch origin "$SOURCE_BRANCH"
+          test "$(git -C source rev-parse origin/$SOURCE_BRANCH)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          git -C source diff --check
+          git -C source diff --exit-code
+          test -z "$(git -C source status --porcelain)"
+          test -z "$(git -C source diff --name-only "$BASE_SHA")"
+          echo FINAL_SOURCE_UNCHANGED_PASS
+
+      - name: Write source verification artifact
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b3c-out"
+          mkdir -p "$OUT"
+          cat > "$OUT/source-verification.json" <<EOF
+          {
+            "authoritativeSourceSha": "$BASE_SHA",
+            "authoritativeSourceTree": "$BASE_TREE",
+            "characterizationBranch": "$SOURCE_BRANCH",
+            "evidenceSha": "${GITHUB_SHA}",
+            "expectedProductionCss": 53,
+            "sourceBranchUnchangedAtFinalGate": $(test "$(git -C source rev-parse origin/$SOURCE_BRANCH)" = "$BASE_SHA" && echo true || echo false),
+            "trackedSourceClean": $(test -z "$(git -C source status --porcelain)" && echo true || echo false)
+          }
+          EOF
+
+      - name: Upload characterization artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b3c-authenticated-admin-characterization
+          path: ${{ runner.temp }}/phase3b3c-out
+          if-no-files-found: warn
+          retention-days: 30
