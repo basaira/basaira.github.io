@@ -46,11 +46,10 @@ jobs:
           echo REMOTE_SOURCE_HEAD=$(git rev-parse origin/$SOURCE_BRANCH)
           echo WORKTREE_CLEAN_PASS
 
-      - name: Apply exact-concat production implementation
+      - name: Apply exact-concat production implementation and proven checker maintenance
         shell: bash
         run: |
           set -euo pipefail
-          BASE=6de74b2271b937823d63ac33909cc36fe8e73662
           EXPECTED_SHA=04c21ded0670ae15f90257965b7dc37a7b1b43dfc2981ad3cef4e764dd2235cd
           EXPECTED_BYTES=25659
           cp form-overdrive-v1.css /tmp/base-form-overdrive-v1.css
@@ -103,16 +102,28 @@ jobs:
           if raw.count(needle) != 1:
               raise SystemExit(f'Expected exactly one manifest 54 count, got {raw.count(needle)}')
           manifest.write_bytes(raw.replace(needle, b'"productionCssFileCount": 53', 1))
+
+          checker = Path('registration-polish-check.mjs')
+          text = checker.read_text()
+          old1 = "if (!fs.existsSync(path.join(root, 'form-polish-v2.css'))) failures.push('form-polish-v2.css is missing');"
+          new1 = "if (!fs.existsSync(path.join(root, 'form-overdrive-v1.css'))) failures.push('form-overdrive-v1.css is missing');\nif (fs.existsSync(path.join(root, 'form-polish-v2.css'))) failures.push('form-polish-v2.css should be retired after exact-concat consolidation');"
+          old2 = "  if (!html.includes('form-polish-v2.css')) failures.push(`${file}: form polish stylesheet missing`);"
+          new2 = "  if (!html.includes('form-overdrive-v1.css')) failures.push(`${file}: consolidated form stylesheet missing`);\n  if (html.includes('form-polish-v2.css')) failures.push(`${file}: retired form polish stylesheet still linked`);"
+          if text.count(old1) != 1 or text.count(old2) != 1:
+              raise SystemExit('registration checker ownership anchors changed unexpectedly')
+          text = text.replace(old1, new1, 1).replace(old2, new2, 1)
+          checker.write_text(text)
           PY
 
           rm form-polish-v2.css
           cmp -s /tmp/exact-concat.css form-overdrive-v1.css
           echo EXACT_CONCAT_PASS
+          echo CONDITIONAL_CHECKER_MAINTENANCE_APPLIED_AFTER_RUN_34903715390_FAILURE
           echo CONCAT_SHA=$(sha256sum /tmp/exact-concat.css | awk '{print $1}')
           echo CANDIDATE_SURVIVOR_SHA=$(sha256sum form-overdrive-v1.css | awk '{print $1}')
           echo CANDIDATE_SURVIVOR_BYTES=$(wc -c < form-overdrive-v1.css)
 
-      - name: Prove exact synthetic correspondence and path surface
+      - name: Prove exact synthetic correspondence and 12-path surface
         shell: bash
         run: |
           set -euo pipefail
@@ -158,6 +169,7 @@ jobs:
           form-overdrive-v1.css
           form-polish-v2.css
           index.html
+          registration-polish-check.mjs
           ru/arabic/index.html
           ru/quran/index.html
           token-authority-manifest.json
@@ -166,14 +178,16 @@ jobs:
           EOF
           git diff --name-only "$BASE" | sort > /tmp/actual-paths
           diff -u /tmp/allowed-paths /tmp/actual-paths
-          test "$(wc -l < /tmp/actual-paths)" = 11
-          echo EXPECTED_CORE_DIFF_11_PATHS_PASS
+          test "$(wc -l < /tmp/actual-paths)" = 12
+          echo EXPECTED_CONDITIONAL_DIFF_12_PATHS_PASS
           echo CHANGED_PATHS_BEGIN
           cat /tmp/actual-paths
           echo CHANGED_PATHS_END
 
-          test -z "$(git diff --name-only "$BASE" -- '*.js' '*.mjs' '*.ts' 'package.json' 'package-lock.json' 'firebase*' 'assets/**')"
-          echo NO_JS_ASSETS_PACKAGE_FIREBASE_CHANGE_PASS
+          git diff --name-only "$BASE" -- '*.js' '*.mjs' '*.ts' 'package.json' 'package-lock.json' 'firebase*' 'assets/**' | sort > /tmp/non-html-css-runtime-diff
+          printf 'registration-polish-check.mjs\n' > /tmp/allowed-checker-only
+          diff -u /tmp/allowed-checker-only /tmp/non-html-css-runtime-diff
+          echo ONLY_NONRUNTIME_CHECKER_MAINTENANCE_PASS
           echo RUNTIME_FILENAME_REFERENCE_AUDIT_BEGIN
           git grep -n 'form-polish-v2\.css' -- '*.js' '*.mjs' '*.ts' '*.html' '*.css' || true
           echo RUNTIME_FILENAME_REFERENCE_AUDIT_END
@@ -236,7 +250,7 @@ jobs:
           set -euo pipefail
           git config user.name basair-phase-3b2
           git config user.email actions@users.noreply.github.com
-          git add form-overdrive-v1.css form-polish-v2.css index.html en/arabic/index.html en/quran-adults/index.html en/quran-kids/index.html ru/arabic/index.html ru/quran/index.html uz/arabic/index.html uz/quran/index.html token-authority-manifest.json
+          git add form-overdrive-v1.css form-polish-v2.css index.html en/arabic/index.html en/quran-adults/index.html en/quran-kids/index.html ru/arabic/index.html ru/quran/index.html uz/arabic/index.html uz/quran/index.html token-authority-manifest.json registration-polish-check.mjs
           git commit -m "Phase 3B-2: exact-concat shared form styles"
           echo LOCAL_CANDIDATE_HEAD=$(git rev-parse HEAD)
           echo LOCAL_CANDIDATE_TREE=$(git rev-parse HEAD^{tree})
