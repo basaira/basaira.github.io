@@ -1,1 +1,1 @@
-Trigger Phase 3B-1 evidence workflows after implementation workflow registration.
+Trigger Phase 3B-1 final verification after final-verification workflow registration.
