@@ -71,12 +71,12 @@ jobs:
             'uz/index.html','uz/quran/index.html','uz/arabic/index.html'
           ]
           proof=[]
-          line_re=re.compile(rb'(?m)^[ \t]*<link\b[^>\n]*acquisition-polish-v2\.css[^>\n]*>\r?\n?')
+          tag_re=re.compile(rb'<link\b[^>\n]*acquisition-polish-v2\.css[^>\n]*\/?>')
           for rel in htmls:
             p=root/rel; data=p.read_bytes()
             assert data.count(b'acquisition-precision-native-v2.css')==1, rel
             assert data.count(b'acquisition-polish-v2.css')==1, rel
-            new,n=line_re.subn(b'',data)
+            new,n=tag_re.subn(b'',data)
             assert n==1, (rel,n)
             assert new.count(b'acquisition-precision-native-v2.css')==1
             assert b'acquisition-polish-v2.css' not in new
@@ -114,7 +114,7 @@ jobs:
           node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54 --out=/tmp/phase3b1-after.json
 
           node <<'NODE'
-          const fs=require('fs'),crypto=require('crypto');
+          const fs=require('fs');
           const before=JSON.parse(fs.readFileSync('/tmp/phase3b1-before.json','utf8'));
           const after=JSON.parse(fs.readFileSync('/tmp/phase3b1-after.json','utf8'));
           const removed='acquisition-polish-v2.css', surviving='acquisition-precision-native-v2.css';
