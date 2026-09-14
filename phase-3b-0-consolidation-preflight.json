@@ -1,6 +1,6 @@
 {
   "phase": "3B-0",
-  "status": "BLOCKED_FINAL_CLEAN_BRANCH_EXECUTION_NOT_RUN",
+  "status": "COMPLETE",
   "branch": "basair/phase-3b-0-consolidation-preflight-clean",
   "productionBase": {
     "commit": "1504baad33b2123056877c1e92f4e2d558c00d51",
@@ -17,7 +17,7 @@
     "productionCssFiles": 55,
     "canonicalTokens": 106,
     "importCycles": 0,
-    "candidatePairFilenameReferences": 0,
+    "productionRuntimeCandidatePairFilenameDependencies": 0,
     "duplicateStylesheetLinks": 0,
     "duplicateCssImports": 0,
     "undefinedCustomPropertiesWithoutFallbackUnderCheckerContract": 0,
@@ -37,22 +37,23 @@
     "productionCss": 55,
     "inlineStyleBlocks": 1
   },
-  "browserEvidence": {
+  "historicalBrowserEvidence": {
     "sourceBranch": "basair/phase-3b-0-consolidation-preflight",
     "runId": 34754810028,
-    "workflow": "Phase 3B-0 Browser Proof Artifact",
     "result": "SUCCESS",
     "browser": "Google Chrome 152.0.7977.82",
     "puppeteerCore": "24.16.0",
     "artifact": "phase-3b0-browser-proof",
     "artifactSha256": "da05f7d845382d4e23ab8504f5aa5fd73301770c82b8ba2a993c565fbbb71cc1",
-    "productionCommitMeasured": "1504baad33b2123056877c1e92f4e2d558c00d51",
-    "productionTreeMeasured": "1d987040d0158387d0425d6e6ed00fe2a68ec617",
-    "checkerBlobMeasured": "3dfc0605151abd9a9e6514a492a9b94137c96c63",
     "executedFromCleanClosureBranch": false,
     "statesCompleted": 48,
     "statesExpected": 48,
     "coverageFailures": 0,
+    "ownershipAssertions": {
+      "total": 144,
+      "passed": 144,
+      "failed": 0
+    },
     "screenshots": 96,
     "comparisonAgainstClosedPhase25": {
       "unexplainedComputedOrGeometryDeltas": 0,
@@ -62,26 +63,51 @@
     },
     "category5": "C — MEASUREMENT / HARNESS FALSE POSITIVE"
   },
-  "ownershipAssertions": {
-    "total": 144,
-    "passed": 144,
-    "failed": 0
+  "firstPassRemoteVerification": {
+    "evidenceBranch": "basair/phase-3b-0-final-verification-evidence",
+    "workflowCommit": "8d13d1ccf8a44b05a1c544e2b87b54aea06b7525",
+    "runId": 34859764559,
+    "result": "SUCCESS",
+    "testedHead": "14c4fcc96cc74ededf583bf724644da982025286",
+    "testedTree": "90946e55757c9d05d620b9625714110db6c71c74",
+    "checkerBlob": "3dfc0605151abd9a9e6514a492a9b94137c96c63",
+    "testedDetachedWorktree": true,
+    "workflowCommitWasNotTestTarget": true,
+    "commands": {
+      "checker": "PASS",
+      "npmCi": "PASS",
+      "npmRunVerify": "PASS",
+      "npmRunBuild": "PASS",
+      "gitDiffCheck": "PASS"
+    },
+    "trackedDiffClean": "PASS",
+    "statusPorcelainEmpty": true,
+    "finalTargetIdentityRecheck": "PASS",
+    "checkerOutputSummary": {
+      "raw": "CSS preflight PASS: entries=12; productionCss=55; canonical=106; cycles=0; candidateFilenameRefs=2",
+      "candidateFilenameRefsRaw": 2,
+      "candidateFilenameRefsExplanation": "Self-reference artifact: the tracked checker .mjs contains the two candidate stylesheet literals in its own candidate array; this is not a production runtime dependency.",
+      "productionRuntimeCandidatePairFilenameDependencies": 0
+    }
   },
-  "filenameDependencyAudit": {
-    "candidateFiles": [
-      "acquisition-precision-native-v2.css",
-      "acquisition-polish-v2.css"
+  "finalHeadVerificationRequirement": {
+    "required": true,
+    "mustTargetReportUpdateHead": true,
+    "mustTargetExactTree": true,
+    "mustReuseCheckerBlob": "3dfc0605151abd9a9e6514a492a9b94137c96c63",
+    "requiredCommands": [
+      "node scripts/verify-css-consolidation-preflight.mjs",
+      "npm ci",
+      "npm run verify",
+      "npm run build",
+      "git diff --check"
     ],
-    "jsCssomFilenameDependencies": 0,
-    "genericSelectorQueryUsageIsNotFilenameDependency": true
+    "resultRecordedExternallyAfterReportCommit": true,
+    "doNotEditReportsAfterFinalPass": true
   },
   "protectedContracts": {
     "lineAndMutedRemainContextual": true,
     "greenSemanticChainsRemainDistinct": true,
-    "greenChains": {
-      "publicEvergreenSurface": "--basair-green-deep -> --color-public-evergreen-surface -> #073B31",
-      "brandGreenDeep": "--basair-green-hover -> --color-brand-green-deep -> #044637"
-    },
     "trackButtonsV6Protected": true,
     "compatibilityBridgesProtected": true
   },
@@ -143,25 +169,6 @@
     "tokenChangesAllowed": 0,
     "packageChangesAllowed": 0,
     "generatedArtifactsAllowed": 0
-  },
-  "finalVerification": {
-    "freshCleanBranchCommandRun": false,
-    "requiredCommands": [
-      "node scripts/verify-css-consolidation-preflight.mjs",
-      "npm ci",
-      "npm run verify",
-      "npm run build",
-      "git diff --check"
-    ],
-    "executedEvidenceAgainstExactProductionBaseAndSameChecker": {
-      "runId": 34754810028,
-      "checker": "PASS",
-      "npmCi": "PASS",
-      "npmRunVerify": "PASS",
-      "npmRunBuild": "PASS",
-      "gitDiffCheck": "PASS"
-    },
-    "blocker": "The current shell environment cannot resolve GitHub/npm and no workflow may be added to the clean closure branch; therefore the required fresh final-branch command run was not executed."
   },
   "unresolvedItems": [
     "authenticated Admin characterization",
