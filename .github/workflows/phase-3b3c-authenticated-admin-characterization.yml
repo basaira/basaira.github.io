@@ -124,9 +124,13 @@ jobs:
             'reduced:groups.reduced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),accessibility:totals.accessibility',
             'reduced:groups.reduced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),forcedColors:groups.forced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),accessibility:totals.accessibility'
           ))
+          patches.append((
+            "await syncEval(pair,()=>{document.querySelector('.nav-btn.active')?.focus();});await Promise.all([pair.a.keyboard.press('ArrowDown'),pair.b.keyboard.press('ArrowDown')]);await measure('populated',`${viewport.name}:keyboard-tab-navigation`,pair,",
+            "await syncEval(pair,()=>{document.querySelector('.nav-btn.active')?.focus();});await Promise.all([pair.a.keyboard.press('ArrowDown'),pair.b.keyboard.press('ArrowDown')]);await Promise.all([pair.a.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000}),pair.b.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000})]);await waitSettled([pair.a,pair.b],420);await measure('populated',`${viewport.name}:keyboard-tab-navigation`,pair,"
+          ))
           for old,new in patches:
               if text.count(old)!=1:
-                  raise SystemExit(f'harness patch anchor count={text.count(old)} for {old[:90]!r}')
+                  raise SystemExit(f'harness patch anchor count={text.count(old)} for {old[:100]!r}')
               text=text.replace(old,new,1)
 
           forced_loop='''\nif(forcedColorsApplicable){for(const viewport of[VP.wide,VP.mobile]){const pair=await newPair({authMode:'admin',roleActive:true,fixture:'populated'},viewport,false);await waitDashboard(pair);for(const p of[pair.a,pair.b]){const session=await p.createCDPSession();await session.send('Emulation.setEmulatedMedia',{media:'screen',features:[{name:'forced-colors',value:'active'}]});}await waitSettled([pair.a,pair.b],420);await measure('forced',`${viewport.name}:forced-overview`,pair,{authMode:'admin',fixture:'populated',viewport,section:'overview',state:'forced-colors'});await setSection(pair,'requests');await measure('forced',`${viewport.name}:forced-requests`,pair,{authMode:'admin',fixture:'populated',viewport,section:'requests',state:'forced-colors'});await closePair(pair);}}\n'''
@@ -140,6 +144,7 @@ jobs:
           test -z "$(git -C "${GITHUB_WORKSPACE}/evidence" status --porcelain)"
           echo EVIDENCE_DEPENDENCIES_PASS
           echo TAB_TRANSITION_SYNCHRONIZATION_PASS
+          echo KEYBOARD_TAB_TRANSITION_SYNCHRONIZATION_PASS
           echo FAVICON_RESOURCE_FALSE_POSITIVE_FILTER_PASS
           echo FORCED_COLORS_MATRIX_PATCH_PASS
 
