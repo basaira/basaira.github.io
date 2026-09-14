@@ -1,0 +1,92 @@
+name: Phase 3B-1 Browser Recheck
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-1-verification-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  browser-recheck:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Materialize exact source and candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=07477307402857cb73ff80eb726a43faa5e72ad3
+          CANDIDATE=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          CANDIDATE_TREE=017aa0a6b89df16ded97cac9a7020532ea1d23a3
+          git fetch --all --prune
+          test "$(git rev-parse origin/basair/phase-3b-1-acquisition-precision-polish-merge)" = "$CANDIDATE"
+          rm -rf /tmp/basair-3b1-source /tmp/basair-3b1-candidate
+          git worktree add --detach /tmp/basair-3b1-source "$SOURCE"
+          git worktree add --detach /tmp/basair-3b1-candidate "$CANDIDATE"
+          test "$(git -C /tmp/basair-3b1-candidate rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git -C /tmp/basair-3b1-candidate rev-parse HEAD^1)" = "$SOURCE"
+          test -z "$(git -C /tmp/basair-3b1-candidate status --porcelain)"
+
+      - name: Install browser tooling outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/basair-browser-tooling
+          mkdir -p /tmp/basair-browser-tooling
+          npm install --prefix /tmp/basair-browser-tooling puppeteer-core@24.16.0 --no-save --no-package-lock
+          google-chrome --version | tee "$GITHUB_WORKSPACE/chrome-version.txt"
+          node -e "console.log(require('/tmp/basair-browser-tooling/node_modules/puppeteer-core/package.json').version)" | tee "$GITHUB_WORKSPACE/puppeteer-version.txt"
+
+      - name: Recheck synchronized interaction equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/basair-3b1-source >/tmp/source-http.log 2>&1 & SPID=$!
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-3b1-candidate >/tmp/candidate-http.log 2>&1 & CPID=$!
+          trap 'kill $SPID $CPID 2>/dev/null || true' EXIT
+          for i in {1..30}; do if curl -fsS http://127.0.0.1:4173/en/ >/dev/null && curl -fsS http://127.0.0.1:4174/en/ >/dev/null; then break; fi; sleep .2; done
+
+          cat > /tmp/basair-browser-tooling/recheck.mjs <<'EOF'
+          import puppeteer from 'puppeteer-core';
+          import fs from 'node:fs';
+          const routes=['/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/'];
+          const viewports=[{name:'mobile',width:390,height:844,touch:true,mobile:true},{name:'tablet',width:768,height:1024,touch:true,mobile:false},{name:'desktop',width:1440,height:900,touch:false,mobile:false},{name:'wide',width:1920,height:1080,touch:false,mobile:false}];
+          const descriptors=[{name:'hero',s:'.hero',p:null,max:1},{name:'heroBefore',s:'.hero',p:'::before',max:1},{name:'btn',s:'.btn',p:null,max:6},{name:'btnBefore',s:'.btn',p:'::before',max:3},{name:'primary',s:'.btn-primary',p:null,max:3},{name:'gold',s:'.btn-gold',p:null,max:3},{name:'ghost',s:'.btn-ghost',p:null,max:3},{name:'dashboard',s:'.dashboard',p:null,max:2},{name:'dashboardAfter',s:'.dashboard',p:'::after',max:2},{name:'card',s:'.card',p:null,max:6},{name:'cardAfter',s:'.card',p:'::after',max:3},{name:'status',s:'.status-pill',p:null,max:3},{name:'footer',s:'.footer-links a',p:null,max:3},{name:'interactive',s:'a,button,input,select,textarea',p:null,max:8}];
+          const props=['color','background-color','background-image','border-top-color','border-right-color','border-bottom-color','border-left-color','border-radius','box-shadow','min-height','position','overflow','transform','transition-property','transition-duration','transition-timing-function','animation-name','animation-duration','outline-color','outline-style','outline-width','outline-offset','cursor','opacity','filter','pointer-events','content','inset','background-size','mask-image'];
+          const vars=['--pn-acq-ease','--aq-green','--aq-green-deep','--aq-gold','--aq-navy'];
+          const browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const failures=[],matrix=[],implicitFavicon404s=[];let comparisons=0,base=0,reduced=0,interaction=0,computed=0,geometry=0,custom=0,interactionDeltas=0,reducedDeltas=0,productionResourceFailures=0;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function make(origin,route,vp){const page=await browser.newPage();await page.setViewport({width:vp.width,height:vp.height,deviceScaleFactor:1,isMobile:vp.mobile,hasTouch:vp.touch});await page.setJavaScriptEnabled(false);const bad=[];page.on('response',res=>{try{const u=new URL(res.url()),o=new URL(origin);if(u.origin===o.origin&&res.status()>=400){if(u.pathname==='/favicon.ico'&&res.status()===404)implicitFavicon404s.push({origin:o.origin,route,status:404});else bad.push({url:res.url(),status:res.status()});}}catch{}});page.on('requestfailed',req=>{try{const u=new URL(req.url()),o=new URL(origin);if(u.origin===o.origin&&u.pathname!=='/favicon.ico')bad.push({url:req.url(),failure:req.failure()?.errorText});}catch{}});const r=await page.goto(origin+route,{waitUntil:'domcontentloaded',timeout:20000});if(!r||r.status()>=400)bad.push({url:origin+route,status:r?.status()});await sleep(300);const client=await page.target().createCDPSession();await client.send('DOM.enable');await client.send('CSS.enable');return{page,client,bad};}
+          async function snap(page){return page.evaluate(({descriptors,props,vars})=>{const root=getComputedStyle(document.documentElement),out={vars:Object.fromEntries(vars.map(v=>[v,root.getPropertyValue(v).trim()])),caps:{fine:matchMedia('(pointer:fine)').matches,coarse:matchMedia('(pointer:coarse)').matches,hover:matchMedia('(hover:hover)').matches,hoverNone:matchMedia('(hover:none)').matches,le520:matchMedia('(max-width:520px)').matches,reduced:matchMedia('(prefers-reduced-motion:reduce)').matches},els:{}};for(const d of descriptors)out.els[d.name]=[...document.querySelectorAll(d.s)].slice(0,d.max).map((el,i)=>{const c=getComputedStyle(el,d.p),r=el.getBoundingClientRect(),styles={};for(const p of props)styles[p]=c.getPropertyValue(p);return{i,tag:el.tagName,cls:String(el.className),styles,rect:{x:r.x,y:r.y,width:r.width,height:r.height}};});return out;},{descriptors,props,vars});}
+          function cmp(a,b,kind,label){comparisons++;if(kind==='base')base++;if(kind==='reduced')reduced++;if(kind==='interaction')interaction++;const add=(type,d)=>{failures.push({label,kind,type,d});if(type==='computed')computed++;if(type==='geometry')geometry++;if(type==='customProperty')custom++;if(kind==='interaction')interactionDeltas++;if(kind==='reduced')reducedDeltas++;};for(const v of vars)if(a.vars[v]!==b.vars[v])add('customProperty',{v,a:a.vars[v],b:b.vars[v]});if(JSON.stringify(a.caps)!==JSON.stringify(b.caps))add('computed',{caps:[a.caps,b.caps]});for(const d of descriptors){const x=a.els[d.name]||[],y=b.els[d.name]||[];if(x.length!==y.length){add('computed',{descriptor:d.name,length:[x.length,y.length]});continue;}for(let i=0;i<x.length;i++){if(x[i].tag!==y[i].tag||x[i].cls!==y[i].cls)add('computed',{descriptor:d.name,i,identity:[x[i].tag,x[i].cls,y[i].tag,y[i].cls]});for(const p of props)if(x[i].styles[p]!==y[i].styles[p])add('computed',{descriptor:d.name,i,p,a:x[i].styles[p],b:y[i].styles[p]});for(const g of ['x','y','width','height'])if(Math.abs(x[i].rect[g]-y[i].rect[g])>0.05)add('geometry',{descriptor:d.name,i,g,a:x[i].rect[g],b:y[i].rect[g]});}}}
+          async function force(ctx,selector,pseudos,id){const ok=await ctx.page.evaluate((s,id)=>{const el=document.querySelector(s);if(!el)return false;el.setAttribute('data-p3b1-force',id);return true;},selector,id);if(!ok)return null;const doc=await ctx.client.send('DOM.getDocument');const q=await ctx.client.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:`[data-p3b1-force="${id}"]`});if(!q.nodeId)return null;await ctx.client.send('CSS.forcePseudoState',{nodeId:q.nodeId,forcedPseudoClasses:pseudos});return q.nodeId;}
+          async function clear(ctx,node){if(node)await ctx.client.send('CSS.forcePseudoState',{nodeId:node,forcedPseudoClasses:[]});}
+          for(const route of routes){for(const vp of viewports){const A=await make('http://127.0.0.1:4173',route,vp),B=await make('http://127.0.0.1:4174',route,vp);if(A.bad.length||B.bad.length){productionResourceFailures+=A.bad.length+B.bad.length;failures.push({label:`${route}|${vp.name}`,kind:'resource',type:'resource',d:{source:A.bad,candidate:B.bad}});}const row={route,viewport:vp.name,width:vp.width,height:vp.height,states:[]};cmp(await snap(A.page),await snap(B.page),'base',`${route}|${vp.name}|base`);row.states.push('base');await Promise.all([A.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]),B.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}])]);await sleep(50);cmp(await snap(A.page),await snap(B.page),'reduced',`${route}|${vp.name}|reduced`);row.states.push('reduced-motion');await Promise.all([A.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]),B.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}])]);await sleep(50);const states=[['btn-hover','.btn',['hover']],['btn-active','.btn',['active']],['button-focus-visible','.btn',['focus','focus-visible']],['field-focus-visible','input,select,textarea',['focus','focus-visible']],['card-hover','.card',['hover']],['footer-hover','.footer-links a',['hover']]];for(const [name,sel,pseudos] of states){const [na,nb]=await Promise.all([force(A,sel,pseudos,`a-${name}`),force(B,sel,pseudos,`b-${name}`)]);if(Boolean(na)!==Boolean(nb)){failures.push({label:`${route}|${vp.name}|${name}`,kind:'interaction',type:'applicability',d:{source:Boolean(na),candidate:Boolean(nb)}});}else if(na&&nb){await sleep(320);cmp(await snap(A.page),await snap(B.page),'interaction',`${route}|${vp.name}|${name}`);row.states.push(name);}await Promise.all([clear(A,na),clear(B,nb)]);await sleep(260);}const [busyA,busyB]=await Promise.all([A.page.evaluate(()=>{const e=document.querySelector('form')||document.querySelector('.btn');if(!e)return false;e.setAttribute('aria-busy','true');return true;}),B.page.evaluate(()=>{const e=document.querySelector('form')||document.querySelector('.btn');if(!e)return false;e.setAttribute('aria-busy','true');return true;})]);if(busyA!==busyB)failures.push({label:`${route}|${vp.name}|aria-busy`,kind:'interaction',type:'applicability',d:{source:busyA,candidate:busyB}});else if(busyA){cmp(await snap(A.page),await snap(B.page),'interaction',`${route}|${vp.name}|aria-busy`);row.states.push('aria-busy');}row.capabilities=(await snap(B.page)).caps;row.states.push(vp.width<=520?'<=520px':'>520px');row.states.push(vp.touch?'coarse/touch-input':'fine/non-touch-input');matrix.push(row);await Promise.all([A.client.detach(),B.client.detach()]);await Promise.all([A.page.close(),B.page.close()]);}}
+          await browser.close();const out={routes,viewports,baseStates:40,totalComparisons:comparisons,baseComparisons:base,reducedMotionComparisons:reduced,interactionComparisons:interaction,matrix,equivalence:{computedDeltas:computed,geometryDeltas:geometry,customPropertyDeltas:custom,interactionDeltas,reducedMotionDeltas:reducedDeltas},productionResourceFailures,implicitSymmetricFavicon404Count:implicitFavicon404s.length,implicitFavicon404s,failures,pass:failures.length===0};fs.writeFileSync(process.env.GITHUB_WORKSPACE+'/phase-3b1-browser-recheck.json',JSON.stringify(out,null,2)+'\n');console.log(`BROWSER_RECHECK_${out.pass?'PASS':'FAIL'} base=${base} total=${comparisons} interaction=${interaction} reduced=${reduced} computed=${computed} geometry=${geometry} customProps=${custom} interactionDeltas=${interactionDeltas} reducedDeltas=${reducedDeltas} productionResourceFailures=${productionResourceFailures} implicitFavicon404s=${implicitFavicon404s.length}`);if(failures.length){console.error(JSON.stringify(failures.slice(0,30),null,2));process.exit(1);}
+          EOF
+          cd /tmp/basair-browser-tooling
+          node recheck.mjs
+
+      - name: Upload browser recheck evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b1-browser-recheck
+          path: |
+            chrome-version.txt
+            puppeteer-version.txt
+            phase-3b1-browser-recheck.json
+          if-no-files-found: error
+          retention-days: 7
