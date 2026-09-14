@@ -1735,7 +1735,7 @@
   "correctedAuditScope": {
     "includesExternalProductionCss": true,
     "includesInlineStyleBlocks": true,
-    "productionCssFileCount": 54,
+    "productionCssFileCount": 53,
     "inlineStyleBlockCount": 1,
     "customPropertyNameCount": 369,
     "conflictCount": 40,

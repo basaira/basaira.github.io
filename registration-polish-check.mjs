@@ -15,10 +15,12 @@ const pages = [
 const failures = [];
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 
-if (!fs.existsSync(path.join(root, 'form-polish-v2.css'))) failures.push('form-polish-v2.css is missing');
+if (!fs.existsSync(path.join(root, 'form-overdrive-v1.css'))) failures.push('form-overdrive-v1.css is missing');
+if (fs.existsSync(path.join(root, 'form-polish-v2.css'))) failures.push('form-polish-v2.css should be retired after exact-concat consolidation');
 for (const file of pages) {
   const html = read(file);
-  if (!html.includes('form-polish-v2.css')) failures.push(`${file}: form polish stylesheet missing`);
+  if (!html.includes('form-overdrive-v1.css')) failures.push(`${file}: consolidated form stylesheet missing`);
+  if (html.includes('form-polish-v2.css')) failures.push(`${file}: retired form polish stylesheet still linked`);
   if (!html.includes('form-overdrive-v1.js')) failures.push(`${file}: overdrive form behavior missing`);
   if (file === 'index.html' && !html.includes('registration-shell')) failures.push('index.html: registration shell marker missing');
   if (file !== 'index.html' && !html.includes('registration-form-card')) failures.push(`${file}: polished form card marker missing`);
