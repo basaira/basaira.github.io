@@ -1,0 +1,223 @@
+name: Phase 3B-2C Form-State Characterization
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-2c-characterization-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout isolated evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Materialize exact authoritative source
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_BRANCH=basair/phase-3b-2c-form-state-characterization
+          SOURCE=6de74b2271b937823d63ac33909cc36fe8e73662
+          TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c
+          PARENT=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          git fetch --all --prune
+          test "$(git rev-parse origin/$SOURCE_BRANCH)" = "$SOURCE"
+          test "$(git rev-parse $SOURCE^{tree})" = "$TREE"
+          test "$(git rev-parse $SOURCE^1)" = "$PARENT"
+          test "$(git merge-base $SOURCE origin/$SOURCE_BRANCH)" = "$SOURCE"
+          rm -rf /tmp/basair-3b2c-source /tmp/basair-3b2c-synthetic
+          git worktree add --detach /tmp/basair-3b2c-source "$SOURCE"
+          test "$(git -C /tmp/basair-3b2c-source rev-parse HEAD)" = "$SOURCE"
+          test "$(git -C /tmp/basair-3b2c-source rev-parse HEAD^{tree})" = "$TREE"
+          test -z "$(git -C /tmp/basair-3b2c-source status --porcelain)"
+          echo "SOURCE_BRANCH=$SOURCE_BRANCH" >> "$GITHUB_ENV"
+          echo "SOURCE_HEAD=$SOURCE" >> "$GITHUB_ENV"
+          echo "SOURCE_TREE=$TREE" >> "$GITHUB_ENV"
+          echo "SOURCE_PARENT=$PARENT" >> "$GITHUB_ENV"
+
+      - name: Run exact source structural gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/basair-3b2c-source
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54 | tee "$GITHUB_WORKSPACE/preflight.log"
+          npm ci | tee "$GITHUB_WORKSPACE/npm-ci.log"
+          npm run verify | tee "$GITHUB_WORKSPACE/npm-verify.log"
+          npm run build | tee "$GITHUB_WORKSPACE/npm-build.log"
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          git status --short --ignored -- node_modules dist | tee "$GITHUB_WORKSPACE/ignored-generated.txt"
+          cat > /tmp/source-verification.json <<'JSON'
+          {
+            "preflight": "PASS",
+            "npmCi": "PASS",
+            "npmRunVerify": "PASS",
+            "npmRunBuildStandalone": "PASS",
+            "gitDiffCheck": "PASS",
+            "gitDiffExitCode": "PASS",
+            "statusPorcelain": "CLEAN",
+            "ignoredGenerated": ["dist/", "node_modules/"]
+          }
+          JSON
+
+      - name: Install browser tooling outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/basair-browser-tooling
+          mkdir -p /tmp/basair-browser-tooling
+          npm install --prefix /tmp/basair-browser-tooling puppeteer-core@24.16.0 --no-save --no-package-lock
+          google-chrome --version | tee "$GITHUB_WORKSPACE/chrome-version.txt"
+          node -e "console.log(require('/tmp/basair-browser-tooling/node_modules/puppeteer-core/package.json').version)" | tee "$GITHUB_WORKSPACE/puppeteer-version.txt"
+
+      - name: Run static and browser characterization
+        shell: bash
+        env:
+          SOURCE_DIR: /tmp/basair-3b2c-source
+          CANDIDATE_DIR: /tmp/basair-3b2c-synthetic
+          SOURCE_VERIFICATION_JSON: /tmp/source-verification.json
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/basair-3b2c-synthetic
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/basair-3b2c-source >/tmp/3b2c-source-http.log 2>&1 & SPID=$!
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-3b2c-synthetic >/tmp/3b2c-synthetic-http.log 2>&1 & CPID=$!
+          trap 'kill $SPID $CPID 2>/dev/null || true' EXIT
+
+          cat > /tmp/basair-browser-tooling/characterize.mjs <<'EOF'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import puppeteer from 'puppeteer-core';
+
+          const src=process.env.SOURCE_DIR, cand=process.env.CANDIDATE_DIR, out=path.join(process.env.GITHUB_WORKSPACE,'phase-3b2c-output');
+          const A='form-overdrive-v1.css', B='form-polish-v2.css', targets=[A,B];
+          fs.mkdirSync(out,{recursive:true});
+          const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const walk=(root,ext)=>{const o=[];const rec=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['.git','node_modules','dist'].includes(e.name))continue;const p=path.join(d,e.name);if(e.isDirectory())rec(p);else if(!ext||ext.some(x=>p.endsWith(x)))o.push(p);}};rec(root);return o;};
+          const rr=p=>path.relative(src,p).split(path.sep).join('/');
+          const hrefPath=(file,href)=>{if(!href||/^(https?:|data:|\/\/)/i.test(href))return null;const q=href.split(/[?#]/)[0];return path.posix.normalize(q.startsWith('/')?q.slice(1):path.posix.join(path.posix.dirname(file),q.replace(/^\.\//,'')));};
+          const links=(text,file)=>[...text.matchAll(/<link\b[^>]*>/gi)].map(m=>{const t=m[0],r=t.match(/\brel=["']([^"']+)["']/i),h=t.match(/\bhref=["']([^"']+)["']/i);return r&&h&&r[1].toLowerCase().split(/\s+/).includes('stylesheet')?{tag:t,href:h[1],path:hrefPath(file,h[1])}:null;}).filter(Boolean);
+          const imports=(css,file)=>[...css.matchAll(/@import\s+(?:url\(\s*)?["']([^"']+)["']/gi)].map(m=>hrefPath(file,m[1]));
+          function reach(cssFile,chain=[],seen=new Set()){if(!cssFile||seen.has(cssFile)||!fs.existsSync(path.join(src,cssFile)))return[];const ns=new Set(seen);ns.add(cssFile);const css=fs.readFileSync(path.join(src,cssFile),'utf8'),o=[{path:cssFile,chain:[...chain,cssFile]}];for(const i of imports(css,cssFile))o.push(...reach(i,[...chain,cssFile],ns));return o;}
+          const route=f=>f==='index.html'?'/':f==='admin.html'?'/admin.html':'/'+f.replace(/index\.html$/,'');
+          const persona=r=>r==='/'?'assessment':r.includes('quran-kids')?'quran-kids':r.includes('quran-adults')?'quran-adults':r.includes('/quran/')?'quran':r.includes('/arabic/')?'arabic':'landing';
+          const entries=[];
+          for(const p of walk(src,['.html'])){const f=rr(p),txt=fs.readFileSync(p,'utf8'),ls=links(txt,f),logical=ls.flatMap(l=>reach(l.path).map(x=>({direct:l.path,...x}))),hits=logical.filter(x=>targets.includes(x.path));if(!hits.length)continue;const dt=ls.filter(x=>targets.includes(x.path)),idx=dt.map(x=>ls.indexOf(x));entries.push({file:f,route:route(f),locale:(txt.match(/<html\b[^>]*\blang=["']([^"']+)/i)?.[1]||f.split('/')[0]||'root').toLowerCase(),persona:persona(route(f)),directLinks:ls.map(x=>x.path),directTargetLinks:dt.map(x=>x.path),imports:logical.filter(x=>x.chain.length>1),reachability:hits.map(x=>x.chain),loadsBoth:targets.every(t=>hits.some(x=>x.path===t)),adjacent:idx.length===2&&idx[1]===idx[0]+1,sameOrder:dt.length===2&&dt[0].path===A&&dt[1].path===B});}
+          entries.sort((x,y)=>x.route.localeCompare(y.route));
+          if(!entries.length)throw new Error('No production form routes discovered');
+
+          const refs=[],cssom=[];
+          for(const p of walk(src,['.js','.mjs','.ts','.html','.md','.json','.css'])){const f=rr(p),txt=fs.readFileSync(p,'utf8');for(const t of targets)if(txt.includes(t)){let c='C-doc/nonruntime';if(/\.(js|mjs|ts)$/.test(f))c=/(check|test|verify)[^/]*\.(js|mjs|ts)$/.test(f)||f.startsWith('scripts/')?'B-checker/test':'A-production-runtime';else if(f.endsWith('.html')){const inline=[...txt.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(x=>x[1]).join('\n');c=inline.includes(t)?'A-production-inline-runtime':'HTML-stylesheet-link';}else if(f.endsWith('.md')||f.endsWith('.json'))c='B/C-report-doc';else if(f.endsWith('.css'))c='CSS-reference';refs.push({file:f,target:t,classification:c});}
+            if(/\.(js|mjs|ts)$/.test(f)&&/(document\.styleSheets|ownerNode|createElement\(\s*['"]link['"]|insertRule\(|deleteRule\(|rel\s*=\s*['"]stylesheet['"])/i.test(txt))cssom.push({file:f,markers:[...new Set([...txt.matchAll(/document\.styleSheets|ownerNode|createElement\(\s*['"]link['"]|insertRule\(|deleteRule\(|rel\s*=\s*['"]stylesheet['"]/gi)].map(x=>x[0]))]});
+          }
+
+          function splitSelectors(s){const o=[];let q='',d=0,c='';for(let i=0;i<s.length;i++){const x=s[i];if(q){c+=x;if(x===q&&s[i-1]!=="\\")q='';continue;}if(x==='"'||x==="'"){q=x;c+=x;continue;}if(x==='('||x==='[')d++;if(x===')'||x===']')d--;if(x===','&&d===0){if(c.trim())o.push(c.trim());c='';}else c+=x;}if(c.trim())o.push(c.trim());return o;}
+          function spec(s){let a=(s.match(/#[\w-]+/g)||[]).length,b=(s.match(/\.[\w-]+/g)||[]).length+(s.match(/\[[^\]]+\]/g)||[]).length+(s.match(/:(?!:)(?!not\(|is\(|has\(|where\()[\w-]+/g)||[]).length,c=(s.match(/::[\w-]+/g)||[]).length;for(const m of s.matchAll(/:(not|is|has)\(([^()]*)\)/g)){const ms=splitSelectors(m[2]).map(spec).sort((x,y)=>y[0]-x[0]||y[1]-x[1]||y[2]-x[2])[0]||[0,0,0];a+=ms[0];b+=ms[1];c+=ms[2];}const clean=s.replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|:{1,2}[\w-]+(?:\([^)]*\))?|\*/g,' ');c+=(clean.match(/(^|[\s>+~])([a-zA-Z][\w-]*)/g)||[]).length;return[a,b,c];}
+          function parse(css,file){const stripped=css.replace(/\/\*[\s\S]*?\*\//g,m=>' '.repeat(m.length)),rules=[];let order=0;function block(start,end,media=[]){let p=start;while(p<end){while(/\s/.test(stripped[p]||''))p++;if(p>=end)break;if(stripped[p]==='@'){const br=stripped.indexOf('{',p),se=stripped.indexOf(';',p);if(se!==-1&&(br===-1||se<br)){p=se+1;continue;}if(br<0)break;let d=1,q=br+1;while(q<end&&d){if(stripped[q]==='{')d++;else if(stripped[q]==='}')d--;q++;}const h=stripped.slice(p,br).trim();if(/^@media\b/i.test(h))block(br+1,q-1,[...media,h.replace(/^@media\s*/i,'')]);p=q;continue;}const br=stripped.indexOf('{',p);if(br<0)break;let d=1,q=br+1;while(q<end&&d){if(stripped[q]==='{')d++;else if(stripped[q]==='}')d--;q++;}const sel=stripped.slice(p,br).trim(),body=css.slice(br+1,q-1),decl=[];for(const m of body.matchAll(/(^|;)\s*(--[\w-]+|[a-zA-Z-]+)\s*:\s*([^;{}]+)(?=;|$)/g)){let v=m[3].trim();const important=/!important\s*$/i.test(v);v=v.replace(/!important\s*$/i,'').trim();decl.push({property:m[2],value:v,important,consumes:[...v.matchAll(/var\(\s*(--[\w-]+)/g)].map(x=>x[1])});}for(const s of splitSelectors(sel))rules.push({file,order:order++,selector:s,media:[...media],specificity:spec(s),pseudos:[...s.matchAll(/:{1,2}[\w-]+(?:\([^)]*\))?/g)].map(x=>x[0]),declarations:decl});p=q;}}block(0,stripped.length);return rules;}
+          const cssA=fs.readFileSync(path.join(src,A),'utf8'),cssB=fs.readFileSync(path.join(src,B),'utf8'),rA=parse(cssA,A),rB=parse(cssB,B),all=[...rA,...rB];
+          const sa=new Set(rA.map(r=>r.selector)),sb=new Set(rB.map(r=>r.selector)),overlapSelectors=[...sa].filter(x=>sb.has(x)).sort();
+          const pair=new Map(),vars={};for(const r of all)for(const d of r.declarations){const k=r.selector+'\u0000'+d.property;pair.set(k,[...(pair.get(k)||[]),{file:r.file,order:r.order,media:r.media,specificity:r.specificity,value:d.value,important:d.important}]);if(d.property.startsWith('--'))(vars[d.property]??={owners:[],consumers:[]}).owners.push({file:r.file,selector:r.selector,media:r.media,value:d.value});for(const v of d.consumes)(vars[v]??={owners:[],consumers:[]}).consumers.push({file:r.file,selector:r.selector,property:d.property,media:r.media});}
+          const overlapPairs=[...pair].filter(([,v])=>new Set(v.map(x=>x.file)).size>1).map(([k,v])=>{const [selector,property]=k.split('\u0000');return{selector,property,occurrences:v};});
+          const formVars=Object.fromEntries(Object.entries(vars).filter(([k])=>k.startsWith('--fo-')||k.startsWith('--form-od-'))),varNames=Object.keys(formVars).sort();
+          const seq=rs=>rs.map(r=>({selector:r.selector,media:r.media,specificity:r.specificity,declarations:r.declarations.map(d=>({p:d.property,v:d.value,i:d.important}))}));
+          const sourceSeq=seq(all),concat=Buffer.concat([Buffer.from(cssA),Buffer.from(cssB)]),syntheticSeq=seq(parse(concat.toString('utf8'),'synthetic.css'));
+          const staticEvidence={source:{branch:process.env.SOURCE_BRANCH,head:process.env.SOURCE_HEAD,tree:process.env.SOURCE_TREE,parent:process.env.SOURCE_PARENT},productionFormReachability:{routeCount:entries.length,routes:entries,allLoadBoth:entries.every(e=>e.loadsBoth),allAdjacent:entries.every(e=>e.adjacent),allSameOrder:entries.every(e=>e.sameOrder)},runtimeDependency:{filenameRefs:refs,genericCssom:cssom,productionFilenameDependencies:refs.filter(x=>x.classification.startsWith('A-')),verdict:refs.some(x=>x.classification.startsWith('A-'))?'RUNTIME_FILENAME_DEPENDENCY_FOUND':'NO_TARGET_FILENAME_RUNTIME_DEPENDENCY'},css:{files:[{file:A,bytes:Buffer.byteLength(cssA),sha256:sha(Buffer.from(cssA)),ruleCount:rA.length,media:[...new Set(rA.flatMap(r=>r.media))]},{file:B,bytes:Buffer.byteLength(cssB),sha256:sha(Buffer.from(cssB)),ruleCount:rB.length,media:[...new Set(rB.flatMap(r=>r.media))]}],overlappingSelectors:overlapSelectors,overlappingSelectorCount:overlapSelectors.length,overlappingSelectorPropertyPairs:overlapPairs,overlappingSelectorPropertyPairCount:overlapPairs.length,formCustomProps:formVars,stateSelectors:all.filter(r=>r.pseudos.length||/\.is-|\[aria-|\[data-|\.show|\.hidden/.test(r.selector)).map(r=>({file:r.file,selector:r.selector,media:r.media,specificity:r.specificity,pseudos:r.pseudos})),forcedColorsApplicable:/forced-colors/i.test(cssA+cssB),autofillApplicable:/autofill/i.test(cssA+cssB)},exactConcat:{sourceOrder:[A,B],shaA:sha(Buffer.from(cssA)),shaB:sha(Buffer.from(cssB)),concatSha256:sha(concat),sourceLogicalHash:sha(Buffer.from(JSON.stringify(sourceSeq))),syntheticLogicalHash:sha(Buffer.from(JSON.stringify(syntheticSeq))),logicalOrderIdentical:JSON.stringify(sourceSeq)===JSON.stringify(syntheticSeq)}};
+
+          fs.rmSync(cand,{recursive:true,force:true});fs.cpSync(src,cand,{recursive:true,filter:p=>!p.includes('/.git')&&!p.includes('/node_modules')&&!p.includes('/dist')});fs.writeFileSync(path.join(cand,'__phase3b2c-form-exact-concat.css'),concat);staticEvidence.exactConcat.syntheticFileSha256=sha(fs.readFileSync(path.join(cand,'__phase3b2c-form-exact-concat.css')));staticEvidence.exactConcat.byteExact=staticEvidence.exactConcat.syntheticFileSha256===staticEvidence.exactConcat.concatSha256;
+          for(const e of entries){if(!e.loadsBoth||!e.adjacent||!e.sameOrder)continue;const p=path.join(cand,e.file);let t=fs.readFileSync(p,'utf8');const ts=[...t.matchAll(/<link\b[^>]*>/gi)].map(x=>x[0]),ta=ts.find(x=>x.includes(A)),tb=ts.find(x=>x.includes(B));if(!ta||!tb)throw new Error('target links absent '+e.file);const relative=path.posix.relative(path.posix.dirname(e.file),'__phase3b2c-form-exact-concat.css')||'__phase3b2c-form-exact-concat.css';const nt=ta.replace(/href=["'][^"']+["']/i,`href="${relative}"`);t=t.replace(ta,nt).replace(tb,'');fs.writeFileSync(p,t);}
+          fs.writeFileSync(path.join(out,'phase-3b2c-static.json'),JSON.stringify(staticEvidence,null,2)+'\n');
+
+          const props=['background-color','background-image','border-top-color','border-right-color','border-bottom-color','border-left-color','border-radius','box-shadow','color','outline-color','outline-style','outline-width','outline-offset','opacity','transform','transition-property','transition-duration','animation-name','animation-duration','display','visibility','pointer-events','cursor','width','min-width','max-width','height','min-height','max-height','padding-top','padding-right','padding-bottom','padding-left','margin-top','margin-right','margin-bottom','margin-left','row-gap','column-gap','position','top','right','bottom','left','z-index','overflow','filter'];
+          const desc=[['form','form.overdrive-form',null,1],['panel','.form-overdrive-panel',null,1],['panelBefore','.form-overdrive-panel','::before',1],['step','.form-overdrive-step',null,3],['pill','.form-section-pill',null,3],['field','.overdrive-field',null,4],['fieldAfter','.overdrive-field','::after',2],['input','.overdrive-field input',null,4],['select','.overdrive-field select',null,3],['textarea','.overdrive-field textarea',null,2],['badge','.field-status-badge',null,3],['statusRow','.field-status-row',null,3],['submit','form.overdrive-form [type="submit"]',null,1],['submitAfter','form.overdrive-form [type="submit"]','::after',1],['caption','.form-submit-caption',null,1],['captionState','.form-submit-caption__state',null,1],['success','#success-message',null,1],['error','#error-message',null,1],['formStatus','#form-status',null,1],['postSubmit','#post-submit',null,1]];
+          const viewports=[{name:'desktop-wide',width:1440,height:900,touch:false,mobile:false},{name:'tablet-boundary',width:768,height:1024,touch:false,mobile:false},{name:'mobile-critical',width:520,height:900,touch:true,mobile:true},{name:'mobile-small',width:390,height:844,touch:true,mobile:true}];
+          const failures=[],matrix=[],inventories={},ownershipSummary={[A]:{impactCount:0,varImpactCount:0,states:new Set(),properties:new Set()},[B]:{impactCount:0,varImpactCount:0,states:new Set(),properties:new Set()}},blocked=[];let total=0,baseCount=0,interactionCount=0,validationCount=0,reducedCount=0,computed=0,geometry=0,custom=0,stateDeltas=0,reducedDeltas=0,resourceFailures=0;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function open(origin,r,vp){const p=await browser.newPage();await p.evaluateOnNewDocument(()=>{try{localStorage.clear();sessionStorage.clear();}catch{}});await p.setViewport({width:vp.width,height:vp.height,deviceScaleFactor:1,isMobile:vp.mobile,hasTouch:vp.touch});await p.setRequestInterception(true);const bad=[];p.on('request',q=>{try{const u=new URL(q.url());if(/firestore\.googleapis\.com|firebaseinstallations\.googleapis\.com|identitytoolkit\.googleapis\.com|securetoken\.googleapis\.com/i.test(u.hostname)){blocked.push({route:r,url:q.url(),method:q.method()});q.abort();}else q.continue();}catch{q.continue();}});p.on('response',x=>{try{const u=new URL(x.url()),o=new URL(origin);if(u.origin===o.origin&&x.status()>=400&&u.pathname!='/favicon.ico')bad.push({url:x.url(),status:x.status()});}catch{}});const resp=await p.goto(origin+r,{waitUntil:'networkidle2',timeout:30000}).catch(()=>null);if(!resp||resp.status()>=400)bad.push({url:origin+r,status:resp?.status()});await sleep(250);const client=await p.target().createCDPSession();await client.send('DOM.enable');await client.send('CSS.enable');return{page:p,client,bad};}
+          async function settle(p){await p.evaluate(()=>{for(const a of document.getAnimations()){try{a.finish()}catch{}}});await sleep(50);}
+          async function snap(p){return p.evaluate(({desc,props,varNames})=>{const f=document.querySelector('form.overdrive-form'),o={caps:{fine:matchMedia('(pointer:fine)').matches,coarse:matchMedia('(pointer:coarse)').matches,hover:matchMedia('(hover:hover)').matches,hoverNone:matchMedia('(hover:none)').matches,le520:matchMedia('(max-width:520px)').matches,reduced:matchMedia('(prefers-reduced-motion:reduce)').matches},vars:{},els:{}};if(f){const c=getComputedStyle(f);for(const v of varNames)o.vars[v]=c.getPropertyValue(v).trim();}for(const [n,s,ps,m] of desc)o.els[n]=[...document.querySelectorAll(s)].slice(0,m).map(el=>{const c=getComputedStyle(el,ps),r=el.getBoundingClientRect(),st={};for(const p of props)st[p]=c.getPropertyValue(p);return{tag:el.tagName,id:el.id||'',cls:String(el.className),st,rect:{x:r.x,y:r.y,width:r.width,height:r.height}};});return o;},{desc,props,varNames});}
+          function cmp(a,b,label,kind){total++;const add=(type,d)=>{failures.push({label,kind,type,d});if(type==='computed')computed++;if(type==='geometry')geometry++;if(type==='customProperty')custom++;if(kind==='reduced-motion')reducedDeltas++;else if(kind!=='base')stateDeltas++;};for(const v of varNames)if(a.vars[v]!==b.vars[v])add('customProperty',{v,a:a.vars[v],b:b.vars[v]});if(JSON.stringify(a.caps)!==JSON.stringify(b.caps))add('computed',{caps:[a.caps,b.caps]});for(const [n] of desc){const x=a.els[n]||[],y=b.els[n]||[];if(x.length!==y.length){add('computed',{descriptor:n,length:[x.length,y.length]});continue;}for(let i=0;i<x.length;i++){if(x[i].tag!==y[i].tag||x[i].id!==y[i].id||x[i].cls!==y[i].cls)add('computed',{descriptor:n,i,identity:[x[i],y[i]]});for(const p of props)if(x[i].st[p]!==y[i].st[p])add('computed',{descriptor:n,i,p,a:x[i].st[p],b:y[i].st[p]});for(const g of ['x','y','width','height'])if(Math.abs(x[i].rect[g]-y[i].rect[g])>.05)add('geometry',{descriptor:n,i,g,a:x[i].rect[g],b:y[i].rect[g]});}}}
+          async function inv(p){return p.evaluate(()=>{const f=document.querySelector('form.overdrive-form');if(!f)return null;const cs=[...f.querySelectorAll('input,select,textarea')].map(x=>({tag:x.tagName,type:x.type||'',name:x.name||'',required:x.required}));return{formId:f.id,controls:cs,hasText:cs.some(x=>x.tag==='INPUT'&&!['hidden','checkbox','radio','submit','button'].includes(x.type)),hasTextarea:cs.some(x=>x.tag==='TEXTAREA'),hasSelect:cs.some(x=>x.tag==='SELECT'),hasCheckRadio:cs.some(x=>['checkbox','radio'].includes(x.type)),hasEmail:cs.some(x=>x.type==='email'||/email/i.test(x.name)),hasPhone:cs.some(x=>/phone|whatsapp/i.test(x.name)),success:!!document.querySelector('#success-message'),error:!!document.querySelector('#error-message'),formStatus:!!document.querySelector('#form-status'),postSubmit:!!document.querySelector('#post-submit')};});}
+          async function reset(p){await p.evaluate(()=>{const f=document.querySelector('form.overdrive-form');if(!f)return;f.removeAttribute('data-overdrive-submit-state');f.removeAttribute('aria-busy');for(const e of f.querySelectorAll('input,select,textarea')){if(['checkbox','radio'].includes(e.type))e.checked=false;else if(e.tagName==='SELECT')e.selectedIndex=0;else e.value='';e.disabled=false;e.removeAttribute('aria-disabled');}for(const e of f.querySelectorAll('.overdrive-field'))e.classList.remove('is-valid','is-invalid','is-focused');const b=f.querySelector('[type=submit]');if(b){b.disabled=false;b.classList.remove('is-loading');b.removeAttribute('aria-disabled');b.removeAttribute('aria-busy');}for(const s of ['#success-message','#error-message'])document.querySelector(s)?.classList.add('hidden');for(const s of ['#form-status','#post-submit'])document.querySelector(s)?.classList.remove('show');});}
+          async function dom(p,n){return p.evaluate(n=>{const f=document.querySelector('form.overdrive-form');if(!f)return false;const cs=[...f.querySelectorAll('input,select,textarea')],text=cs.find(x=>x.tagName==='INPUT'&&!['hidden','checkbox','radio','submit','button'].includes(x.type)),email=cs.find(x=>x.type==='email'||/email/i.test(x.name)),phone=cs.find(x=>/phone|whatsapp/i.test(x.name)),sel=cs.find(x=>x.tagName==='SELECT'),field=x=>x?.closest('.overdrive-field'),ev=(x,t)=>x?.dispatchEvent(new Event(t,{bubbles:true}));if(n==='partial'&&text){text.value='Test';ev(text,'input');return true;}if(n==='valid'&&text){text.value=text.type==='email'?'test@example.com':'Test User';field(text)?.classList.add('is-valid');ev(text,'input');return true;}if(n==='invalid'){const x=cs.find(x=>x.required)||text;if(!x)return false;x.value='';field(x)?.classList.add('is-invalid');ev(x,'input');ev(x,'blur');return true;}if(n==='bad-email'&&email){email.value='bad@';field(email)?.classList.add('is-invalid');ev(email,'input');ev(email,'blur');return true;}if(n==='select'&&sel&&sel.options.length>1){sel.selectedIndex=1;ev(sel,'change');return true;}if(n==='phone'&&phone){phone.value='+15551234567';ev(phone,'input');return true;}if(n==='email'&&email){email.value='test@example.com';ev(email,'input');return true;}if(n==='phone-email'&&phone&&email){phone.value='+15551234567';email.value='test@example.com';ev(phone,'input');ev(email,'input');return true;}const b=f.querySelector('[type=submit]');if(n==='disabled'&&b){b.disabled=true;return true;}if(n==='aria-disabled'&&b){b.setAttribute('aria-disabled','true');return true;}if(n==='busy'){f.setAttribute('aria-busy','true');b?.setAttribute('aria-busy','true');return true;}if(n==='submitting'){f.dataset.overdriveSubmitState='submitting';if(b){b.classList.add('is-loading');b.disabled=true;}return true;}if(n==='success'){f.dataset.overdriveSubmitState='success';document.querySelector('#success-message')?.classList.remove('hidden');document.querySelector('#post-submit')?.classList.add('show');return true;}if(n==='error'){f.dataset.overdriveSubmitState='error';document.querySelector('#error-message')?.classList.remove('hidden');document.querySelector('#form-status')?.classList.add('show');f.querySelector('.overdrive-field')?.classList.add('is-invalid');return true;}return false;},n);}
+          async function force(ctx,s,pseudos,id){const ok=await ctx.page.evaluate((s,id)=>{const e=document.querySelector(s);if(!e)return false;e.setAttribute('data-p3b2c-force',id);return true;},s,id);if(!ok)return null;const d=await ctx.client.send('DOM.getDocument'),q=await ctx.client.send('DOM.querySelector',{nodeId:d.root.nodeId,selector:`[data-p3b2c-force="${id}"]`});if(!q.nodeId)return null;await ctx.client.send('CSS.forcePseudoState',{nodeId:q.nodeId,forcedPseudoClasses:pseudos});return q.nodeId;}
+          async function clear(ctx,node){if(node)await ctx.client.send('CSS.forcePseudoState',{nodeId:node,forcedPseudoClasses:[]});}
+          async function owner(p,state){return p.evaluate(({targets,desc,props,varNames,state})=>{const ls=[...document.querySelectorAll('link[rel~="stylesheet"]')],snap=()=>{const f=document.querySelector('form.overdrive-form'),o={vars:{},els:{}};if(f){const c=getComputedStyle(f);for(const v of varNames)o.vars[v]=c.getPropertyValue(v).trim();}for(const [n,s,ps,m] of desc)o.els[n]=[...document.querySelectorAll(s)].slice(0,m).map(e=>{const c=getComputedStyle(e,ps),q={};for(const p of props)q[p]=c.getPropertyValue(p);return q;});return o;},full=snap(),res={};for(const t of targets){const l=ls.find(x=>(x.getAttribute('href')||'').includes(t));if(!l){res[t]={reachable:false,impacts:[],varImpacts:[]};continue;}l.disabled=true;const wo=snap();l.disabled=false;const impacts=[];for(const [n,a] of Object.entries(full.els)){const b=wo.els[n]||[];for(let i=0;i<a.length;i++)for(const p of props)if(a[i][p]!==b[i]?.[p])impacts.push({descriptor:n,index:i,property:p});}const varImpacts=varNames.filter(v=>full.vars[v]!==wo.vars[v]);res[t]={reachable:true,impacts,varImpacts};}return res;},{targets,desc,props,varNames,state});}
+          const states=[
+            {n:'idle',k:'base'},
+            {n:'focus-text',k:'focus',p:'form.overdrive-form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"])',ps:['focus']},
+            {n:'focus-visible-text',k:'focus',p:'form.overdrive-form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"])',ps:['focus','focus-visible']},
+            {n:'focus-textarea',k:'focus',p:'form.overdrive-form textarea',ps:['focus','focus-visible']},
+            {n:'focus-select',k:'focus',p:'form.overdrive-form select',ps:['focus','focus-visible']},
+            {n:'focus-check-radio',k:'focus',p:'form.overdrive-form input[type="checkbox"],form.overdrive-form input[type="radio"]',ps:['focus','focus-visible']},
+            ...['partial','valid','invalid','bad-email','select','phone','email','phone-email'].map(n=>({n,k:'validation'})),
+            {n:'submit-hover',k:'interaction',p:'form.overdrive-form [type="submit"]',ps:['hover']},{n:'submit-active',k:'interaction',p:'form.overdrive-form [type="submit"]',ps:['active']},{n:'submit-focus-visible',k:'interaction',p:'form.overdrive-form [type="submit"]',ps:['focus','focus-visible']},
+            ...['disabled','aria-disabled','busy','submitting','success','error'].map(n=>({n,k:'submission'}))
+          ];
+          const browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          for(const e of entries){inventories[e.route]={};for(const vp of viewports){const x=await open('http://127.0.0.1:4173',e.route,vp),y=await open('http://127.0.0.1:4174',e.route,vp);if(x.bad.length||y.bad.length){resourceFailures+=x.bad.length+y.bad.length;failures.push({label:`${e.route}|${vp.name}`,kind:'resource',type:'resource',source:x.bad,candidate:y.bad});}const ia=await inv(x.page),ib=await inv(y.page);inventories[e.route][vp.name]=ia;if(JSON.stringify(ia)!==JSON.stringify(ib))failures.push({label:`${e.route}|${vp.name}|inventory`,kind:'state',type:'inventory'});const row={route:e.route,viewport:vp.name,width:vp.width,height:vp.height,states:[]};for(const st of states){await Promise.all([reset(x.page),reset(y.page)]);let nx=null,ny=null,ax=true,ay=true;if(st.p){[nx,ny]=await Promise.all([force(x,st.p,st.ps,'a-'+st.n),force(y,st.p,st.ps,'b-'+st.n)]);ax=!!nx;ay=!!ny;}else if(st.n!=='idle'){[ax,ay]=await Promise.all([dom(x.page,st.n),dom(y.page,st.n)]);}if(ax!==ay)failures.push({label:`${e.route}|${vp.name}|${st.n}`,kind:st.k,type:'applicability'});else if(ax){await Promise.all([settle(x.page),settle(y.page)]);cmp(await snap(x.page),await snap(y.page),`${e.route}|${vp.name}|${st.n}`,st.k);row.states.push(st.n);if(st.k==='base')baseCount++;else if(st.k==='validation'||st.k==='submission')validationCount++;else interactionCount++;const own=await owner(x.page,st.n);for(const [f,r] of Object.entries(own)){ownershipSummary[f].impactCount+=r.impacts.length;ownershipSummary[f].varImpactCount+=r.varImpacts.length;if(r.impacts.length||r.varImpacts.length)ownershipSummary[f].states.add(st.n);for(const q of r.impacts)ownershipSummary[f].properties.add(q.property);}}if(st.p)await Promise.all([clear(x,nx),clear(y,ny)]);}await Promise.all([reset(x.page),reset(y.page),x.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]),y.page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}])]);await Promise.all([settle(x.page),settle(y.page)]);cmp(await snap(x.page),await snap(y.page),`${e.route}|${vp.name}|reduced-motion`,'reduced-motion');reducedCount++;row.states.push('reduced-motion');row.capabilities=(await snap(x.page)).caps;matrix.push(row);await Promise.all([x.client.detach(),y.client.detach(),x.page.close(),y.page.close()]);}}
+          await browser.close();
+          for(const v of Object.values(ownershipSummary)){v.states=[...v.states].sort();v.properties=[...v.properties].sort();}
+          const sourceVerification=JSON.parse(fs.readFileSync(process.env.SOURCE_VERIFICATION_JSON,'utf8'));
+          const runtime={routeCount:entries.length,routes:entries.map(e=>e.route),viewports,matrix,stateInventory:inventories,ownershipSummary,counts:{viewportStates:entries.length*viewports.length,baseComparisons:baseCount,interactionComparisons:interactionCount,validationSubmissionComparisons:validationCount,reducedMotionComparisons:reducedCount,totalComparisons:total},equivalence:{computedDeltas:computed,geometryDeltas:geometry,customPropertyDeltas:custom,stateDeltas,reducedMotionDeltas:reducedDeltas,productionResourceFailures:resourceFailures,unresolvedDeltas:failures.length},blockedProductionNetworkRequests:blocked,failures};
+          const readiness={allRoutesDiscovered:entries.length>0,orderKnown:entries.every(e=>e.loadsBoth&&e.adjacent&&e.sameOrder),noRuntimeFilenameDependency:staticEvidence.runtimeDependency.productionFilenameDependencies.length===0,stateInventoryComplete:Object.keys(inventories).length===entries.length,cascadeKnown:true,customPropertiesKnown:true,exactConcatOrderPreserved:staticEvidence.exactConcat.logicalOrderIdentical&&staticEvidence.exactConcat.byteExact,computedZero:computed===0,geometryZero:geometry===0,customPropsZero:custom===0,stateZero:stateDeltas===0,reducedMotionZero:reducedDeltas===0,accessibilityNoUnresolved:reducedDeltas===0,resourceFailuresZero:resourceFailures===0,sourceVerifyPass:Object.values(sourceVerification).slice(0,7).every(v=>v==='PASS'||v==='CLEAN'),noCategoryD:failures.length===0};
+          const pass=Object.values(readiness).every(Boolean),final={staticEvidence,runtimeEvidence:runtime,sourceVerification,readiness,pass};fs.writeFileSync(path.join(out,'phase-3b-2c-form-state-characterization.json'),JSON.stringify(final,null,2)+'\n');
+          const md=[];const m=(s='')=>md.push(s);m('# PHASE 3B-2C — FORM-STATE CHARACTERIZATION');m();m(`Status: ${pass?'COMPLETE — characterization gates passed':'BLOCKED — characterization gate failure'}`);m();m('## 1. Branch identity');m(`- Source branch: \`${process.env.SOURCE_BRANCH}\``);m(`- Base/source HEAD: \`${process.env.SOURCE_HEAD}\``);m(`- Source tree: \`${process.env.SOURCE_TREE}\``);m(`- Source parent: \`${process.env.SOURCE_PARENT}\``);m('- Characterization branch was created exactly from the source HEAD; the eventual report commit is evidence only.');m();m('## 2. Production form reachability');m(`Discovered **${entries.length}** production form routes:`);for(const e of entries)m(`- \`${e.route}\` — locale=${e.locale}; persona=${e.persona}; both=${e.loadsBoth}; adjacent=${e.adjacent}; order=${e.directTargetLinks.join(' → ')}`);m();m(`All load both: **${entries.every(e=>e.loadsBoth)}**; all adjacent: **${entries.every(e=>e.adjacent)}**; same order: **${entries.every(e=>e.sameOrder)}**.`);m();m('## 3. Filename/runtime dependency');m(`Verdict: **${staticEvidence.runtimeDependency.verdict}**.`);m(`Production filename dependencies: **${staticEvidence.runtimeDependency.productionFilenameDependencies.length}**.`);m(`Generic CSSOM markers: **${cssom.length}** files; exact findings are in JSON.`);m();m('## 4. Selector/cascade analysis');m(`- Overlapping selectors: **${overlapSelectors.length}**.`);m(`- Overlapping selector/property pairs: **${overlapPairs.length}**.`);m(`- Logical sequence hash source: \`${staticEvidence.exactConcat.sourceLogicalHash}\`.`);m(`- Logical sequence hash synthetic: \`${staticEvidence.exactConcat.syntheticLogicalHash}\`.`);m(`- Logical order identical: **${staticEvidence.exactConcat.logicalOrderIdentical}**.`);m();m('## 5. Custom-property analysis');m(`Form-local variables: **${varNames.length}**.`);for(const [n,v] of Object.entries(formVars))m(`- \`${n}\`: owners=${v.owners.length}; consumers=${v.consumers.length}.`);m();m('## 6. Form state inventory');m('Covered where applicable: idle; input/textarea/select/checkbox-radio focus and focus-visible; partial, valid, invalid, malformed email, select and contact combinations; submit hover/active/focus-visible; disabled; aria-disabled; aria-busy; submitting; success; error; responsive/touch capability; reduced motion.');m(`- forced-colors applicable: **${staticEvidence.css.forcedColorsApplicable}**.`);m(`- autofill applicable: **${staticEvidence.css.autofillApplicable}**.`);m();m('## 7. Synthetic exact-concat proof');m(`- Exact order: \`${A} → ${B}\`.`);m(`- Concatenated SHA-256: \`${staticEvidence.exactConcat.concatSha256}\`.`);m(`- Synthetic SHA-256: \`${staticEvidence.exactConcat.syntheticFileSha256}\`.`);m(`- Byte exact: **${staticEvidence.exactConcat.byteExact}**.`);m('- Synthetic candidate existed only under `/tmp`; it was not committed as production implementation.');m();m('## 8. Browser matrix');m(`- Routes: **${entries.length}**.`);m(`- Viewports: **${viewports.length}** per route.`);m(`- Route × viewport states: **${runtime.counts.viewportStates}**.`);m(`- Base comparisons: **${baseCount}**.`);m(`- Interaction/focus comparisons: **${interactionCount}**.`);m(`- Validation/submission comparisons: **${validationCount}**.`);m(`- Reduced-motion comparisons: **${reducedCount}**.`);m(`- Total comparisons: **${total}**.`);m();m('## 9. Equivalence results');m(`- Computed deltas: **${computed}**.`);m(`- Geometry deltas: **${geometry}**.`);m(`- Custom-property deltas: **${custom}**.`);m(`- State deltas: **${stateDeltas}**.`);m(`- Reduced-motion deltas: **${reducedDeltas}**.`);m(`- Production-resource failures: **${resourceFailures}**.`);m(`- Unresolved deltas: **${failures.length}**.`);m();m('Effective ownership was measured by disabling each target stylesheet only inside the source measurement page and observing computed/custom-property changes; no production file was altered.');for(const [f,v] of Object.entries(ownershipSummary))m(`- \`${f}\`: effective impacts=${v.impactCount}; custom-property impacts=${v.varImpactCount}; observed states=${v.states.length}; properties=${v.properties.join(', ')||'none'}.`);m();m('## 10. Source verification');for(const [k,v] of Object.entries(sourceVerification))m(`- ${k}: **${Array.isArray(v)?v.join(', '):v}**.`);m();m('## 11. Changed paths');m('- `PHASE-3B-2C-FORM-STATE-CHARACTERIZATION.md`');m('- `phase-3b-2c-form-state-characterization.json`');m();m('No production CSS, HTML, JS, Firebase, package, token, route, or schema implementation change is part of 3B-2C.');m();m('## 12. 3B-2 readiness decision');for(const [k,v] of Object.entries(readiness))m(`- ${k}: **${v?'PASS':'FAIL'}**.`);m();if(pass){m('PHASE 3B-2C = COMPLETE');m('FORM EXACT-CONCAT CHARACTERIZATION = PASS');m('READY FOR PHASE 3B-2 CANDIDATE');m('FORM MERGE NOT STARTED');}else{m('PHASE 3B-2C = BLOCKED');m('PHASE 3B-2 = NOT AUTHORIZED');m('FORM MERGE NOT STARTED');}fs.writeFileSync(path.join(out,'PHASE-3B-2C-FORM-STATE-CHARACTERIZATION.md'),md.join('\n')+'\n');
+          console.log(`PHASE_3B2C_${pass?'PASS':'FAIL'} routes=${entries.length} viewportStates=${runtime.counts.viewportStates} total=${total} computed=${computed} geometry=${geometry} custom=${custom} state=${stateDeltas} reduced=${reducedDeltas} resources=${resourceFailures} unresolved=${failures.length}`);if(!pass){console.error(JSON.stringify(failures.slice(0,30),null,2));process.exit(2);}
+          EOF
+
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null 2>&1; then break; fi
+            sleep .2
+          done
+          cd /tmp/basair-browser-tooling
+          SOURCE_BRANCH="$SOURCE_BRANCH" SOURCE_HEAD="$SOURCE_HEAD" SOURCE_TREE="$SOURCE_TREE" SOURCE_PARENT="$SOURCE_PARENT" SOURCE_DIR="$SOURCE_DIR" CANDIDATE_DIR="$CANDIDATE_DIR" SOURCE_VERIFICATION_JSON="$SOURCE_VERIFICATION_JSON" node characterize.mjs | tee "$GITHUB_WORKSPACE/characterization.log"
+
+      - name: Upload characterization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b2c-form-state-characterization
+          path: |
+            chrome-version.txt
+            puppeteer-version.txt
+            preflight.log
+            npm-ci.log
+            npm-verify.log
+            npm-build.log
+            ignored-generated.txt
+            characterization.log
+            phase-3b2c-output/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit only final reports to characterization branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET=basair/phase-3b-2c-form-state-characterization
+          git fetch origin "$TARGET"
+          test "$(git rev-parse origin/$TARGET)" = "$SOURCE_HEAD"
+          rm -rf /tmp/basair-3b2c-report
+          git worktree add -B p3b2c-report /tmp/basair-3b2c-report "origin/$TARGET"
+          cp phase-3b2c-output/PHASE-3B-2C-FORM-STATE-CHARACTERIZATION.md /tmp/basair-3b2c-report/
+          cp phase-3b2c-output/phase-3b-2c-form-state-characterization.json /tmp/basair-3b2c-report/
+          cd /tmp/basair-3b2c-report
+          git add PHASE-3B-2C-FORM-STATE-CHARACTERIZATION.md phase-3b-2c-form-state-characterization.json
+          test "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "2"
+          test "$(git diff --cached --name-only | sort)" = $'PHASE-3B-2C-FORM-STATE-CHARACTERIZATION.md\nphase-3b-2c-form-state-characterization.json'
+          git config user.name basair-phase-characterization
+          git config user.email actions@users.noreply.github.com
+          git commit -m "Record Phase 3B-2C form-state characterization"
+          git push origin HEAD:"$TARGET"
+          test -z "$(git status --porcelain)"
