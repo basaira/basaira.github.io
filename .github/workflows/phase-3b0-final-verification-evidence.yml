@@ -1,0 +1,103 @@
+name: Phase 3B-0 Final Clean Verification Evidence
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-0-final-verification-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  verify-clean-target:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout evidence branch infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify exact clean target and run five-command gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TARGET=14c4fcc96cc74ededf583bf724644da982025286
+          TARGET_TREE=90946e55757c9d05d620b9625714110db6c71c74
+          CHECKER_BLOB=3dfc0605151abd9a9e6514a492a9b94137c96c63
+
+          echo "TARGET_HEAD=$TARGET"
+          echo "TARGET_TREE=$TARGET_TREE"
+          echo "EXPECTED_CHECKER_BLOB=$CHECKER_BLOB"
+
+          git fetch --all --prune
+          rm -rf /tmp/basair-final
+          git worktree add --detach /tmp/basair-final "$TARGET"
+
+          test "$(git -C /tmp/basair-final rev-parse HEAD)" = "$TARGET"
+          test "$(git -C /tmp/basair-final rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test -z "$(git -C /tmp/basair-final status --porcelain)"
+          echo "TARGET_IDENTITY_PASS"
+
+          ACTUAL_CHECKER_BLOB="$(git -C /tmp/basair-final hash-object scripts/verify-css-consolidation-preflight.mjs)"
+          echo "CHECKER_BLOB=$ACTUAL_CHECKER_BLOB"
+          test "$ACTUAL_CHECKER_BLOB" = "$CHECKER_BLOB"
+          echo "CHECKER_BLOB_PASS"
+
+          cd /tmp/basair-final
+
+          node scripts/verify-css-consolidation-preflight.mjs
+          echo "CHECKER_PASS"
+
+          npm ci
+          echo "NPM_CI_PASS"
+
+          npm run verify
+          echo "NPM_VERIFY_PASS"
+
+          npm run build
+          echo "NPM_BUILD_PASS"
+
+          git diff --check
+          echo "GIT_DIFF_CHECK_PASS"
+
+          git diff --exit-code
+          echo "TRACKED_DIFF_CLEAN_PASS"
+
+          echo "STATUS_PORCELAIN_BEGIN"
+          git status --porcelain
+          echo "STATUS_PORCELAIN_END"
+
+          test "$(git rev-parse HEAD)" = "$TARGET"
+          test "$(git rev-parse HEAD^{tree})" = "$TARGET_TREE"
+          test "$(git hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+          echo "FINAL_TARGET_IDENTITY_PASS"
+
+          cat > "$GITHUB_WORKSPACE/phase3b0-final-verification-evidence.json" <<EOF
+          {
+            "targetHead": "$TARGET",
+            "targetTree": "$TARGET_TREE",
+            "checkerBlob": "$CHECKER_BLOB",
+            "checker": "PASS",
+            "npmCi": "PASS",
+            "npmRunVerify": "PASS",
+            "npmRunBuild": "PASS",
+            "gitDiffCheck": "PASS",
+            "trackedDiffClean": "PASS"
+          }
+          EOF
+
+      - name: Upload textual verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b0-final-verification-evidence
+          path: phase3b0-final-verification-evidence.json
+          if-no-files-found: error
+          retention-days: 7
