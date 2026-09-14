@@ -1,4 +1,4 @@
-name: Phase 3B-1 Authorized Review Fix
+name: Phase 3B-1 Review Fix Final Gate
 
 on:
   push:
@@ -6,74 +6,128 @@ on:
       - basair/phase-3b-1-verification-evidence
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply-review-fix:
+  verify-review-fix:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Checkout evidence branch
+      - name: Checkout evidence infrastructure
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Apply exact manifest metadata fix and fast-forward target branch
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify exact final 3B-1 HEAD and full command gate
         shell: bash
         run: |
           set -euo pipefail
+          BASE=07477307402857cb73ff80eb726a43faa5e72ad3
+          IMPLEMENTATION=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          FINAL=6de74b2271b937823d63ac33909cc36fe8e73662
+          FINAL_TREE=d99acf85fabd717ddac495e63092f4f0728a9b3c
           TARGET_BRANCH=basair/phase-3b-1-acquisition-precision-polish-merge
-          EXPECTED_PARENT=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
           FILE=token-authority-manifest.json
 
-          git fetch origin "$TARGET_BRANCH"
-          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_PARENT"
-          git checkout -B phase-3b1-review-fix "origin/$TARGET_BRANCH"
-          test "$(git rev-parse HEAD)" = "$EXPECTED_PARENT"
-          git show "HEAD:$FILE" > /tmp/manifest-before.json
+          git fetch --all --prune
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$FINAL"
+          test "$(git rev-parse "$FINAL^{tree}")" = "$FINAL_TREE"
+          test "$(git rev-parse "$FINAL^1")" = "$IMPLEMENTATION"
+          test "$(git merge-base "$BASE" "$FINAL")" = "$BASE"
 
+          rm -rf /tmp/basair-3b1-final
+          git worktree add --detach /tmp/basair-3b1-final "$FINAL"
+          cd /tmp/basair-3b1-final
+          test "$(git rev-parse HEAD)" = "$FINAL"
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_TREE"
+          test -z "$(git status --porcelain)"
+
+          echo REVIEW_FIX_DIFF_GATE_BEGIN
+          test "$(git diff --name-only "$IMPLEMENTATION" "$FINAL")" = "$FILE"
+          test "$(git diff --numstat "$IMPLEMENTATION" "$FINAL" -- "$FILE")" = $'1\t1\ttoken-authority-manifest.json'
+          git show "$IMPLEMENTATION:$FILE" > /tmp/manifest-before.json
+          git show "$FINAL:$FILE" > /tmp/manifest-after.json
           python3 <<'PY'
           from pathlib import Path
-          p = Path('token-authority-manifest.json')
           before = Path('/tmp/manifest-before.json').read_text()
-          current = p.read_text()
-          assert current == before, 'worktree manifest differs from exact parent'
+          after = Path('/tmp/manifest-after.json').read_text()
           old = '    "productionCssFileCount": 55,'
           new = '    "productionCssFileCount": 54,'
-          assert before.count(old) == 1, f'expected exactly one old scalar, found {before.count(old)}'
+          assert before.count(old) == 1, before.count(old)
           expected = before.replace(old, new, 1)
-          p.write_text(expected)
-          after = p.read_text()
-          assert after == expected, 'unexpected manifest rewrite'
-          assert after.count(new) == 1, 'new scalar occurrence mismatch'
-          assert after.replace(new, old, 1) == before, 'change is not exactly 55 -> 54'
+          assert after == expected, 'manifest change is not exactly productionCssFileCount 55 -> 54'
+          assert after.count(new) == 1
           PY
+          test -z "$(git diff --name-only "$IMPLEMENTATION" "$FINAL" -- '*.css' '*.html' '*.js' '*.mjs' '*.ts' '*.svg' '*.png' '*.jpg' '*.jpeg' '*.webp' '*.gif' '*.ico' 'package.json' 'package-lock.json')"
+          git diff --quiet "$IMPLEMENTATION" "$FINAL" -- token-authority-check.mjs scripts/verify-css-consolidation-preflight.mjs
+          echo REVIEW_FIX_DIFF_GATE_PASS
 
-          test "$(git diff --name-only)" = "$FILE"
-          test "$(git diff --numstat -- "$FILE")" = $'1\t1\ttoken-authority-manifest.json'
+          echo FINAL_COMPARE_GATE_BEGIN
+          cat > /tmp/expected-paths.txt <<'EOF'
+          acquisition-polish-v2.css
+          acquisition-precision-native-v2.css
+          en/arabic/index.html
+          en/index.html
+          en/quran-adults/index.html
+          en/quran-kids/index.html
+          ru/arabic/index.html
+          ru/index.html
+          ru/quran/index.html
+          token-authority-manifest.json
+          uz/arabic/index.html
+          uz/index.html
+          uz/quran/index.html
+          EOF
+          git diff --name-only "$BASE" "$FINAL" | sort > /tmp/actual-paths.txt
+          sort /tmp/expected-paths.txt -o /tmp/expected-paths.txt
+          diff -u /tmp/expected-paths.txt /tmp/actual-paths.txt
+          test "$(wc -l < /tmp/actual-paths.txt | tr -d ' ')" = "13"
+          cat /tmp/actual-paths.txt
+          echo FINAL_COMPARE_GATE_PASS
+
+          echo PRELIGHT_BEGIN
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54
+          echo PREFLIGHT_PASS
+
+          echo NPM_CI_BEGIN
+          npm ci
+          echo NPM_CI_PASS
+
+          echo NPM_VERIFY_BEGIN
+          npm run verify | tee /tmp/npm-verify.log
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/49/23/23/2; corrected conflicts=40; production CSS=54; inline styles=1.' /tmp/npm-verify.log
+          echo NPM_VERIFY_PASS
+
+          echo NPM_BUILD_BEGIN
+          npm run build
+          echo NPM_BUILD_PASS
+
+          echo GIT_DIFF_CHECK_BEGIN
           git diff --check
-          echo REVIEW_FIX_PATCH_BEGIN
-          git diff -- "$FILE"
-          echo REVIEW_FIX_PATCH_END
+          echo GIT_DIFF_CHECK_PASS
 
-          git add "$FILE"
-          test "$(git diff --cached --name-only)" = "$FILE"
-          git diff --cached --check
-          git config user.name "basair-phase-review"
-          git config user.email "actions@users.noreply.github.com"
-          git commit -m "Phase 3B-1 review: update production CSS audit count"
+          echo TRACKED_CLEANLINESS_BEGIN
+          git diff --exit-code
+          echo GIT_DIFF_EXIT_CODE_PASS
+          echo STATUS_PORCELAIN_BEGIN
+          git status --porcelain
+          echo STATUS_PORCELAIN_END
+          test -z "$(git status --porcelain)"
+          echo IGNORED_GENERATED_BEGIN
+          git status --short --ignored -- node_modules dist || true
+          echo IGNORED_GENERATED_END
+          echo TRACKED_CLEANLINESS_PASS
 
-          NEW_HEAD=$(git rev-parse HEAD)
-          NEW_TREE=$(git rev-parse HEAD^{tree})
-          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PARENT"
-          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "$FILE"
-          test "$(git diff-tree --no-commit-id --numstat -r HEAD -- "$FILE")" = $'1\t1\ttoken-authority-manifest.json'
-
-          git fetch origin "$TARGET_BRANCH"
-          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_PARENT"
-          git push origin "HEAD:$TARGET_BRANCH"
-
-          echo "REVIEW_FIX_HEAD=$NEW_HEAD"
-          echo "REVIEW_FIX_TREE=$NEW_TREE"
-          echo "REVIEW_FIX_PARENT=$EXPECTED_PARENT"
-          echo "REVIEW_FIX_PATH=$FILE"
+          test "$(git rev-parse HEAD)" = "$FINAL"
+          test "$(git rev-parse HEAD^{tree})" = "$FINAL_TREE"
+          test "$(git rev-parse HEAD^1)" = "$IMPLEMENTATION"
+          test "$(git diff --name-only "$IMPLEMENTATION" "$FINAL")" = "$FILE"
+          echo BROWSER_EVIDENCE_CARRY_FORWARD_PASS_NO_RUNTIME_INPUT_CHANGED
+          echo FINAL_IDENTITY_PASS_HEAD=$FINAL
+          echo FINAL_IDENTITY_PASS_TREE=$FINAL_TREE
+          echo FINAL_IDENTITY_PASS_PARENT=$IMPLEMENTATION
