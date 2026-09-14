@@ -83,9 +83,10 @@ jobs:
           p=Path('/tmp/phase3b2c-harness/characterize.mjs')
           s=p.read_text()
           old="const browser=await puppeteer.launch({headless:true,executablePath,args:['--no-sandbox','--disable-setuid-sandbox']});"
-          new="const browser=await puppeteer.launch({headless:true,executablePath,protocolTimeout:180000,args:['--no-sandbox','--disable-setuid-sandbox']});"
+          new="const browser=await puppeteer.launch({headless:true,executablePath,protocolTimeout:600000,args:['--no-sandbox','--disable-setuid-sandbox']});"
           assert old in s
           s=s.replace(old,new,1)
+
           marker='async function applyState(p,state){'
           reset=r'''async function resetState(p){
             try{await p.mouse.up();}catch{}
@@ -108,17 +109,34 @@ jobs:
               document.querySelector('#post-submit')?.classList.remove('show');
             });
           }
+          async function pointFor(p,selector){
+            return p.evaluate((selector)=>{
+              const el=document.querySelector(selector); if(!el)return null;
+              const r=el.getBoundingClientRect();
+              if(!r.width&&!r.height)return null;
+              return {x:r.left+r.width/2,y:r.top+r.height/2};
+            },selector);
+          }
           '''
           assert marker in s
           s=s.replace(marker,reset+marker,1)
+
           old_loop="""for(const state of states){\n      if(state!=='idle'){await sa.p.reload({waitUntil:'domcontentloaded'});await sb.p.reload({waitUntil:'domcontentloaded'});}"""
-          new_loop="""for(const state of states){\n      if(state!=='idle'){await resetState(sa.p);await resetState(sb.p);}"""
+          new_loop="""for(const state of states){\n      console.log(`PROGRESS ${r.route} ${vp.name} ${state}`);\n      if(state!=='idle'){await resetState(sa.p);await resetState(sb.p);}"""
           assert old_loop in s
           s=s.replace(old_loop,new_loop,1)
+
+          old_hover='''  if(state==='hover-submit'){await freeze(p); const el=await p.$('.overdrive-form [type="submit"]'); if(el) await el.hover();}\n  if(state==='hover-control'){await freeze(p); const el=await p.$('.overdrive-form input:not([type="hidden"]),.overdrive-form textarea,.overdrive-form select'); if(el) await el.hover();}\n  if(state==='active-submit'){await freeze(p); const el=await p.$('.overdrive-form [type="submit"]'); if(el){const b=await el.boundingBox();if(b){await p.mouse.move(b.x+b.width/2,b.y+b.height/2);await p.mouse.down();}}}\n'''
+          new_hover='''  if(state==='hover-submit'){await freeze(p); const pt=await pointFor(p,'.overdrive-form [type="submit"]'); if(pt) await p.mouse.move(pt.x,pt.y);}\n  if(state==='hover-control'){await freeze(p); const pt=await pointFor(p,'.overdrive-form input:not([type="hidden"]),.overdrive-form textarea,.overdrive-form select'); if(pt) await p.mouse.move(pt.x,pt.y);}\n  if(state==='active-submit'){await freeze(p); const pt=await pointFor(p,'.overdrive-form [type="submit"]'); if(pt){await p.mouse.move(pt.x,pt.y);await p.mouse.down();}}\n'''
+          assert old_hover in s
+          s=s.replace(old_hover,new_hover,1)
           p.write_text(s)
           PY
-          grep -F 'protocolTimeout:180000' characterize.mjs
-          grep -F 'await resetState(sa.p);await resetState(sb.p);' characterize.mjs
+          grep -F 'protocolTimeout:600000' characterize.mjs
+          grep -F 'pointFor(p' characterize.mjs
+          grep -F 'PROGRESS ${r.route} ${vp.name} ${state}' characterize.mjs
+          if grep -F 'await el.hover()' characterize.mjs; then exit 1; fi
+          if grep -F 'await el.boundingBox()' characterize.mjs; then exit 1; fi
 
       - name: Run source vs synthetic exact-concat characterization
         shell: bash
