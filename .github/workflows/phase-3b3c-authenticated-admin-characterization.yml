@@ -84,16 +84,20 @@ jobs:
 
       - name: Install evidence-only browser analysis dependencies
         shell: bash
-        working-directory: evidence
         run: |
           set -euo pipefail
-          npm install --no-save --package-lock=false puppeteer-core postcss postcss-selector-parser
-          test -z "$(git status --porcelain)"
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b3c-harness"
+          rm -rf "$HARNESS_DIR"
+          mkdir -p "$HARNESS_DIR"
+          cd "$HARNESS_DIR"
+          npm init -y >/dev/null
+          npm install --no-package-lock puppeteer-core postcss postcss-selector-parser
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs" "$HARNESS_DIR/characterize.mjs"
+          test -z "$(git -C "${GITHUB_WORKSPACE}/evidence" status --porcelain)"
           echo EVIDENCE_DEPENDENCIES_PASS
 
       - name: Run isolated authenticated source-vs-synthetic matrix
         shell: bash
-        working-directory: evidence
         env:
           SOURCE_DIR: ${{ github.workspace }}/source
           SYNTH_DIR: ${{ runner.temp }}/phase3b3c-synthetic
@@ -104,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$OUT_DIR"
-          node scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs | tee "$OUT_DIR/console-summary.json"
+          node "${RUNNER_TEMP}/phase3b3c-harness/characterize.mjs" | tee "$OUT_DIR/console-summary.json"
 
       - name: Final source immutability and cleanliness gate
         if: always()
