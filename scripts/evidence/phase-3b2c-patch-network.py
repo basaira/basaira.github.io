@@ -9,6 +9,19 @@ if len(sys.argv) != 2:
 path = Path(sys.argv[1])
 s = path.read_text()
 
+old = "const browser=await puppeteer.launch({headless:true,executablePath,protocolTimeout:600000,args:['--no-sandbox','--disable-setuid-sandbox']});"
+new = """const browserSource=await puppeteer.launch({headless:true,executablePath,protocolTimeout:600000,args:['--no-sandbox','--disable-setuid-sandbox']});
+const browserSynthetic=await puppeteer.launch({headless:true,executablePath,protocolTimeout:600000,args:['--no-sandbox','--disable-setuid-sandbox']});"""
+if old not in s:
+    raise SystemExit("missing browser launch anchor")
+s = s.replace(old, new, 1)
+
+old = "async function prepPage(base,route,vp,reduced=false){"
+new = "async function prepPage(browser,base,route,vp,reduced=false){"
+if old not in s:
+    raise SystemExit("missing prepPage signature anchor")
+s = s.replace(old, new, 1)
+
 old = "  const p=await browser.newPage();\n  await p.setViewport({width:vp.width,height:vp.height,isMobile:vp.isMobile,hasTouch:vp.hasTouch,deviceScaleFactor:1});"
 new = """  const p=await browser.newPage();
   await p.setRequestInterception(true);
@@ -30,9 +43,28 @@ new = """  await p.goto(base+route,{waitUntil:'domcontentloaded',timeout:10000})
   await Promise.race([
     p.evaluate(()=>document.fonts?.ready),
     new Promise(resolve=>setTimeout(resolve,1000))
-  ]);"""
+  ]);
+  await p.evaluate(async()=>{
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    for(const animation of document.getAnimations()){
+      try{
+        const timing=animation.effect?.getComputedTiming?.();
+        if(timing && Number.isFinite(timing.endTime)) animation.finish();
+        else { animation.currentTime=0; animation.pause(); }
+      }catch{}
+    }
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    window.scrollTo(0,0);
+  });"""
 if old not in s:
     raise SystemExit("missing navigation/font anchor")
+s = s.replace(old, new, 1)
+
+old = "    document.activeElement?.blur?.();"
+new = """    document.activeElement?.blur?.();
+    window.scrollTo(0,0);"""
+if old not in s:
+    raise SystemExit("missing reset scroll anchor")
 s = s.replace(old, new, 1)
 
 old = """for(const state of states){
@@ -47,19 +79,45 @@ if old not in s:
 s = s.replace(old, new, 1)
 
 old = "await applyState(sa.p,state);await applyState(sb.p,state);"
-new = "await Promise.all([applyState(sa.p,state),applyState(sb.p,state)]);"
+new = """await Promise.all([sa.p.bringToFront(),sb.p.bringToFront()]);
+      await Promise.all([applyState(sa.p,state),applyState(sb.p,state)]);"""
 if old not in s:
     raise SystemExit("missing synchronized applyState anchor")
 s = s.replace(old, new, 1)
 
+old = "const sa=await prepPage(bases.source,r.route,vp,false), sb=await prepPage(bases.synthetic,r.route,vp,false);"
+new = "const [sa,sb]=await Promise.all([prepPage(browserSource,bases.source,r.route,vp,false),prepPage(browserSynthetic,bases.synthetic,r.route,vp,false)]);"
+if old not in s:
+    raise SystemExit("missing paired normal prep anchor")
+s = s.replace(old, new, 1)
+
+old = "const ra=await prepPage(bases.source,r.route,vp,true), rb=await prepPage(bases.synthetic,r.route,vp,true);"
+new = "const [ra,rb]=await Promise.all([prepPage(browserSource,bases.source,r.route,vp,true),prepPage(browserSynthetic,bases.synthetic,r.route,vp,true)]);"
+if old not in s:
+    raise SystemExit("missing paired reduced prep anchor")
+s = s.replace(old, new, 1)
+
+old = "await browser.close();"
+new = "await Promise.all([browserSource.close(),browserSynthetic.close()]);"
+if old not in s:
+    raise SystemExit("missing browser close anchor")
+s = s.replace(old, new, 1)
+
 for required in (
+    "browserSource=await puppeteer.launch",
+    "browserSynthetic=await puppeteer.launch",
     "setRequestInterception(true)",
     "u.origin!==base",
     "u.pathname==='/tailwindcss'",
     "timeout:10000",
-    "setTimeout(resolve,1000)",
+    "document.getAnimations()",
+    "Number.isFinite(timing.endTime)",
+    "window.scrollTo(0,0)",
     "Promise.all([freeze(sa.p),freeze(sb.p)])",
+    "Promise.all([resetState(sa.p),resetState(sb.p)])",
     "Promise.all([applyState(sa.p,state),applyState(sb.p,state)])",
+    "prepPage(browserSource,bases.source",
+    "prepPage(browserSynthetic,bases.synthetic",
 ):
     if required not in s:
         raise SystemExit(f"required network/determinism patch marker missing: {required}")
@@ -67,3 +125,5 @@ for required in (
 path.write_text(s)
 print("PHASE_3B2C_NETWORK_ISOLATION_PATCH_PASS")
 print("PHASE_3B2C_SYNCHRONIZED_STATE_PATCH_PASS")
+print("PHASE_3B2C_INDEPENDENT_BROWSER_PATCH_PASS")
+print("PHASE_3B2C_ANIMATION_SETTLE_PATCH_PASS")
