@@ -1,0 +1,189 @@
+name: Phase 3B-1 Final Verification
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-1-verification-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  verify-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify exact candidate identity, structure, concatenation, and build gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=07477307402857cb73ff80eb726a43faa5e72ad3
+          SOURCE_TREE=ff6b9fade02f4c7311c9ea9692a7e89790039767
+          CANDIDATE=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          CANDIDATE_TREE=017aa0a6b89df16ded97cac9a7020532ea1d23a3
+          PHASE2=1504baad33b2123056877c1e92f4e2d558c00d51
+          CHECKER_BLOB=3dfc0605151abd9a9e6514a492a9b94137c96c63
+          CONCAT_SHA=667481b25363148f8a9ded4d696e54fa862a99131eb62e1cd90530ac491fd875
+
+          git fetch --all --prune
+          test "$(git rev-parse origin/basair/phase-3b-1-acquisition-precision-polish-merge)" = "$CANDIDATE"
+          test "$(git rev-parse "$CANDIDATE^{tree}")" = "$CANDIDATE_TREE"
+          test "$(git rev-parse "$CANDIDATE^1")" = "$SOURCE"
+          test "$(git merge-base "$SOURCE" "$CANDIDATE")" = "$SOURCE"
+          test "$(git merge-base "$PHASE2" "$CANDIDATE")" = "$PHASE2"
+
+          rm -rf /tmp/basair-3b1-source /tmp/basair-3b1-candidate
+          git worktree add --detach /tmp/basair-3b1-source "$SOURCE"
+          git worktree add --detach /tmp/basair-3b1-candidate "$CANDIDATE"
+          test "$(git -C /tmp/basair-3b1-source rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test "$(git -C /tmp/basair-3b1-candidate rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test -z "$(git -C /tmp/basair-3b1-source status --porcelain)"
+          test -z "$(git -C /tmp/basair-3b1-candidate status --porcelain)"
+          test "$(git -C /tmp/basair-3b1-candidate hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+
+          cat /tmp/basair-3b1-source/acquisition-precision-native-v2.css /tmp/basair-3b1-source/acquisition-polish-v2.css > /tmp/expected-merged.css
+          test "$(sha256sum /tmp/expected-merged.css | awk '{print $1}')" = "$CONCAT_SHA"
+          test "$(sha256sum /tmp/basair-3b1-candidate/acquisition-precision-native-v2.css | awk '{print $1}')" = "$CONCAT_SHA"
+          cmp /tmp/expected-merged.css /tmp/basair-3b1-candidate/acquisition-precision-native-v2.css
+          test ! -e /tmp/basair-3b1-candidate/acquisition-polish-v2.css
+
+          cd /tmp/basair-3b1-source
+          node scripts/verify-css-consolidation-preflight.mjs --out="$GITHUB_WORKSPACE/source-structural.json"
+          cd /tmp/basair-3b1-candidate
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54 --out="$GITHUB_WORKSPACE/candidate-structural.json"
+
+          node <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const W=process.env.GITHUB_WORKSPACE, source=JSON.parse(fs.readFileSync(path.join(W,'source-structural.json'),'utf8')), candidate=JSON.parse(fs.readFileSync(path.join(W,'candidate-structural.json'),'utf8'));
+          const required=['/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/'];
+          const removed='acquisition-polish-v2.css', survivor='acquisition-precision-native-v2.css';
+          const failures=[];
+          if(source.counts.productionCssFiles!==55)failures.push('source CSS count');
+          if(candidate.counts.productionCssFiles!==54)failures.push('candidate CSS count');
+          if(candidate.structuralSnapshot.productionCssFiles.includes(removed))failures.push('removed CSS reachable');
+          if(candidate.importCycles.length)failures.push('import cycles');
+          if(candidate.duplicateAudit.directLinks.length)failures.push('duplicate links');
+          if(candidate.duplicateAudit.imports.length)failures.push('duplicate imports');
+          const sm=new Map(source.structuralSnapshot.entries.map(e=>[e.route,e])), cm=new Map(candidate.structuralSnapshot.entries.map(e=>[e.route,e]));
+          const routeProof=[];
+          for(const route of required){const s=sm.get(route),c=cm.get(route);if(!s||!c){failures.push('missing route '+route);continue;}const expected=s.effectiveImportedOrder.filter(x=>x!==removed);const orderPass=JSON.stringify(expected)===JSON.stringify(c.effectiveImportedOrder);const directExpected=s.directStylesheets.filter(x=>x!==removed);const directPass=JSON.stringify(directExpected)===JSON.stringify(c.directStylesheets);const undef=c.undefinedCustomPropertiesWithoutFallback.filter(x=>!s.undefinedCustomPropertiesWithoutFallback.includes(x));const survivorOnce=c.effectiveImportedOrder.filter(x=>x===survivor).length===1;if(!orderPass)failures.push('order '+route);if(!directPass)failures.push('direct refs '+route);if(undef.length)failures.push('undefined vars '+route+':'+undef.join(','));if(!survivorOnce)failures.push('survivor count '+route);routeProof.push({route,orderPass,directPass,newUndefinedCustomProperties:undef,survivorOnce});}
+          const root='/tmp/basair-3b1-candidate'; const allFiles=new Set(); function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['.git','node_modules','dist'].includes(e.name))continue;const p=path.join(d,e.name);if(e.isDirectory())walk(p);else allFiles.add(path.relative(root,p).split(path.sep).join('/'));}} walk(root);
+          const clean=u=>u.split(/[?#]/)[0]; function resolveLocal(from,u){u=clean(u.trim());if(!u||/^(?:[a-z]+:)?\/\//i.test(u)||u.startsWith('data:'))return null;const base=u.startsWith('/')?'':path.posix.dirname(from);const p=path.posix.normalize(path.posix.join(base,u.replace(/^\/+/,''))).replace(/^\.\//,'');return allFiles.has(p)?p:null;}
+          const runtime=new Set(),q=[];for(const h of candidate.structuralSnapshot.productionHtmlEntries){const s=fs.readFileSync(path.join(root,h),'utf8');for(const m of s.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1[^>]*>/gi)){const p=resolveLocal(h,m[2]);if(p&&/\.(?:js|mjs|ts)$/.test(p)&&!runtime.has(p)){runtime.add(p);q.push(p);}}}while(q.length){const f=q.shift(),s=fs.readFileSync(path.join(root,f),'utf8'),specs=[];for(const m of s.matchAll(/\bimport\s+(?:[^'"`]*?\sfrom\s*)?(["'])(.*?)\1/g))specs.push(m[2]);for(const m of s.matchAll(/\bimport\s*\(\s*(["'])(.*?)\1\s*\)/g))specs.push(m[2]);for(const spec of specs){const p=resolveLocal(f,spec);if(p&&/\.(?:js|mjs|ts)$/.test(p)&&!runtime.has(p)){runtime.add(p);q.push(p);}}}
+          const filenameDeps=[];for(const f of runtime){const s=fs.readFileSync(path.join(root,f),'utf8');for(const n of [removed,survivor])if(s.includes(n))filenameDeps.push({file:f,stylesheet:n});}if(filenameDeps.length)failures.push('runtime filename dependency '+JSON.stringify(filenameDeps));
+          const cssText=fs.readFileSync('/tmp/expected-merged.css','utf8'); const candText=fs.readFileSync('/tmp/basair-3b1-candidate/'+survivor,'utf8');
+          const declarationCount=s=>(s.replace(/\/\*[\s\S]*?\*\//g,'').match(/(?:^|[;{])\s*(?:--[\w-]+|[-a-zA-Z][\w-]*)\s*:/g)||[]).length;
+          const declSource=declarationCount(cssText),declCandidate=declarationCount(candText);if(declSource!==declCandidate)failures.push('declaration count drift');
+          const evidence={sourceCssCount:55,candidateCssCount:54,productionCssByteDelta:candidate.counts.productionCssBytes-source.counts.productionCssBytes,declarationCountSourcePair:declSource,declarationCountMerged:declCandidate,declarationRemovalCount:declSource-declCandidate,routeProof,runtimeReachableJs:[...runtime].sort(),productionRuntimeCandidateFilenameDependencies:filenameDeps,checkerBlob:'3dfc0605151abd9a9e6514a492a9b94137c96c63',exactConcatenationSha256:'667481b25363148f8a9ded4d696e54fa862a99131eb62e1cd90530ac491fd875',failures,pass:failures.length===0};
+          fs.writeFileSync(path.join(W,'phase-3b1-structural-proof.json'),JSON.stringify(evidence,null,2)+'\n');console.log(JSON.stringify(evidence,null,2));if(failures.length)process.exit(1);
+          NODE
+
+          npm ci
+          echo NPM_CI_PASS
+          npm run verify
+          echo NPM_VERIFY_PASS
+          npm run build
+          echo NPM_BUILD_PASS
+          git diff --check
+          echo GIT_DIFF_CHECK_PASS
+          git diff --exit-code
+          echo GIT_DIFF_EXIT_CODE_PASS
+          echo STATUS_PORCELAIN_BEGIN
+          git status --porcelain
+          echo STATUS_PORCELAIN_END
+          test "$(git rev-parse HEAD)" = "$CANDIDATE"
+          test "$(git rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+          echo FINAL_IDENTITY_PASS
+
+      - name: Install browser verifier tooling outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/basair-browser-tooling
+          mkdir -p /tmp/basair-browser-tooling
+          npm install --prefix /tmp/basair-browser-tooling puppeteer-core@24.16.0 --no-save --no-package-lock
+          google-chrome --version
+          node -e "console.log(require('/tmp/basair-browser-tooling/node_modules/puppeteer-core/package.json').version)"
+
+      - name: Run 10-route browser equivalence and interaction matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/basair-3b1-source >/tmp/source-http.log 2>&1 &
+          SOURCE_PID=$!
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-3b1-candidate >/tmp/candidate-http.log 2>&1 &
+          CANDIDATE_PID=$!
+          trap 'kill $SOURCE_PID $CANDIDATE_PID 2>/dev/null || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:4173/en/ >/dev/null && curl -fsS http://127.0.0.1:4174/en/ >/dev/null && break; sleep .2; done
+
+          cat > /tmp/basair-browser-tooling/browser.mjs <<'EOF'
+          import puppeteer from 'puppeteer-core';
+          import fs from 'node:fs';
+          const routes=['/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/'];
+          const viewports=[
+            {name:'mobile',width:390,height:844,hasTouch:true,isMobile:true},
+            {name:'tablet',width:768,height:1024,hasTouch:true,isMobile:false},
+            {name:'desktop',width:1440,height:900,hasTouch:false,isMobile:false},
+            {name:'wide',width:1920,height:1080,hasTouch:false,isMobile:false}
+          ];
+          const props=['color','background-color','background-image','border-color','border-radius','box-shadow','min-height','position','overflow','transform','transition-property','transition-duration','transition-timing-function','animation-name','animation-duration','outline-color','outline-style','outline-width','outline-offset','cursor','opacity','filter','pointer-events','content','inset','background-size','mask-image'];
+          const tokens=['--pn-acq-ease','--aq-green','--aq-green-deep','--aq-gold','--aq-navy'];
+          const descriptors=[
+            {name:'hero',selector:'.hero',pseudo:null,max:1},{name:'heroBefore',selector:'.hero',pseudo:'::before',max:1},
+            {name:'button',selector:'.btn',pseudo:null,max:8},{name:'buttonBefore',selector:'.btn',pseudo:'::before',max:3},
+            {name:'primary',selector:'.btn-primary',pseudo:null,max:4},{name:'gold',selector:'.btn-gold',pseudo:null,max:4},{name:'ghost',selector:'.btn-ghost',pseudo:null,max:4},
+            {name:'dashboard',selector:'.dashboard',pseudo:null,max:2},{name:'dashboardAfter',selector:'.dashboard',pseudo:'::after',max:2},
+            {name:'card',selector:'.card',pseudo:null,max:8},{name:'cardAfter',selector:'.card',pseudo:'::after',max:4},
+            {name:'status',selector:'.status-pill',pseudo:null,max:4},{name:'footer',selector:'.footer-links a',pseudo:null,max:4},
+            {name:'interactive',selector:'a,button,input,select,textarea',pseudo:null,max:10}
+          ];
+          const geomKeys=['x','y','width','height'];
+          const browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const failures=[];let comparisons=0,interactionComparisons=0,reducedComparisons=0,computedDeltas=0,geometryDeltas=0,customPropertyDeltas=0,interactionDeltas=0,reducedMotionDeltas=0,localResourceFailures=0;
+          const matrix=[];
+          async function prep(origin,route,vp,reduced=false,blockScripts=true){
+            const page=await browser.newPage();await page.setViewport({width:vp.width,height:vp.height,deviceScaleFactor:1,isMobile:vp.isMobile,hasTouch:vp.hasTouch});
+            if(reduced)await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);else await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]);
+            const localFails=[],externalAborts=[];await page.setRequestInterception(true);page.on('request',req=>{let u;try{u=new URL(req.url());}catch{return req.continue();}const base=new URL(origin);const local=u.origin===base.origin;if(!local){externalAborts.push(req.url());return req.abort();}if(blockScripts&&req.resourceType()==='script')return req.abort();req.continue();});
+            page.on('requestfailed',req=>{try{if(new URL(req.url()).origin===new URL(origin).origin&&!(blockScripts&&req.resourceType()==='script'))localFails.push({url:req.url(),error:req.failure()?.errorText});}catch{}});
+            page.on('response',res=>{try{if(new URL(res.url()).origin===new URL(origin).origin&&res.status()>=400)localFails.push({url:res.url(),status:res.status()});}catch{}});
+            const response=await page.goto(origin+route,{waitUntil:'domcontentloaded',timeout:20000});if(!response||response.status()>=400)localFails.push({url:origin+route,status:response?.status()});
+            await page.evaluate(async()=>{try{await document.fonts?.ready}catch{}const anim=document.getAnimations().filter(a=>a.playState!=='finished');await Promise.race([Promise.allSettled(anim.map(a=>a.finished)),new Promise(r=>setTimeout(r,1600))]);});
+            await new Promise(r=>setTimeout(r,80));return {page,localFails,externalAborts};
+          }
+          async function snapshot(page){return await page.evaluate(({props,tokens,descriptors})=>{const root=getComputedStyle(document.documentElement),out={tokens:Object.fromEntries(tokens.map(t=>[t,root.getPropertyValue(t).trim()])),capabilities:{fine:matchMedia('(pointer: fine)').matches,coarse:matchMedia('(pointer: coarse)').matches,hover:matchMedia('(hover: hover)').matches,hoverNone:matchMedia('(hover: none)').matches,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,le520:matchMedia('(max-width: 520px)').matches},elements:{}};for(const d of descriptors){const els=[...document.querySelectorAll(d.selector)].slice(0,d.max);out.elements[d.name]=els.map((el,i)=>{const cs=getComputedStyle(el,d.pseudo),r=el.getBoundingClientRect(),styles={};for(const p of props)styles[p]=cs.getPropertyValue(p);return {i,tag:el.tagName,classes:el.className,styles,rect:{x:r.x,y:r.y,width:r.width,height:r.height}};});}return out;},{props,tokens,descriptors});}
+          function compare(a,b,kind,label){comparisons++;const push=(type,detail)=>{failures.push({label,kind,type,detail});if(type==='computed')computedDeltas++;if(type==='geometry')geometryDeltas++;if(type==='customProperty')customPropertyDeltas++;if(kind==='interaction')interactionDeltas++;if(kind==='reduced')reducedMotionDeltas++;};for(const t of tokens)if(a.tokens[t]!==b.tokens[t])push('customProperty',{token:t,source:a.tokens[t],candidate:b.tokens[t]});if(JSON.stringify(a.capabilities)!==JSON.stringify(b.capabilities))push('computed',{capabilities:[a.capabilities,b.capabilities]});for(const d of descriptors){const aa=a.elements[d.name]||[],bb=b.elements[d.name]||[];if(aa.length!==bb.length){push('computed',{descriptor:d.name,length:[aa.length,bb.length]});continue;}for(let i=0;i<aa.length;i++){if(aa[i].tag!==bb[i].tag||aa[i].classes!==bb[i].classes)push('computed',{descriptor:d.name,index:i,identity:[aa[i].tag,aa[i].classes,bb[i].tag,bb[i].classes]});for(const p of props)if(aa[i].styles[p]!==bb[i].styles[p])push('computed',{descriptor:d.name,index:i,property:p,source:aa[i].styles[p],candidate:bb[i].styles[p]});for(const g of geomKeys)if(Math.abs(aa[i].rect[g]-bb[i].rect[g])>0.02)push('geometry',{descriptor:d.name,index:i,key:g,source:aa[i].rect[g],candidate:bb[i].rect[g]});}}
+          }
+          async function forceState(page,selector,state,id){const exists=await page.evaluate((s,id)=>{const el=document.querySelector(s);if(!el)return false;el.setAttribute('data-p3b1-state',id);return true;},selector,id);if(!exists)return false;const client=await page.target().createCDPSession();await client.send('DOM.enable');await client.send('CSS.enable');const doc=await client.send('DOM.getDocument');const q=await client.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:`[data-p3b1-state="${id}"]`});if(!q.nodeId){await client.detach();return false;}await client.send('CSS.forcePseudoState',{nodeId:q.nodeId,forcedPseudoClasses:state});await new Promise(r=>setTimeout(r,320));await client.detach();return true;}
+          async function pairState(route,vp,kind,setup,reduced=false){const s=await prep('http://127.0.0.1:4173',route,vp,reduced,true),c=await prep('http://127.0.0.1:4174',route,vp,reduced,true);localResourceFailures+=s.localFails.length+c.localFails.length;if(s.localFails.length||c.localFails.length)failures.push({label:`${route}|${vp.name}|${kind}`,kind,type:'resource',detail:{source:s.localFails,candidate:c.localFails}});let applicable=true;if(setup){const sa=await setup(s.page,'s'),ca=await setup(c.page,'c');applicable=sa&&ca;}if(applicable){const ss=await snapshot(s.page),cc=await snapshot(c.page);compare(ss,cc,kind,`${route}|${vp.name}|${kind}`);if(kind==='interaction')interactionComparisons++;if(kind==='reduced')reducedComparisons++;}await s.page.close();await c.page.close();return applicable;}
+          for(const route of routes){for(const vp of viewports){const row={route,viewport:vp.name,width:vp.width,height:vp.height,states:[]};await pairState(route,vp,'base',null,false);row.states.push('base');await pairState(route,vp,'reduced',null,true);row.states.push('reduced-motion');for(const [name,selector,pseudo] of [['button-hover','.btn',['hover']],['button-active','.btn',['active']],['button-focus-visible','input,select,textarea,.btn',['focus','focus-visible']],['card-hover','.card',['hover']],['footer-hover','.footer-links a',['hover']]]){const ok=await pairState(route,vp,'interaction',(p,id)=>forceState(p,selector,pseudo,`${name}-${id}`),false);if(ok)row.states.push(name);}const busy=await pairState(route,vp,'interaction',async(p,id)=>{const sel=await p.evaluate(()=>document.querySelector('form')?'form':document.querySelector('.btn')?'.btn':null);if(!sel)return false;await p.evaluate(s=>document.querySelector(s).setAttribute('aria-busy','true'),sel);await new Promise(r=>setTimeout(r,50));return true;},false);if(busy)row.states.push('aria-busy');const cap=await prep('http://127.0.0.1:4174',route,vp,false,true);const caps=(await snapshot(cap.page)).capabilities;await cap.page.close();row.capabilities=caps;row.states.push(vp.width<=520?'<=520px':'>520px');row.states.push(vp.hasTouch?'coarse/touch-capability':'fine/non-touch-capability');matrix.push(row);}}
+          // Runtime smoke: candidate, all routes, desktop. Local production resources must load; external requests are intentionally suppressed.
+          const runtimeSmoke=[];for(const route of routes){const x=await prep('http://127.0.0.1:4174',route,viewports[2],false,false);runtimeSmoke.push({route,localFailures:x.localFails});localResourceFailures+=x.localFails.length;if(x.localFails.length)failures.push({label:route,kind:'runtime-smoke',type:'resource',detail:x.localFails});await x.page.close();}
+          await browser.close();const out={browserMatrix:{routes,viewports,baseStates:routes.length*viewports.length,totalComparisons:comparisons,interactionComparisons,reducedMotionComparisons:reducedComparisons,matrix},equivalence:{computedDeltas,geometryDeltas,customPropertyDeltas,interactionDeltas,reducedMotionDeltas},localProductionResourceFailures:localResourceFailures,runtimeSmoke,failures,pass:failures.length===0};fs.writeFileSync(process.env.GITHUB_WORKSPACE+'/phase-3b1-browser-equivalence.json',JSON.stringify(out,null,2)+'\n');console.log(`BROWSER_EQUIVALENCE_${out.pass?'PASS':'FAIL'} base=40 comparisons=${comparisons} interaction=${interactionComparisons} reduced=${reducedComparisons} computed=${computedDeltas} geometry=${geometryDeltas} customProps=${customPropertyDeltas} interactionDeltas=${interactionDeltas} reducedDeltas=${reducedMotionDeltas} resourceFailures=${localResourceFailures}`);if(failures.length){console.error(JSON.stringify(failures.slice(0,20),null,2));process.exit(1);}
+          EOF
+
+          cd /tmp/basair-browser-tooling
+          node browser.mjs
+
+      - name: Upload final verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b1-final-verification
+          path: |
+            source-structural.json
+            candidate-structural.json
+            phase-3b1-structural-proof.json
+            phase-3b1-browser-equivalence.json
+          if-no-files-found: error
+          retention-days: 7
