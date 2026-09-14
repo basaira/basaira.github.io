@@ -86,6 +86,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          command -v xvfb-run
+          command -v Xvfb
           HARNESS_DIR="${RUNNER_TEMP}/phase3b3c-harness"
           rm -rf "$HARNESS_DIR"
           mkdir -p "$HARNESS_DIR"
@@ -113,8 +115,20 @@ jobs:
             "page.on('requestfailed',(r)=>{try{const u=new URL(r.url());if(u.pathname==='/favicon.ico')return;}catch{}monitor.requestFailures.push({url:r.url(),error:r.failure()?.errorText||''});});"
           ))
           patches.append((
-            'const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[]},totals=',
-            'const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[],forced:[]},totals='
+            'async function newPair(cfg,viewport,reduced=false){const c1=await browser.createBrowserContext(),c2=await browser.createBrowserContext();',
+            'async function newPair(cfg,viewport,reduced=false,runner=browser){const c1=await runner.createBrowserContext(),c2=await runner.createBrowserContext();'
+          ))
+          patches.append((
+            'const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[]},totals={comparisons:0,computed:0,geometry:0,custom:0,state:0,accessibility:0,resourceFailures:0,unresolved:0};',
+            "const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[],forced:[],fine:[]},fineTotals={comparisons:0,computed:0,geometry:0,custom:0,state:0,accessibility:0,resourceFailures:0,unresolved:0},totals={comparisons:0,computed:0,geometry:0,custom:0,state:0,accessibility:0,resourceFailures:0,unresolved:0};let finePointerProbe={mode:'headed Chrome under Xvfb',display:process.env.DISPLAY||null,browserVersion:null,sourceCapability:null,syntheticCapability:null,focusVisible:null};"
+          ))
+          patches.append((
+            'capability:sa.capabilities,selectorsMeasured:selectors,',
+            'sourceRootCustom:sa.rootCustom,syntheticRootCustom:sb.rootCustom,sourceCapability:sa.capabilities,syntheticCapability:sb.capabilities,capability:sa.capabilities,selectorsMeasured:selectors,'
+          ))
+          patches.append((
+            'groups[group].push(rec);totals.comparisons++;totals.computed+=d.computed.length;totals.geometry+=d.geometry.length;totals.custom+=d.custom.length;totals.state+=d.state.length;totals.accessibility+=d.accessibility.length;totals.resourceFailures+=resourceFailures;totals.unresolved+=unresolved;return rec;',
+            "groups[group].push(rec);const bucket=group==='fine'?fineTotals:totals;bucket.comparisons++;bucket.computed+=d.computed.length;bucket.geometry+=d.geometry.length;bucket.custom+=d.custom.length;bucket.state+=d.state.length;bucket.accessibility+=d.accessibility.length;bucket.resourceFailures+=resourceFailures;bucket.unresolved+=unresolved;return rec;"
           ))
           patches.append((
             'forcedColorsHandled:forcedColorsApplicable?groups.reduced.length>0:true',
@@ -128,6 +142,14 @@ jobs:
             "await syncEval(pair,()=>{document.querySelector('.nav-btn.active')?.focus();});await Promise.all([pair.a.keyboard.press('ArrowDown'),pair.b.keyboard.press('ArrowDown')]);await measure('populated',`${viewport.name}:keyboard-tab-navigation`,pair,",
             "await syncEval(pair,()=>{document.querySelector('.nav-btn.active')?.focus();});await Promise.all([pair.a.keyboard.press('ArrowDown'),pair.b.keyboard.press('ArrowDown')]);await Promise.all([pair.a.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000}),pair.b.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000})]);await waitSettled([pair.a,pair.b],420);await measure('populated',`${viewport.name}:keyboard-tab-navigation`,pair,"
           ))
+          patches.append((
+            'contextualLineMutedPreserved:staticCharacterization.protectedTokenContext.inlineLine&&staticCharacterization.protectedTokenContext.inlineMuted,exactConcatByteProven:',
+            'contextualLineMutedPreserved:staticCharacterization.protectedTokenContext.inlineLine&&staticCharacterization.protectedTokenContext.inlineMuted,rawContextualLineMutedRecorded:rawContextualEvidence.recorded,rawContextualLineMutedEquivalent:rawContextualEvidence.equivalent,finePointerCapabilityMeasured:finePointerEvidence.capabilityMeasured,finePointerHoverEquivalent:finePointerEvidence.equivalent,exactConcatByteProven:'
+          ))
+          patches.append((
+            'synthetic,breakpointWidths,responsiveWidths,forcedColorsApplicable,matrix:{groupCounts:Object.fromEntries(Object.entries(groups).map(([k,v])=>[k,v.length])),totalSynchronizedComparisons:totals.comparisons}',
+            "synthetic,rawContextualEvidence,finePointerEvidence,breakpointWidths,responsiveWidths,forcedColorsApplicable,matrix:{groupCounts:Object.fromEntries(Object.entries(groups).filter(([k])=>k!=='fine').map(([k,v])=>[k,v.length])),totalSynchronizedComparisons:totals.comparisons}"
+          ))
           for old,new in patches:
               if text.count(old)!=1:
                   raise SystemExit(f'harness patch anchor count={text.count(old)} for {old[:100]!r}')
@@ -138,6 +160,18 @@ jobs:
           if text.count(anchor)!=1:
               raise SystemExit('browser-close anchor changed unexpectedly')
           text=text.replace(anchor,forced_loop+anchor,1)
+
+          fine_loop='''await browser.close();\nconst fineBrowser=await puppeteer.launch({headless:false,executablePath,args:['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']});\nfinePointerProbe.browserVersion=await fineBrowser.version();\n{const pair=await newPair({authMode:'admin',roleActive:true,fixture:'populated'},VP.wide,false,fineBrowser);await waitDashboard(pair);const readCaps=(p)=>p.evaluate(()=>({pointerFine:matchMedia('(pointer:fine)').matches,hoverHover:matchMedia('(hover:hover)').matches,pointerCoarse:matchMedia('(pointer:coarse)').matches,hoverNone:matchMedia('(hover:none)').matches}));const[sc,tc]=await Promise.all([readCaps(pair.a),readCaps(pair.b)]);finePointerProbe.sourceCapability=sc;finePointerProbe.syntheticCapability=tc;const fineCapOk=sc.pointerFine===true&&sc.hoverHover===true&&tc.pointerFine===true&&tc.hoverHover===true;if(fineCapOk){await measure('fine','fine:authenticated-populated-overview',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'overview',state:'fine-pointer-base'});await setSection(pair,'requests');await measure('fine','fine:requests-section',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'requests',state:'fine-pointer-requests'});await setSection(pair,'overview');await syncHover(pair,'.nav-btn[data-tab="requests"]');await measure('fine','fine:nav-hover',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'overview',state:'fine-pointer-nav-hover'});await syncHover(pair,'#refresh-all-btn');await measure('fine','fine:button-hover',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'overview',state:'fine-pointer-button-hover'});const[ba,bb]=await Promise.all([pair.a.$('#refresh-all-btn'),pair.b.$('#refresh-all-btn')]),[ra,rb]=await Promise.all([ba.boundingBox(),bb.boundingBox()]);await Promise.all([pair.a.mouse.move(ra.x+ra.width/2,ra.y+ra.height/2),pair.b.mouse.move(rb.x+rb.width/2,rb.y+rb.height/2)]);await Promise.all([pair.a.mouse.down(),pair.b.mouse.down()]);await sleep(120);await measure('fine','fine:button-active',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'overview',state:'fine-pointer-active',settleMs:0});await Promise.all([pair.a.mouse.up(),pair.b.mouse.up()]);await syncEval(pair,()=>{document.querySelector('.nav-btn.active')?.focus();});await Promise.all([pair.a.keyboard.press('ArrowDown'),pair.b.keyboard.press('ArrowDown')]);await Promise.all([pair.a.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000}),pair.b.waitForFunction(()=>!document.documentElement.classList.contains('basair-admin-tab-transition'),{timeout:8000})]);await waitSettled([pair.a,pair.b],420);const focusFacts=await Promise.all([pair.a.evaluate(()=>({tab:document.activeElement?.dataset?.tab||null,focusVisible:Boolean(document.activeElement?.matches?.(':focus-visible'))})),pair.b.evaluate(()=>({tab:document.activeElement?.dataset?.tab||null,focusVisible:Boolean(document.activeElement?.matches?.(':focus-visible'))}))]);finePointerProbe.focusVisible={source:focusFacts[0],synthetic:focusFacts[1]};await measure('fine','fine:focus-visible',pair,{authMode:'admin',fixture:'populated',viewport:VP.wide,section:'requests',state:'fine-pointer-focus-visible'});}await closePair(pair);}\nawait fineBrowser.close();'''
+          close_anchor='await browser.close();await Promise.all([new Promise((r)=>sourceServer.server.close(r)),new Promise((r)=>synthServer.server.close(r))]);'
+          if text.count(close_anchor)!=1:
+              raise SystemExit('headless-close/server-close anchor changed unexpectedly')
+          text=text.replace(close_anchor,fine_loop+'await Promise.all([new Promise((r)=>sourceServer.server.close(r)),new Promise((r)=>synthServer.server.close(r))]);',1)
+
+          evidence_prelude="""const matrixRecords=Object.entries(groups).filter(([k])=>k!=='fine').flatMap(([,records])=>records);const contextualKeys=['--line','--muted'];const rawContextualEvidence={measurementCount:matrixRecords.length,keys:contextualKeys,recorded:matrixRecords.length===totals.comparisons&&matrixRecords.every((r)=>contextualKeys.every((k)=>String(r.sourceRootCustom?.[k]||'').trim().length>0&&String(r.syntheticRootCustom?.[k]||'').trim().length>0)),equivalent:false,distinctValues:Object.fromEntries(contextualKeys.map((k)=>[k,{source:uniq(matrixRecords.map((r)=>String(r.sourceRootCustom?.[k]??''))),synthetic:uniq(matrixRecords.map((r)=>String(r.syntheticRootCustom?.[k]??'')))}]))};rawContextualEvidence.equivalent=rawContextualEvidence.recorded&&matrixRecords.every((r)=>contextualKeys.every((k)=>r.sourceRootCustom?.[k]===r.syntheticRootCustom?.[k]));const finePointerEvidence={mode:finePointerProbe.mode,display:finePointerProbe.display,browserVersion:finePointerProbe.browserVersion,sourceCapability:finePointerProbe.sourceCapability,syntheticCapability:finePointerProbe.syntheticCapability,focusVisible:finePointerProbe.focusVisible,comparisons:fineTotals.comparisons,capabilityMeasured:Boolean(finePointerProbe.sourceCapability?.pointerFine===true&&finePointerProbe.sourceCapability?.hoverHover===true&&finePointerProbe.syntheticCapability?.pointerFine===true&&finePointerProbe.syntheticCapability?.hoverHover===true),deltas:{computed:fineTotals.computed,geometry:fineTotals.geometry,customProperties:fineTotals.custom,state:fineTotals.state,accessibility:fineTotals.accessibility,resourceFailures:fineTotals.resourceFailures,unresolved:fineTotals.unresolved},equivalent:false};finePointerEvidence.equivalent=finePointerEvidence.capabilityMeasured&&fineTotals.comparisons===6&&fineTotals.unresolved===0&&finePointerProbe.focusVisible?.source?.focusVisible===true&&finePointerProbe.focusVisible?.synthetic?.focusVisible===true;\n"""
+          readiness_anchor='const readinessChecks={'
+          if text.count(readiness_anchor)!=1:
+              raise SystemExit('readiness anchor changed unexpectedly')
+          text=text.replace(readiness_anchor,evidence_prelude+readiness_anchor,1)
           p.write_text(text)
           PY
           node --check "$HARNESS_DIR/characterize.mjs"
@@ -147,6 +181,8 @@ jobs:
           echo KEYBOARD_TAB_TRANSITION_SYNCHRONIZATION_PASS
           echo FAVICON_RESOURCE_FALSE_POSITIVE_FILTER_PASS
           echo FORCED_COLORS_MATRIX_PATCH_PASS
+          echo RAW_CONTEXTUAL_CUSTOM_PROPERTY_SCHEMA_PASS
+          echo FINE_POINTER_HEADED_XVFB_SCHEMA_PASS
 
       - name: Run isolated authenticated source-vs-synthetic matrix
         shell: bash
@@ -160,7 +196,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$OUT_DIR"
-          node "${RUNNER_TEMP}/phase3b3c-harness/characterize.mjs" | tee "$OUT_DIR/console-summary.json"
+          xvfb-run -a -s "-screen 0 1920x1080x24" node "${RUNNER_TEMP}/phase3b3c-harness/characterize.mjs" | tee "$OUT_DIR/console-summary.json"
 
       - name: Final source immutability and cleanliness gate
         if: always()
