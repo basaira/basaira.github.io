@@ -29,8 +29,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          TARGET=14c4fcc96cc74ededf583bf724644da982025286
-          TARGET_TREE=90946e55757c9d05d620b9625714110db6c71c74
+          TARGET=07477307402857cb73ff80eb726a43faa5e72ad3
+          TARGET_TREE=ff6b9fade02f4c7311c9ea9692a7e89790039767
           CHECKER_BLOB=3dfc0605151abd9a9e6514a492a9b94137c96c63
 
           echo "TARGET_HEAD=$TARGET"
