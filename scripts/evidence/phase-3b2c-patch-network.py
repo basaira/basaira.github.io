@@ -54,14 +54,35 @@ new = """  await p.goto(base+route,{waitUntil:'domcontentloaded',timeout:10000})
       }catch{}
     }
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    document.documentElement.style.setProperty('scroll-behavior','auto','important');
     window.scrollTo(0,0);
   });"""
 if old not in s:
     raise SystemExit("missing navigation/font anchor")
 s = s.replace(old, new, 1)
 
+old = "async function inventory(p){"
+new = """async function settleState(p){
+  await p.evaluate(async()=>{
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    for(const animation of document.getAnimations()){
+      try{
+        const timing=animation.effect?.getComputedTiming?.();
+        if(timing && Number.isFinite(timing.endTime)) animation.finish();
+        else { animation.currentTime=0; animation.pause(); }
+      }catch{}
+    }
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
+}
+async function inventory(p){"""
+if old not in s:
+    raise SystemExit("missing settle helper anchor")
+s = s.replace(old, new, 1)
+
 old = "    document.activeElement?.blur?.();"
 new = """    document.activeElement?.blur?.();
+    document.documentElement.style.setProperty('scroll-behavior','auto','important');
     window.scrollTo(0,0);"""
 if old not in s:
     raise SystemExit("missing reset scroll anchor")
@@ -80,9 +101,16 @@ s = s.replace(old, new, 1)
 
 old = "await applyState(sa.p,state);await applyState(sb.p,state);"
 new = """await Promise.all([sa.p.bringToFront(),sb.p.bringToFront()]);
-      await Promise.all([applyState(sa.p,state),applyState(sb.p,state)]);"""
+      await Promise.all([applyState(sa.p,state),applyState(sb.p,state)]);
+      await Promise.all([settleState(sa.p),settleState(sb.p)]);"""
 if old not in s:
     raise SystemExit("missing synchronized applyState anchor")
+s = s.replace(old, new, 1)
+
+old = "rect:{x:round(r.x),y:round(r.y),width:round(r.width),height:round(r.height),top:round(r.top),right:round(r.right),bottom:round(r.bottom),left:round(r.left),scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight}"
+new = "rect:{x:round(r.x+scrollX),y:round(r.y+scrollY),width:round(r.width),height:round(r.height),top:round(r.top+scrollY),right:round(r.right+scrollX),bottom:round(r.bottom+scrollY),left:round(r.left+scrollX),scrollWidth:el.scrollWidth,scrollHeight:el.scrollHeight}"
+if old not in s:
+    raise SystemExit("missing document-space geometry anchor")
 s = s.replace(old, new, 1)
 
 old = "const sa=await prepPage(bases.source,r.route,vp,false), sb=await prepPage(bases.synthetic,r.route,vp,false);"
@@ -110,12 +138,16 @@ for required in (
     "u.origin!==base",
     "u.pathname==='/tailwindcss'",
     "timeout:10000",
+    "async function settleState(p)",
     "document.getAnimations()",
     "Number.isFinite(timing.endTime)",
-    "window.scrollTo(0,0)",
+    "scroll-behavior','auto','important'",
     "Promise.all([freeze(sa.p),freeze(sb.p)])",
     "Promise.all([resetState(sa.p),resetState(sb.p)])",
     "Promise.all([applyState(sa.p,state),applyState(sb.p,state)])",
+    "Promise.all([settleState(sa.p),settleState(sb.p)])",
+    "r.y+scrollY",
+    "r.bottom+scrollY",
     "prepPage(browserSource,bases.source",
     "prepPage(browserSynthetic,bases.synthetic",
 ):
@@ -127,3 +159,5 @@ print("PHASE_3B2C_NETWORK_ISOLATION_PATCH_PASS")
 print("PHASE_3B2C_SYNCHRONIZED_STATE_PATCH_PASS")
 print("PHASE_3B2C_INDEPENDENT_BROWSER_PATCH_PASS")
 print("PHASE_3B2C_ANIMATION_SETTLE_PATCH_PASS")
+print("PHASE_3B2C_POST_STATE_SETTLE_PATCH_PASS")
+print("PHASE_3B2C_DOCUMENT_GEOMETRY_PATCH_PASS")
