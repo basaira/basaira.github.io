@@ -82,8 +82,9 @@ jobs:
           npm init -y >/dev/null
           npm install --no-audit --no-fund puppeteer-core@24.16.0 postcss@8.5.6 postcss-selector-parser@7.1.0
           cp "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-characterize.mjs" ./characterize.mjs
-          python3 -m py_compile "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-patch-runtime.py"
+          python3 -m py_compile "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-patch-runtime.py" "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-patch-network.py"
           python3 "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-patch-runtime.py" characterize.mjs
+          python3 "$GITHUB_WORKSPACE/scripts/evidence/phase-3b2c-patch-network.py" characterize.mjs
           grep -F 'protocolTimeout:600000' characterize.mjs
           grep -F '__phase3b2c_freeze' characterize.mjs
           grep -F 'focus-visible-submit' characterize.mjs
@@ -92,6 +93,8 @@ jobs:
           grep -F 'browserRoutes=routes.filter' characterize.mjs
           grep -F 'for(const r of browserRoutes)' characterize.mjs
           grep -F 'PROGRESS ${r.route} ${vp.name} ${state}' characterize.mjs
+          grep -F 'setRequestInterception(true)' characterize.mjs
+          grep -F 'timeout:10000' characterize.mjs
 
       - name: Run source vs synthetic exact-concat characterization shard
         shell: bash
