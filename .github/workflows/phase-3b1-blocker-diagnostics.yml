@@ -1,0 +1,152 @@
+name: Phase 3B-1 Blocker Diagnostics
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-1-verification-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-exact-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout evidence infrastructure
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Materialize exact source and candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE=07477307402857cb73ff80eb726a43faa5e72ad3
+          SOURCE_TREE=ff6b9fade02f4c7311c9ea9692a7e89790039767
+          CANDIDATE=37e2e6e85d695efcc346d7f35619f6a76eb9aac3
+          CANDIDATE_TREE=017aa0a6b89df16ded97cac9a7020532ea1d23a3
+          CHECKER_BLOB=3dfc0605151abd9a9e6514a492a9b94137c96c63
+          git fetch --all --prune
+          test "$(git rev-parse origin/basair/phase-3b-1-acquisition-precision-polish-merge)" = "$CANDIDATE"
+          rm -rf /tmp/basair-3b1-source /tmp/basair-3b1-candidate
+          git worktree add --detach /tmp/basair-3b1-source "$SOURCE"
+          git worktree add --detach /tmp/basair-3b1-candidate "$CANDIDATE"
+          test "$(git -C /tmp/basair-3b1-source rev-parse HEAD^{tree})" = "$SOURCE_TREE"
+          test "$(git -C /tmp/basair-3b1-candidate rev-parse HEAD^{tree})" = "$CANDIDATE_TREE"
+          test "$(git -C /tmp/basair-3b1-candidate rev-parse HEAD^1)" = "$SOURCE"
+          test "$(git -C /tmp/basair-3b1-candidate hash-object scripts/verify-css-consolidation-preflight.mjs)" = "$CHECKER_BLOB"
+          test -z "$(git -C /tmp/basair-3b1-candidate status --porcelain)"
+          echo IDENTITY_PASS
+
+      - name: Run remaining exact-candidate build diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/basair-3b1-candidate
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=54 --out="$GITHUB_WORKSPACE/diagnostic-structural.json"
+          npm ci
+          echo NPM_CI_PASS
+          set +e
+          npm run verify > "$GITHUB_WORKSPACE/npm-verify.log" 2>&1
+          VERIFY_EXIT=$?
+          set -e
+          echo "NPM_VERIFY_EXIT=$VERIFY_EXIT"
+          test "$VERIFY_EXIT" -ne 0
+          grep -F "Token authority contract failed: corrected production CSS scope count drift" "$GITHUB_WORKSPACE/npm-verify.log"
+          echo VERIFIED_KNOWN_TOKEN_SCOPE_BLOCKER
+          npm run build
+          echo NPM_BUILD_PASS
+          git diff --check
+          echo GIT_DIFF_CHECK_PASS
+          git diff --exit-code
+          echo GIT_DIFF_EXIT_CODE_PASS
+          test -z "$(git status --porcelain)"
+          echo WORKTREE_CLEAN_PASS
+
+      - name: Install browser tooling outside repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/basair-browser-tooling
+          mkdir -p /tmp/basair-browser-tooling
+          npm install --prefix /tmp/basair-browser-tooling puppeteer-core@24.16.0 --no-save --no-package-lock
+          google-chrome --version | tee "$GITHUB_WORKSPACE/chrome-version.txt"
+          node -e "console.log(require('/tmp/basair-browser-tooling/node_modules/puppeteer-core/package.json').version)" | tee "$GITHUB_WORKSPACE/puppeteer-version.txt"
+
+      - name: Run required 10-route browser and interaction equivalence matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/basair-3b1-source >/tmp/source-http.log 2>&1 &
+          SPID=$!
+          python3 -m http.server 4174 --bind 127.0.0.1 --directory /tmp/basair-3b1-candidate >/tmp/candidate-http.log 2>&1 &
+          CPID=$!
+          trap 'kill $SPID $CPID 2>/dev/null || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:4173/en/ >/dev/null && curl -fsS http://127.0.0.1:4174/en/ >/dev/null && break; sleep .2; done
+
+          cat > /tmp/basair-browser-tooling/browser.mjs <<'EOF'
+          import puppeteer from 'puppeteer-core';
+          import fs from 'node:fs';
+          const routes=['/en/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/','/ru/quran/','/ru/arabic/','/uz/','/uz/quran/','/uz/arabic/'];
+          const viewports=[
+            {name:'mobile',width:390,height:844,touch:true,mobile:true},
+            {name:'tablet',width:768,height:1024,touch:true,mobile:false},
+            {name:'desktop',width:1440,height:900,touch:false,mobile:false},
+            {name:'wide',width:1920,height:1080,touch:false,mobile:false}
+          ];
+          const selectors=[
+            {name:'hero',selector:'.hero',pseudo:null,max:1},{name:'heroBefore',selector:'.hero',pseudo:'::before',max:1},
+            {name:'btn',selector:'.btn',pseudo:null,max:6},{name:'btnBefore',selector:'.btn',pseudo:'::before',max:3},
+            {name:'primary',selector:'.btn-primary',pseudo:null,max:3},{name:'gold',selector:'.btn-gold',pseudo:null,max:3},{name:'ghost',selector:'.btn-ghost',pseudo:null,max:3},
+            {name:'dashboard',selector:'.dashboard',pseudo:null,max:2},{name:'dashboardAfter',selector:'.dashboard',pseudo:'::after',max:2},
+            {name:'card',selector:'.card',pseudo:null,max:6},{name:'cardAfter',selector:'.card',pseudo:'::after',max:3},
+            {name:'status',selector:'.status-pill',pseudo:null,max:3},{name:'footer',selector:'.footer-links a',pseudo:null,max:3},
+            {name:'interactive',selector:'a,button,input,select,textarea',pseudo:null,max:8}
+          ];
+          const props=['color','background-color','background-image','border-top-color','border-right-color','border-bottom-color','border-left-color','border-radius','box-shadow','min-height','position','overflow','transform','transition-property','transition-duration','transition-timing-function','animation-name','animation-duration','outline-color','outline-style','outline-width','outline-offset','cursor','opacity','filter','pointer-events','content','inset','background-size','mask-image'];
+          const vars=['--pn-acq-ease','--aq-green','--aq-green-deep','--aq-gold','--aq-navy'];
+          const browser=await puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+          const failures=[]; let comparisons=0,baseComparisons=0,interactionComparisons=0,reducedComparisons=0;
+          let computedDeltas=0,geometryDeltas=0,customPropertyDeltas=0,interactionDeltas=0,reducedMotionDeltas=0,resourceFailures=0;
+          const matrix=[];
+          async function open(origin,route,vp,reduced=false){
+            const page=await browser.newPage();
+            await page.setViewport({width:vp.width,height:vp.height,deviceScaleFactor:1,isMobile:vp.mobile,hasTouch:vp.touch});
+            await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:reduced?'reduce':'no-preference'}]);
+            await page.setJavaScriptEnabled(false);
+            const bad=[];
+            page.on('requestfailed',req=>{try{const u=new URL(req.url());if(u.origin===new URL(origin).origin)bad.push({url:req.url(),failure:req.failure()?.errorText});}catch{}});
+            page.on('response',res=>{try{const u=new URL(res.url());if(u.origin===new URL(origin).origin&&res.status()>=400)bad.push({url:res.url(),status:res.status()});}catch{}});
+            const r=await page.goto(origin+route,{waitUntil:'domcontentloaded',timeout:20000});
+            if(!r||r.status()>=400)bad.push({url:origin+route,status:r?.status()});
+            await new Promise(x=>setTimeout(x,250));
+            return {page,bad};
+          }
+          async function snap(page){return page.evaluate(({selectors,props,vars})=>{const root=getComputedStyle(document.documentElement);const out={vars:Object.fromEntries(vars.map(v=>[v,root.getPropertyValue(v).trim()])),caps:{fine:matchMedia('(pointer:fine)').matches,coarse:matchMedia('(pointer:coarse)').matches,hover:matchMedia('(hover:hover)').matches,hoverNone:matchMedia('(hover:none)').matches,le520:matchMedia('(max-width:520px)').matches,reduced:matchMedia('(prefers-reduced-motion:reduce)').matches},els:{}};for(const d of selectors){out.els[d.name]=[...document.querySelectorAll(d.selector)].slice(0,d.max).map((el,i)=>{const c=getComputedStyle(el,d.pseudo),r=el.getBoundingClientRect(),s={};for(const p of props)s[p]=c.getPropertyValue(p);return{i,tag:el.tagName,cls:String(el.className),s,r:{x:r.x,y:r.y,width:r.width,height:r.height}};});}return out;},{selectors,props,vars});}
+          function compare(a,b,kind,label){comparisons++;if(kind==='base')baseComparisons++;if(kind==='interaction')interactionComparisons++;if(kind==='reduced')reducedComparisons++;const add=(type,detail)=>{failures.push({label,kind,type,detail});if(type==='computed')computedDeltas++;if(type==='geometry')geometryDeltas++;if(type==='customProperty')customPropertyDeltas++;if(kind==='interaction')interactionDeltas++;if(kind==='reduced')reducedMotionDeltas++;};for(const v of vars)if(a.vars[v]!==b.vars[v])add('customProperty',{v,a:a.vars[v],b:b.vars[v]});if(JSON.stringify(a.caps)!==JSON.stringify(b.caps))add('computed',{caps:[a.caps,b.caps]});for(const d of selectors){const x=a.els[d.name]||[],y=b.els[d.name]||[];if(x.length!==y.length){add('computed',{selector:d.name,length:[x.length,y.length]});continue;}for(let i=0;i<x.length;i++){if(x[i].tag!==y[i].tag||x[i].cls!==y[i].cls)add('computed',{selector:d.name,i,identity:[x[i].tag,x[i].cls,y[i].tag,y[i].cls]});for(const p of props)if(x[i].s[p]!==y[i].s[p])add('computed',{selector:d.name,i,p,a:x[i].s[p],b:y[i].s[p]});for(const g of ['x','y','width','height'])if(Math.abs(x[i].r[g]-y[i].r[g])>0.05)add('geometry',{selector:d.name,i,g,a:x[i].r[g],b:y[i].r[g]});}}}
+          async function force(page,selector,pseudos,id){const ok=await page.evaluate((selector,id)=>{const el=document.querySelector(selector);if(!el)return false;el.setAttribute('data-p3b1-force',id);return true;},selector,id);if(!ok)return false;const c=await page.target().createCDPSession();await c.send('DOM.enable');await c.send('CSS.enable');const doc=await c.send('DOM.getDocument');const q=await c.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:`[data-p3b1-force="${id}"]`});if(!q.nodeId){await c.detach();return false;}await c.send('CSS.forcePseudoState',{nodeId:q.nodeId,forcedPseudoClasses:pseudos});await new Promise(r=>setTimeout(r,50));await c.detach();return true;}
+          async function pair(route,vp,kind,setup=null,reduced=false){const A=await open('http://127.0.0.1:4173',route,vp,reduced),B=await open('http://127.0.0.1:4174',route,vp,reduced);if(A.bad.length||B.bad.length){resourceFailures+=A.bad.length+B.bad.length;failures.push({label:`${route}|${vp.name}|${kind}`,kind,type:'resource',detail:{source:A.bad,candidate:B.bad}});}let applicable=true;if(setup){const aa=await setup(A.page,'a'),bb=await setup(B.page,'b');applicable=aa&&bb;}if(applicable)compare(await snap(A.page),await snap(B.page),kind,`${route}|${vp.name}|${kind}`);await A.page.close();await B.page.close();return applicable;}
+          for(const route of routes){for(const vp of viewports){const row={route,viewport:vp.name,width:vp.width,height:vp.height,states:[]};await pair(route,vp,'base');row.states.push('base');await pair(route,vp,'reduced',null,true);row.states.push('reduced-motion');const cases=[['btn-hover','.btn',['hover']],['btn-active','.btn',['active']],['focus-visible','input,select,textarea,.btn',['focus','focus-visible']],['card-hover','.card',['hover']],['footer-hover','.footer-links a',['hover']]];for(const [n,s,p] of cases){if(await pair(route,vp,'interaction',(pg,id)=>force(pg,s,p,n+id)))row.states.push(n);}if(await pair(route,vp,'interaction',async pg=>pg.evaluate(()=>{const el=document.querySelector('form')||document.querySelector('.btn');if(!el)return false;el.setAttribute('aria-busy','true');return true;})))row.states.push('aria-busy');const q=await open('http://127.0.0.1:4174',route,vp,false);const cp=(await snap(q.page)).caps;await q.page.close();row.capabilities=cp;row.states.push(vp.width<=520?'<=520px':'>520px');row.states.push(vp.touch?'coarse/touch-input':'fine/non-touch-input');matrix.push(row);}}
+          await browser.close();const result={routes,viewports,baseStates:40,totalComparisons:comparisons,baseComparisons,interactionComparisons,reducedMotionComparisons:reducedComparisons,matrix,equivalence:{computedDeltas,geometryDeltas,customPropertyDeltas,interactionDeltas,reducedMotionDeltas},productionResourceFailures:resourceFailures,failures,pass:failures.length===0};fs.writeFileSync(process.env.GITHUB_WORKSPACE+'/phase-3b1-browser-diagnostics.json',JSON.stringify(result,null,2)+'\n');console.log(`BROWSER_EQUIVALENCE_${result.pass?'PASS':'FAIL'} base=${baseComparisons} total=${comparisons} interaction=${interactionComparisons} reduced=${reducedComparisons} computed=${computedDeltas} geometry=${geometryDeltas} customProps=${customPropertyDeltas} interactionDeltas=${interactionDeltas} reducedDeltas=${reducedMotionDeltas} resourceFailures=${resourceFailures}`);if(failures.length){console.error(JSON.stringify(failures.slice(0,20),null,2));process.exit(1);}
+          EOF
+          cd /tmp/basair-browser-tooling
+          node browser.mjs
+
+      - name: Upload blocker diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b1-blocker-diagnostics
+          path: |
+            diagnostic-structural.json
+            npm-verify.log
+            chrome-version.txt
+            puppeteer-version.txt
+            phase-3b1-browser-diagnostics.json
+          if-no-files-found: error
+          retention-days: 7
