@@ -95,18 +95,53 @@ jobs:
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b3c-authenticated-admin-characterize.mjs" "$HARNESS_DIR/characterize.mjs"
           python3 - <<'PY'
           from pathlib import Path
-          p=Path(__import__('os').environ['RUNNER_TEMP'])/'phase3b3c-harness'/'characterize.mjs'
+          import os
+          p=Path(os.environ['RUNNER_TEMP'])/'phase3b3c-harness'/'characterize.mjs'
           text=p.read_text()
-          old='async function setSection(pair,tab){await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:3000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:3000})]);}'
-          new='async function setSection(pair,tab){const waitIdle=(p)=>p.waitForFunction(()=>!document.documentElement.classList.contains("basair-admin-tab-transition"),{timeout:8000});await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:8000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:8000})]);await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);}'
-          if text.count(old)!=1:
-              raise SystemExit('setSection timing anchor changed unexpectedly')
-          p.write_text(text.replace(old,new,1))
+
+          patches=[]
+          patches.append((
+            'async function setSection(pair,tab){await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:3000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:3000})]);}',
+            'async function setSection(pair,tab){const waitIdle=(p)=>p.waitForFunction(()=>!document.documentElement.classList.contains("basair-admin-tab-transition"),{timeout:8000});await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);await syncClick(pair,`.nav-btn[data-tab="${tab}"]`);await Promise.all([pair.a.waitForSelector(`#tab-${tab}.active`,{timeout:8000}),pair.b.waitForSelector(`#tab-${tab}.active`,{timeout:8000})]);await Promise.all([waitIdle(pair.a),waitIdle(pair.b)]);}'
+          ))
+          patches.append((
+            "page.on('response',(r)=>{try{const u=new URL(r.url());if(u.origin===base&&r.status()>=400)monitor.sameOriginFailures.push({url:u.pathname,status:r.status()});}catch{}});",
+            "page.on('response',(r)=>{try{const u=new URL(r.url());if(u.origin===base&&r.status()>=400&&u.pathname!=='/favicon.ico')monitor.sameOriginFailures.push({url:u.pathname,status:r.status()});}catch{}});"
+          ))
+          patches.append((
+            "page.on('requestfailed',(r)=>monitor.requestFailures.push({url:r.url(),error:r.failure()?.errorText||''}));",
+            "page.on('requestfailed',(r)=>{try{const u=new URL(r.url());if(u.pathname==='/favicon.ico')return;}catch{}monitor.requestFailures.push({url:r.url(),error:r.failure()?.errorText||''});});"
+          ))
+          patches.append((
+            'const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[]},totals=',
+            'const groups={auth:[],empty:[],populated:[],responsive:[],reduced:[],forced:[]},totals='
+          ))
+          patches.append((
+            'forcedColorsHandled:forcedColorsApplicable?groups.reduced.length>0:true',
+            'forcedColorsHandled:forcedColorsApplicable?(groups.forced.length>0&&groups.forced.every((x)=>x.unresolvedDeltaCount===0)):true'
+          ))
+          patches.append((
+            'reduced:groups.reduced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),accessibility:totals.accessibility',
+            'reduced:groups.reduced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),forcedColors:groups.forced.reduce((n,x)=>n+x.unresolvedDeltaCount,0),accessibility:totals.accessibility'
+          ))
+          for old,new in patches:
+              if text.count(old)!=1:
+                  raise SystemExit(f'harness patch anchor count={text.count(old)} for {old[:90]!r}')
+              text=text.replace(old,new,1)
+
+          forced_loop='''\nif(forcedColorsApplicable){for(const viewport of[VP.wide,VP.mobile]){const pair=await newPair({authMode:'admin',roleActive:true,fixture:'populated'},viewport,false);await waitDashboard(pair);for(const p of[pair.a,pair.b]){const session=await p.createCDPSession();await session.send('Emulation.setEmulatedMedia',{media:'screen',features:[{name:'forced-colors',value:'active'}]});}await waitSettled([pair.a,pair.b],420);await measure('forced',`${viewport.name}:forced-overview`,pair,{authMode:'admin',fixture:'populated',viewport,section:'overview',state:'forced-colors'});await setSection(pair,'requests');await measure('forced',`${viewport.name}:forced-requests`,pair,{authMode:'admin',fixture:'populated',viewport,section:'requests',state:'forced-colors'});await closePair(pair);}}\n'''
+          anchor='await browser.close();'
+          if text.count(anchor)!=1:
+              raise SystemExit('browser-close anchor changed unexpectedly')
+          text=text.replace(anchor,forced_loop+anchor,1)
+          p.write_text(text)
           PY
           node --check "$HARNESS_DIR/characterize.mjs"
           test -z "$(git -C "${GITHUB_WORKSPACE}/evidence" status --porcelain)"
           echo EVIDENCE_DEPENDENCIES_PASS
           echo TAB_TRANSITION_SYNCHRONIZATION_PASS
+          echo FAVICON_RESOURCE_FALSE_POSITIVE_FILTER_PASS
+          echo FORCED_COLORS_MATRIX_PATCH_PASS
 
       - name: Run isolated authenticated source-vs-synthetic matrix
         shell: bash
