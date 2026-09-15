@@ -12,7 +12,7 @@ permissions:
 jobs:
   characterize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
       BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
@@ -49,6 +49,7 @@ jobs:
           printf '%s\n' \
             .github/workflows/phase-3b4-review-candidate-token-disposition.yml \
             scripts/evidence/phase-3b4-review-candidate-token-disposition.mjs \
+            scripts/evidence/phase-3b4-browser-token-disposition.mjs \
             | sort > /tmp/allowed-evidence-paths
           git -C evidence diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-evidence-paths
           diff -u /tmp/allowed-evidence-paths /tmp/actual-evidence-paths
@@ -96,6 +97,32 @@ jobs:
           cat "$OUT_DIR/static-inventory.json" | python3 -m json.tool >/dev/null
           echo STATIC_ARTIFACT_VALID_JSON_PASS
 
+      - name: Run browser runtime and synthetic disposition matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -y >/dev/null
+            sudo apt-get install -y xvfb >/dev/null
+          fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN"
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b4-browser"
+          OUT_DIR="${RUNNER_TEMP}/phase3b4-out"
+          rm -rf "$HARNESS_DIR"
+          mkdir -p "$HARNESS_DIR"
+          cd "$HARNESS_DIR"
+          npm init -y >/dev/null
+          npm install --no-package-lock puppeteer-core >/dev/null
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b4-browser-token-disposition.mjs" browser.mjs
+          BASE_SHA="$BASE_SHA" CHROME_BIN="$CHROME_BIN" xvfb-run -a node browser.mjs \
+            --source="${GITHUB_WORKSPACE}/source" \
+            --static="$OUT_DIR/static-inventory.json" \
+            --out="$OUT_DIR/runtime-evidence.json" \
+            --chrome="$CHROME_BIN"
+          python3 -m json.tool "$OUT_DIR/runtime-evidence.json" >/dev/null
+          echo RUNTIME_ARTIFACT_VALID_JSON_PASS
+
       - name: Final source immutability
         shell: bash
         run: |
@@ -109,6 +136,6 @@ jobs:
       - name: Upload evidence artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: phase-3b4-review-candidate-token-disposition-static
+          name: phase-3b4-review-candidate-token-disposition
           path: ${{ runner.temp }}/phase3b4-out
           if-no-files-found: error
