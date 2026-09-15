@@ -98,77 +98,6 @@ jobs:
           npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('browser.mjs')
-          s=p.read_text()
-
-          def one(old,new,label):
-              global s
-              count=s.count(old)
-              if count!=1:
-                  raise SystemExit(f'{label}_ANCHOR_FAIL count={count}')
-              s=s.replace(old,new,1)
-
-          old="""const preClasses=await Promise.all([s.evaluate(()=>({prep:document.body.classList.contains('motion-prep'),entered:document.body.classList.contains('motion-entered')})),t.evaluate(()=>({prep:document.body.classList.contains('motion-prep'),entered:document.body.classList.contains('motion-entered')}))]);
-      if(!preClasses.every(x=>x.prep&&!x.entered)) unresolved.push({type:'pre-animation-boundary-not-captured',preClasses});
-      await Promise.all([pauseAnimationsAtZero(s),pauseAnimationsAtZero(t)]);recordCompare(records,'initial-pre-animation','motion',await snapshot(s),await snapshot(t));
-      await Promise.all([settleEntered(s),settleEntered(t)]);recordCompare(records,'initial-settled','motion',await snapshot(s),await snapshot(t));"""
-          new="""await Promise.all([s.evaluate(()=>{document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');}),t.evaluate(()=>{document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');})]);
-      await Promise.all([pauseAnimationsAtZero(s),pauseAnimationsAtZero(t)]);
-      const preClasses=await Promise.all([s.evaluate(()=>({prep:document.body.classList.contains('motion-prep'),entered:document.body.classList.contains('motion-entered')})),t.evaluate(()=>({prep:document.body.classList.contains('motion-prep'),entered:document.body.classList.contains('motion-entered')}))]);
-      if(!preClasses.every(x=>x.prep&&!x.entered)) unresolved.push({type:'pre-animation-boundary-not-captured',preClasses});
-      recordCompare(records,'initial-pre-animation','motion',await snapshot(s),await snapshot(t));
-      await Promise.all([s.evaluate(()=>{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');}),t.evaluate(()=>{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');})]);
-      await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'initial-settled','motion',await snapshot(s),await snapshot(t));"""
-          one(old,new,'MOTION_BOUNDARY')
-
-          replacements=[
-          ("await Promise.all([moveRatio(s,'#home .hero-primary-cta',.55,.45),moveRatio(t,'#home .hero-primary-cta',.55,.45)]);await sleep(280);recordCompare(records,'fine-hover-primary','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([moveRatio(s,'#home .hero-primary-cta',.55,.45),moveRatio(t,'#home .hero-primary-cta',.55,.45)]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-hover-primary','interaction',await snapshot(s),await snapshot(t));",
-           'FINE_HOVER'),
-          ("await Promise.all([moveRatio(s,'#home .hero-visual-stage',.72,.33),moveRatio(t,'#home .hero-visual-stage',.72,.33)]);await sleep(90);recordCompare(records,'fine-stage-pointer-custom','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([moveRatio(s,'#home .hero-visual-stage',.72,.33),moveRatio(t,'#home .hero-visual-stage',.72,.33)]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-stage-pointer-custom','interaction',await snapshot(s),await snapshot(t));",
-           'STAGE_POINTER'),
-          ("await Promise.all([moveRatio(s,'#home .hero-primary-cta',.33,.64),moveRatio(t,'#home .hero-primary-cta',.33,.64)]);await sleep(90);recordCompare(records,'fine-cta-pointer-custom','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([moveRatio(s,'#home .hero-primary-cta',.33,.64),moveRatio(t,'#home .hero-primary-cta',.33,.64)]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-cta-pointer-custom','interaction',await snapshot(s),await snapshot(t));",
-           'CTA_POINTER'),
-          ("await Promise.all([s.mouse.down(),t.mouse.down()]);await sleep(60);recordCompare(records,'fine-active-primary','interaction',await snapshot(s),await snapshot(t));await Promise.all([s.mouse.move(1,1),t.mouse.move(1,1)]);await Promise.all([s.mouse.up(),t.mouse.up()]);await sleep(90);recordCompare(records,'fine-acknowledged-after-press','interaction',await snapshot(s),await snapshot(t));await sleep(430);recordCompare(records,'fine-pointer-leave-reset','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([s.mouse.down(),t.mouse.down()]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-active-primary','interaction',await snapshot(s),await snapshot(t));await Promise.all([s.mouse.move(1,1),t.mouse.move(1,1)]);await Promise.all([s.mouse.up(),t.mouse.up()]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-acknowledged-after-press','interaction',await snapshot(s),await snapshot(t));await sleep(470);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'fine-pointer-leave-reset','interaction',await snapshot(s),await snapshot(t));",
-           'ACTIVE_ACK_RESET'),
-          ("await Promise.all([focusPrimaryByKeyboard(s),focusPrimaryByKeyboard(t)]);await sleep(80);recordCompare(records,'keyboard-focus-primary','interaction',await snapshot(s),await snapshot(t));await Promise.all([s.keyboard.press('Tab'),t.keyboard.press('Tab')]);await sleep(80);recordCompare(records,'keyboard-focus-secondary','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([focusPrimaryByKeyboard(s),focusPrimaryByKeyboard(t)]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'keyboard-focus-primary','interaction',await snapshot(s),await snapshot(t));await Promise.all([s.keyboard.press('Tab'),t.keyboard.press('Tab')]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'keyboard-focus-secondary','interaction',await snapshot(s),await snapshot(t));",
-           'KEYBOARD_FOCUS'),
-          ("await Promise.all([setLocale(s,'ar'),setLocale(t,'ar')]);await Promise.all([moveRatio(s,'#home .hero-primary-cta',.5,.5),moveRatio(t,'#home .hero-primary-cta',.5,.5)]);await sleep(260);recordCompare(records,'rtl-primary-hover','interaction',await snapshot(s),await snapshot(t));",
-           "await Promise.all([setLocale(s,'ar'),setLocale(t,'ar')]);await Promise.all([moveRatio(s,'#home .hero-primary-cta',.5,.5),moveRatio(t,'#home .hero-primary-cta',.5,.5)]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'rtl-primary-hover','interaction',await snapshot(s),await snapshot(t));",
-           'RTL_HOVER'),
-          ("await Promise.all([setLocale(s,'en'),setLocale(t,'en')]);await Promise.all([s.evaluate(()=>document.querySelector('#home .hero-secondary-cta')?.click()),t.evaluate(()=>document.querySelector('#home .hero-secondary-cta')?.click())]);await sleep(100);nativeAnchor={sourceHash:await s.evaluate(()=>location.hash),syntheticHash:await t.evaluate(()=>location.hash)};recordCompare(records,'native-anchor-secondary','interaction',await snapshot(s),await snapshot(t));if(nativeAnchor.sourceHash!=='#quick-guide'||nativeAnchor.syntheticHash!=='#quick-guide')unresolved.push({type:'native-anchor-navigation',nativeAnchor});",
-           "await Promise.all([setLocale(s,'en'),setLocale(t,'en')]);await Promise.all([s.evaluate(()=>document.querySelector('#home .hero-secondary-cta')?.click()),t.evaluate(()=>document.querySelector('#home .hero-secondary-cta')?.click())]);nativeAnchor={sourceHash:await s.evaluate(()=>location.hash),syntheticHash:await t.evaluate(()=>location.hash)};if(nativeAnchor.sourceHash!=='#quick-guide'||nativeAnchor.syntheticHash!=='#quick-guide')unresolved.push({type:'native-anchor-navigation',nativeAnchor});await Promise.all([s.evaluate(()=>window.scrollTo(0,0)),t.evaluate(()=>window.scrollTo(0,0))]);await Promise.all([freezeSettled(s),freezeSettled(t)]);recordCompare(records,'native-anchor-secondary','interaction',await snapshot(s),await snapshot(t));",
-           'NATIVE_ANCHOR'),
-          ("await Promise.all([cs.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:c1.x,y:c1.y}]}),ct.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:c2.x,y:c2.y}]})]);await sleep(70);recordCompare(records,'coarse-touch-active','interaction',await snapshot(coarse.s),await snapshot(coarse.t));await Promise.all([cs.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]}),ct.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]})]);await sleep(420);recordCompare(records,'coarse-touch-reset','interaction',await snapshot(coarse.s),await snapshot(coarse.t));",
-           "await Promise.all([cs.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:c1.x,y:c1.y}]}),ct.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:c2.x,y:c2.y}]})]);await Promise.all([freezeSettled(coarse.s),freezeSettled(coarse.t)]);recordCompare(records,'coarse-touch-active','interaction',await snapshot(coarse.s),await snapshot(coarse.t));await Promise.all([cs.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]}),ct.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]})]);await sleep(470);await Promise.all([freezeSettled(coarse.s),freezeSettled(coarse.t)]);recordCompare(records,'coarse-touch-reset','interaction',await snapshot(coarse.s),await snapshot(coarse.t));",
-           'COARSE_TOUCH'),
-          ("await Promise.all([pauseAnimationsAtZero(reduced.s),pauseAnimationsAtZero(reduced.t)]);recordCompare(records,'reduced-initial','motion',await snapshot(reduced.s),await snapshot(reduced.t));await sleep(950);await Promise.all([freezeSettled(reduced.s),freezeSettled(reduced.t)]);recordCompare(records,'reduced-settled','motion',await snapshot(reduced.s),await snapshot(reduced.t));",
-           "await Promise.all([reduced.s.evaluate(()=>{document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');}),reduced.t.evaluate(()=>{document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');})]);await Promise.all([pauseAnimationsAtZero(reduced.s),pauseAnimationsAtZero(reduced.t)]);recordCompare(records,'reduced-initial','motion',await snapshot(reduced.s),await snapshot(reduced.t));await Promise.all([reduced.s.evaluate(()=>{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');}),reduced.t.evaluate(()=>{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');})]);await Promise.all([freezeSettled(reduced.s),freezeSettled(reduced.t)]);recordCompare(records,'reduced-settled','motion',await snapshot(reduced.s),await snapshot(reduced.t));",
-           'REDUCED_BOUNDARY'),
-          ]
-          for old,new,label in replacements:
-              one(old,new,label)
-
-          old="const totals=aggregate(records);const staticPair=staticData.pairs.find(x=>x.id===pair.id);const runtimeFilenameDep=(staticPair?.runtimeFilenameHits||[]).length>0;const productionCssomObserver=(staticData.cssomRefs||[]).length>0;"
-          new="const totals=aggregate(records);const staticPair=staticData.pairs.find(x=>x.id===pair.id);const runtimeFilenameDep=(staticPair?.runtimeFilenameHits||[]).length>0;const targetCssomRefs=(staticData.cssomRefs||[]).filter(r=>r.text.includes(pair.first)||r.text.includes(pair.second));const productionCssomObserver=targetCssomRefs.length>0;"
-          one(old,new,'PAIR_CSSOM_SCOPE')
-          old="pairResults.push({pair,...variant,staticPair,environment:{fineCaps,coarseCaps,reducedCaps},records,totals,resourceFailures,resourceFailureCount:resourceCount,unresolved,unresolvedCount:unresolved.length,cssomBoundary,nativeAnchor,ownershipFinding,disposition,pass:unexpected===0});"
-          new="pairResults.push({pair,...variant,staticPair,targetCssomRefs,environment:{fineCaps,coarseCaps,reducedCaps},records,totals,resourceFailures,resourceFailureCount:resourceCount,unresolved,unresolvedCount:unresolved.length,cssomBoundary,nativeAnchor,ownershipFinding,disposition,pass:unexpected===0});"
-          one(old,new,'PAIR_RESULT_CSSOM')
-
-          p.write_text(s)
-          print('SYNCHRONIZED_MOTION_BOUNDARIES_PATCH_PASS')
-          print('SYNCHRONIZED_INTERACTION_SETTLING_PATCH_PASS')
-          print('PAIR_SCOPED_CSSOM_OBSERVER_PATCH_PASS')
-          PY
-          node --check browser.mjs
-          cp browser.mjs "$OUT_DIR/effective-browser-harness.mjs"
           echo HARNESS_READY
 
       - name: Run exact-current Hero static inventory
@@ -228,7 +157,7 @@ jobs:
             'heroJsCoupling':static['heroJsCoupling'],
             'environment':browser['environment'],
             'totalComparisons':browser['totalComparisons'],
-            'pairs':[{k:p[k] for k in ['pair','concatSha256','concatBytes','firstSha256','firstBytes','secondSha256','secondBytes','totals','resourceFailureCount','unresolvedCount','targetCssomRefs','environment','nativeAnchor','ownershipFinding','disposition','pass']} for p in browser['pairs']],
+            'pairs':[{k:p[k] for k in ['pair','concatSha256','concatBytes','firstSha256','firstBytes','secondSha256','secondBytes','totals','resourceFailureCount','unresolvedCount','environment','nativeAnchor','ownershipFinding','disposition','pass']} for p in browser['pairs']],
             'recommendedSequence':browser['recommendedSequence'],
             'ready':browser['ready'],
           }
