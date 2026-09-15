@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import {GEOMETRY_TOLERANCE,source,outPath,repeat,serverFor} from './phase-3b5c-round2-base.mjs';
+import {execFileSync} from 'node:child_process';
+import {GEOMETRY_TOLERANCE,source,outPath,repeat,serverFor,chrome} from './phase-3b5c-round2-base.mjs';
 import {runMode} from './phase-3b5c-round2-matrix.mjs';
 
 const HERO_FILES=[
@@ -20,6 +21,7 @@ const pairId=arg('pair')||'P1';
 const campaign=arg('campaign')||'full';
 const pair=PAIRS[pairId];
 if(!pair)throw new Error(`Unknown pair ${pairId}`);
+const browserVersion=execFileSync(chrome,['--version'],{encoding:'utf8'}).trim();
 const sha256=b=>crypto.createHash('sha256').update(b).digest('hex');
 const escapeRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 
@@ -70,6 +72,7 @@ const output={
   campaign,
   repeat,
   baseSha:process.env.BASE_SHA||null,
+  browserVersion,
   pair,
   variant,
   geometryTolerance:GEOMETRY_TOLERANCE,
