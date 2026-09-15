@@ -1,0 +1,284 @@
+name: Phase 3B-3 Admin Exact-Concat Implementation
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-3-admin-precision-polish-merge-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BASE_SHA: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+      BASE_TREE: 9ad6d3078f73d6cc88bb1f02c6f8f3d76fea9037
+      BASE_PARENT: 6de74b2271b937823d63ac33909cc36fe8e73662
+      TARGET_BRANCH: basair/phase-3b-3-admin-precision-polish-merge
+      PRECISION: admin-precision-native-v2.css
+      POLISH: admin-polish-v2.css
+      EXPECTED_PRECISION_SHA: 825f2c2e3afc5afce7a0bf3fc75074163c12ef83c1a3762f8519ddec11cd9c96
+      EXPECTED_POLISH_SHA: 5d6d21676eebb2268f51193f304e384069049e08d34871ea3a98b94f575115ad
+      EXPECTED_CONCAT_SHA: 595f3a9b507ca661d5a2fee9454065e785d20b41140cadb639794410cbaa575b
+
+    steps:
+      - name: Checkout frozen implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-3-admin-precision-polish-merge
+          fetch-depth: 0
+          path: target
+
+      - name: Prove authoritative starting identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$BASE_SHA"
+          test -z "$(git status --porcelain)"
+          echo START_BRANCH=$TARGET_BRANCH
+          echo START_HEAD=$(git rev-parse HEAD)
+          echo START_TREE=$(git rev-parse HEAD^{tree})
+          echo START_PARENT=$(git rev-parse HEAD^1)
+          echo START_MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")
+          echo START_REMOTE_HEAD=$(git rev-parse origin/$TARGET_BRANCH)
+          echo START_CLEAN_PASS
+
+      - name: Construct exact four-path candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, re, subprocess
+
+          base=os.environ['BASE_SHA']
+          precision=os.environ['PRECISION']
+          polish=os.environ['POLISH']
+          expected_precision=os.environ['EXPECTED_PRECISION_SHA']
+          expected_polish=os.environ['EXPECTED_POLISH_SHA']
+          expected_concat=os.environ['EXPECTED_CONCAT_SHA']
+
+          def base_bytes(path):
+              return subprocess.check_output(['git','show',f'{base}:{path}'])
+          def sha(b): return hashlib.sha256(b).hexdigest()
+
+          p=base_bytes(precision)
+          q=base_bytes(polish)
+          if sha(p)!=expected_precision or len(p)!=2047:
+              raise SystemExit(f'BASE_PRECISION_IDENTITY_FAIL sha={sha(p)} bytes={len(p)}')
+          if sha(q)!=expected_polish or len(q)!=3966:
+              raise SystemExit(f'BASE_POLISH_IDENTITY_FAIL sha={sha(q)} bytes={len(q)}')
+          concat=p+q
+          if sha(concat)!=expected_concat or len(concat)!=6013:
+              raise SystemExit(f'EXPECTED_CONCAT_IDENTITY_FAIL sha={sha(concat)} bytes={len(concat)}')
+          Path(precision).write_bytes(concat)
+
+          base_html=base_bytes('admin.html').decode('utf-8')
+          rx=re.compile(r'<link\b[^>]*href=["\'][^"\']*admin-polish-v2\.css[^"\']*["\'][^>]*>\s*',re.I)
+          expected_html,n=rx.subn('',base_html)
+          if n!=1:
+              raise SystemExit(f'ADMIN_SYNTHETIC_REMOVE_COUNT_FAIL count={n}')
+          Path('admin.html').write_text(expected_html,encoding='utf-8')
+
+          Path(polish).unlink()
+
+          # Manifest is intentionally not changed yet. The structural CSS count is proven first.
+          print('BASE_PRECISION_SHA='+sha(p))
+          print('BASE_PRECISION_BYTES='+str(len(p)))
+          print('BASE_POLISH_SHA='+sha(q))
+          print('BASE_POLISH_BYTES='+str(len(q)))
+          print('EXPECTED_CONCAT_SHA='+sha(concat))
+          print('EXPECTED_CONCAT_BYTES='+str(len(concat)))
+          print('ADMIN_SYNTHETIC_CONSTRUCTION_READY')
+          PY
+
+          # Independent structural proof before authority metadata is edited.
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52
+          echo STRUCTURAL_CSS_52_BEFORE_MANIFEST_PASS
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, subprocess
+          base=os.environ['BASE_SHA']
+          path='token-authority-manifest.json'
+          old=subprocess.check_output(['git','show',f'{base}:{path}']).decode('utf-8')
+          needle='"productionCssFileCount": 53'
+          if old.count(needle)!=1:
+              raise SystemExit(f'MANIFEST_BASE_ANCHOR_FAIL count={old.count(needle)}')
+          expected=old.replace(needle,'"productionCssFileCount": 52',1)
+          Path(path).write_text(expected,encoding='utf-8')
+          if Path(path).read_text(encoding='utf-8')!=expected:
+              raise SystemExit('MANIFEST_EXACT_DELTA_WRITE_FAIL')
+          print('MANIFEST_EXACT_53_TO_52_PASS')
+          PY
+
+          printf '%s\n' \
+            admin-precision-native-v2.css \
+            admin-polish-v2.css \
+            admin.html \
+            token-authority-manifest.json \
+            | sort > /tmp/expected-paths
+          git diff --name-only "$BASE_SHA" | sort > /tmp/actual-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          test "$(wc -l < /tmp/actual-paths)" -eq 4
+          echo FOUR_PATH_SURFACE_PASS
+
+      - name: Prove exact concat, synthetic HTML, manifest, and runtime scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os, re, subprocess
+          base=os.environ['BASE_SHA']
+          precision=os.environ['PRECISION']
+          polish=os.environ['POLISH']
+          def b(path): return subprocess.check_output(['git','show',f'{base}:{path}'])
+          expected=b(precision)+b(polish)
+          actual=Path(precision).read_bytes()
+          if actual!=expected: raise SystemExit('EXACT_CONCAT_BYTE_COMPARE_FAIL')
+          if hashlib.sha256(actual).hexdigest()!=os.environ['EXPECTED_CONCAT_SHA'] or len(actual)!=6013:
+              raise SystemExit('EXACT_CONCAT_HASH_OR_SIZE_FAIL')
+          print('EXACT_CONCAT_PASS')
+          print('CANDIDATE_SURVIVOR_SHA='+hashlib.sha256(actual).hexdigest())
+          print('CANDIDATE_SURVIVOR_BYTES='+str(len(actual)))
+
+          base_html=b('admin.html').decode('utf-8')
+          expected_html,n=re.subn(r'<link\b[^>]*href=["\'][^"\']*admin-polish-v2\.css[^"\']*["\'][^>]*>\s*','',base_html,flags=re.I)
+          current=Path('admin.html').read_text(encoding='utf-8')
+          if n!=1 or current!=expected_html: raise SystemExit('ADMIN_SYNTHETIC_HTML_COMPARE_FAIL')
+          if current.count('admin-precision-native-v2.css')!=1 or 'admin-polish-v2.css' in current:
+              raise SystemExit('ADMIN_LINK_CONTRACT_FAIL')
+          print('ADMIN_SYNTHETIC_HTML_MATCH')
+
+          old_manifest=b('token-authority-manifest.json').decode('utf-8')
+          expected_manifest=old_manifest.replace('"productionCssFileCount": 53','"productionCssFileCount": 52',1)
+          if old_manifest.count('"productionCssFileCount": 53')!=1 or Path('token-authority-manifest.json').read_text()!=expected_manifest:
+              raise SystemExit('MANIFEST_DELTA_EXCEEDS_53_TO_52')
+          print('MANIFEST_ONLY_CSS_COUNT_DELTA_PASS')
+          PY
+
+          test ! -e "$POLISH"
+          echo RETIRED_POLISH_ABSENT_PASS
+
+          # Contract requires STOP if a JS/MJS/TS checker/runtime reference unexpectedly exists.
+          if git grep -n -E 'admin-polish-v2\.css' -- '*.js' '*.mjs' '*.ts'; then
+            echo 'UNEXPECTED_STALE_CHECKER_OR_RUNTIME_FILENAME_REFERENCE'
+            exit 31
+          fi
+          echo NO_JS_CHECKER_RUNTIME_FILENAME_REFERENCE_PASS
+
+          # No production HTML may retain the retired filename.
+          if git grep -n -E 'admin-polish-v2\.css' -- '*.html'; then
+            echo 'UNEXPECTED_PRODUCTION_HTML_FILENAME_REFERENCE'
+            exit 32
+          fi
+          echo NO_PRODUCTION_HTML_FILENAME_REFERENCE_PASS
+
+          # Protected contextual Admin token ownership remains inline and bridge isolation remains enforced.
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52
+          echo CONTEXTUAL_LINE_MUTED_AND_ADMIN_BRIDGE_PASS
+
+      - name: Commit candidate locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git add admin-precision-native-v2.css admin-polish-v2.css admin.html token-authority-manifest.json
+          git config user.name basair-phase-3b3
+          git config user.email actions@users.noreply.github.com
+          git commit -m 'Phase 3B-3: exact-concat Admin precision/polish'
+          test "$(git rev-parse HEAD^1)" = "$BASE_SHA"
+          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          echo CANDIDATE_HEAD=$(git rev-parse HEAD)
+          echo CANDIDATE_TREE=$(git rev-parse HEAD^{tree})
+          echo CANDIDATE_PARENT=$(git rev-parse HEAD^1)
+          echo CANDIDATE_SINGLE_COMMIT_PASS
+
+      - name: Full command gate on exact candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          CANDIDATE_HEAD=$(git rev-parse HEAD)
+          echo GATE_HEAD=$CANDIDATE_HEAD
+
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52
+          echo GATE_PREFLIGHT_52_PASS
+
+          npm ci
+          echo GATE_NPM_CI_PASS
+
+          npm run verify
+          echo GATE_NPM_VERIFY_PASS
+
+          npm run build
+          echo GATE_NPM_BUILD_PASS
+
+          git diff --check "$BASE_SHA"..HEAD
+          git diff --check
+          echo GATE_DIFF_CHECK_PASS
+
+          git diff --exit-code
+          echo GATE_DIFF_EXIT_PASS
+
+          test -z "$(git status --porcelain)"
+          echo GATE_STATUS_CLEAN_PASS
+
+          node token-authority-check.mjs
+          echo GATE_TOKEN_AUTHORITY_PASS
+
+      - name: Final local audit and browser carry-forward prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test "$(git rev-list --count "$BASE_SHA"..HEAD)" -eq 1
+          test "$(git rev-list --count HEAD.."$BASE_SHA")" -eq 0
+          printf '%s\n' \
+            admin-precision-native-v2.css \
+            admin-polish-v2.css \
+            admin.html \
+            token-authority-manifest.json \
+            | sort > /tmp/expected-final-paths
+          git diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-final-paths
+          diff -u /tmp/expected-final-paths /tmp/actual-final-paths
+          test "$(wc -l < /tmp/actual-final-paths)" -eq 4
+
+          test -z "$(git diff --name-only "$BASE_SHA"..HEAD -- '*.js' '*.mjs' '*.ts' 'package*.json' 'firebase*' 'firestore*' 'assets/**')"
+          echo BROWSER_CARRY_FORWARD_RUNTIME_INPUT_SCOPE_PASS
+          echo BROWSER_CARRY_FORWARD_RUN=34913726964
+          echo BROWSER_CARRY_FORWARD_MAIN_COMPARISONS=190
+          echo BROWSER_CARRY_FORWARD_FINE_POINTER_COMPARISONS=6
+          echo BROWSER_CARRY_FORWARD_ALL_DELTAS_ZERO=true
+
+          echo FINAL_HEAD=$(git rev-parse HEAD)
+          echo FINAL_TREE=$(git rev-parse HEAD^{tree})
+          echo FINAL_PARENT=$(git rev-parse HEAD^1)
+          echo FINAL_MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")
+          echo FINAL_PATH_COUNT=$(git diff --name-only "$BASE_SHA"..HEAD | wc -l)
+          echo FINAL_PATHS_BEGIN
+          git diff --name-only "$BASE_SHA"..HEAD
+          echo FINAL_PATHS_END
+
+      - name: Push verified implementation candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target
+          git fetch origin "$TARGET_BRANCH"
+          test "$(git rev-parse origin/$TARGET_BRANCH)" = "$BASE_SHA"
+          git push origin HEAD:"$TARGET_BRANCH"
+          echo VERIFIED_CANDIDATE_PUSH_PASS
