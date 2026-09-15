@@ -44,20 +44,20 @@ export async function stableAnimationInventory(page,maxPasses=MAX_INVENTORY_PASS
 export async function normalizeAnimationsStable(page,finiteProgress=1){
   const before=await stableAnimationInventory(page);if(!before.stable)return{stable:false,stage:'pre-normalization',progress:finiteProgress,before};
   const normalized=await page.evaluate(progress=>{
-    const hero=document.querySelector('#home'),isHeroTarget=target=>{const el=target instanceof Element?target:(target?.element instanceof Element?target.element:null);return Boolean(el&&(el===hero||hero?.contains(el)));},out=[];
+    const hero=document.querySelector('#home'),elementKey=el=>{if(!el)return'unknown';if(el.id)return`#${el.id}`;const classes=[...el.classList||[]].filter(Boolean).slice(0,3);let key=el.tagName?.toLowerCase?.()||'node';if(classes.length)key+='.'+classes.join('.');if(el.parentElement){const siblings=[...el.parentElement.children].filter(x=>x.tagName===el.tagName);if(siblings.length>1)key+=`:nth-of-type(${siblings.indexOf(el)+1})`;}return key;},out=[];
     for(const a of document.getAnimations({subtree:true})){
-      const effect=a.effect;if(!effect||!isHeroTarget(effect.target))continue;const t=effect.getTiming(),duration=Number(t.duration),delay=Number(t.delay)||0,iterations=Number(t.iterations);
+      const effect=a.effect,target=effect?.target,el=target instanceof Element?target:(target?.element instanceof Element?target.element:null);if(!effect||!el||!(el===hero||hero?.contains(el)))continue;const t=effect.getTiming(),duration=Number(t.duration),delay=Number(t.delay)||0,iterations=Number(t.iterations),type=a.constructor?.name||'Animation',pseudo=effect?.pseudoElement||target?.type||null,logicalName=type==='CSSAnimation'?(a.animationName||''):(type==='CSSTransition'?(a.transitionProperty||''):(a.animationName||a.transitionProperty||'')),key=`${elementKey(el)}${pseudo||''}|${type}|${logicalName}`;
       try{
         a.pause();let desired=null;
         if(t.iterations!==Infinity&&Number.isFinite(duration)&&Number.isFinite(iterations)){const active=duration*iterations;desired=delay+active*progress;if(Number.isFinite(desired))a.currentTime=desired;}
-        const c=effect.getComputedTiming();out.push({key:(a.animationName||a.transitionProperty||''),type:a.constructor?.name||'Animation',desiredCurrentTime:desired,currentTime:a.currentTime,computedProgress:c.progress,playState:a.playState,duration:t.duration,delay:t.delay,iterations:t.iterations});
-      }catch(e){out.push({key:(a.animationName||a.transitionProperty||''),type:a.constructor?.name||'Animation',error:String(e)});}
+        const c=effect.getComputedTiming();out.push({key,type,desiredCurrentTime:desired,currentTime:a.currentTime,computedProgress:c.progress,playState:a.playState,duration:t.duration,delay:t.delay,iterations:t.iterations});
+      }catch(e){out.push({key,type,error:String(e)});}
     }
     document.documentElement.getBoundingClientRect();return out;
   },finiteProgress);
   const after=await stableAnimationInventory(page);if(!after.stable)return{stable:false,stage:'post-normalization',progress:finiteProgress,before,normalized,after};
-  const expectedByKey=new Map(normalized.filter(x=>!x.error).map(x=>[`${x.type}|${x.key}`,x])),positionProblems=[];
-  for(const a of after.inventory){if(a.iterations===Infinity)continue;const e=expectedByKey.get(`${a.type}|${a.animationName||a.transitionProperty||''}`);if(!e)continue;if(Number.isFinite(e.desiredCurrentTime)&&Math.abs(Number(a.currentTime)-e.desiredCurrentTime)>1e-6)positionProblems.push({key:a.key,currentTime:a.currentTime,expectedCurrentTime:e.desiredCurrentTime});if(typeof e.computedProgress==='number'&&typeof a.progress==='number'&&Math.abs(a.progress-e.computedProgress)>1e-9)positionProblems.push({key:a.key,computedProgress:a.progress,expectedComputedProgress:e.computedProgress});}
+  const expectedByKey=new Map(normalized.filter(x=>!x.error).map(x=>[x.key,x])),positionProblems=[];
+  for(const a of after.inventory){if(a.iterations===Infinity)continue;const e=expectedByKey.get(a.key);if(!e)continue;if(Number.isFinite(e.desiredCurrentTime)&&Math.abs(Number(a.currentTime)-e.desiredCurrentTime)>1e-6)positionProblems.push({key:a.key,currentTime:a.currentTime,expectedCurrentTime:e.desiredCurrentTime});if(typeof e.computedProgress==='number'&&typeof a.progress==='number'&&Math.abs(a.progress-e.computedProgress)>1e-9)positionProblems.push({key:a.key,computedProgress:a.progress,expectedComputedProgress:e.computedProgress});}
   return{stable:positionProblems.length===0,stage:positionProblems.length?'position-check':'ok',progress:finiteProgress,before,normalized,after,positionProblems};
 }
 
