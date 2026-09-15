@@ -1,0 +1,191 @@
+name: Phase 3B-5C Hero Ownership Characterization
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-5c-hero-ownership-characterization-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+      BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
+      BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+      SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
+      EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
+
+    steps:
+      - name: Checkout evidence harness
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization-evidence
+          fetch-depth: 0
+          path: evidence
+
+      - name: Checkout authoritative source
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization
+          fetch-depth: 0
+          path: source
+
+      - name: Verify source identity and evidence isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C source fetch origin "$SOURCE_BRANCH" "$EVIDENCE_BRANCH"
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git -C source merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test "$(git -C source rev-parse origin/$SOURCE_BRANCH)" = "$BASE_SHA"
+          test -z "$(git -C source status --porcelain)"
+          printf '%s\n' \
+            .github/workflows/phase-3b5c-hero-ownership-characterization.yml \
+            scripts/evidence/phase-3b5c-hero-static-characterization.mjs \
+            scripts/evidence/phase-3b5c-hero-browser-characterization.mjs \
+            | sort > /tmp/allowed-evidence-paths
+          git -C evidence diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-evidence-paths
+          diff -u /tmp/allowed-evidence-paths /tmp/actual-evidence-paths
+          node --check evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs
+          node --check evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs
+          echo BRANCH_IDENTITY_PASS
+          echo SOURCE_HEAD=$(git -C source rev-parse HEAD)
+          echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree})
+          echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1)
+          echo SOURCE_MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA")
+          echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD)
+          echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree})
+          echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1)
+
+      - name: Authoritative source gate
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52
+          echo SOURCE_PREFLIGHT_52_PASS
+          npm ci
+          echo SOURCE_NPM_CI_PASS
+          npm run verify
+          echo SOURCE_NPM_VERIFY_PASS
+          npm run build
+          echo SOURCE_NPM_BUILD_PASS
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          node token-authority-check.mjs
+          echo SOURCE_DIFF_CHECK_PASS
+          echo SOURCE_DIFF_EXIT_PASS
+          echo SOURCE_STATUS_CLEAN_PASS
+
+      - name: Prepare characterization harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          rm -rf "$HARNESS_DIR" "$OUT_DIR"
+          mkdir -p "$HARNESS_DIR" "$OUT_DIR"
+          cd "$HARNESS_DIR"
+          npm init -y >/dev/null
+          npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
+          echo HARNESS_READY
+
+      - name: Run exact-current Hero static inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          cd "$HARNESS_DIR"
+          BASE_SHA="$BASE_SHA" node static.mjs \
+            --source="${GITHUB_WORKSPACE}/source" \
+            --out="$OUT_DIR/static-inventory.json"
+          python3 -m json.tool "$OUT_DIR/static-inventory.json" >/dev/null
+          echo STATIC_ARTIFACT_VALID_JSON_PASS
+
+      - name: Run isolated source-vs-synthetic pairwise browser matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update -y >/dev/null
+            sudo apt-get install -y xvfb >/dev/null
+          fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN"
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          cd "$HARNESS_DIR"
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs \
+            --source="${GITHUB_WORKSPACE}/source" \
+            --static="$OUT_DIR/static-inventory.json" \
+            --out="$OUT_DIR/browser-evidence.json" \
+            --chrome="$CHROME_BIN"
+          python3 -m json.tool "$OUT_DIR/browser-evidence.json" >/dev/null
+          echo BROWSER_ARTIFACT_VALID_JSON_PASS
+
+      - name: Build compact evidence summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'
+          static=json.loads((out/'static-inventory.json').read_text())
+          browser=json.loads((out/'browser-evidence.json').read_text())
+          summary={
+            'baseSha':browser.get('baseSha'),
+            'cluster':static['cluster'],
+            'files':{k:{x:v[x] for x in ['sha256','bytes','ruleCount','declarationCount','keyframes','mediaSequence','supports','imports']} for k,v in static['inventory'].items()},
+            'pairStatic':[{k:p[k] for k in ['id','first','second','adjacent','selectorOverlaps','propertyCollisions','stateCollisions','mediaCollisions','importantInteractions','customPropertyOverrides','keyframeOverlap','runtimeFilenameHits']} for p in static['pairs']],
+            'filenameRefs':static['filenameRefs'],
+            'checkerRefs':static['checkerRefs'],
+            'cssomRefs':static['cssomRefs'],
+            'heroCustomProperties':static['heroCustomProperties'],
+            'heroJsCoupling':static['heroJsCoupling'],
+            'environment':browser['environment'],
+            'totalComparisons':browser['totalComparisons'],
+            'pairs':[{k:p[k] for k in ['pair','concatSha256','concatBytes','firstSha256','firstBytes','secondSha256','secondBytes','totals','resourceFailureCount','unresolvedCount','environment','nativeAnchor','ownershipFinding','disposition','pass']} for p in browser['pairs']],
+            'recommendedSequence':browser['recommendedSequence'],
+            'ready':browser['ready'],
+          }
+          (out/'summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False))
+          print('TOTAL_COMPARISONS',summary['totalComparisons'])
+          for p in summary['pairs']:
+            print(p['pair']['id'],p['totals'],'resources=',p['resourceFailureCount'],'unresolved=',p['unresolvedCount'],'disposition=',p['disposition'])
+            print(' caps fine=',p['environment']['fineCaps'],'coarse=',p['environment']['coarseCaps'],'reduced=',p['environment']['reducedCaps'])
+          print('READY',summary['ready'])
+          PY
+          python3 -m json.tool "$OUT_DIR/summary.json" >/dev/null
+          echo SUMMARY_ARTIFACT_VALID_JSON_PASS
+
+      - name: Final source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git -C source merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test -z "$(git -C source status --porcelain)"
+          test -z "$(git -C source diff --name-only "$BASE_SHA"..HEAD)"
+          echo FINAL_SOURCE_IMMUTABILITY_PASS
+
+      - name: Upload evidence artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5c-hero-ownership-characterization
+          path: ${{ runner.temp }}/phase3b5c-out
+          if-no-files-found: error
