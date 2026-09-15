@@ -54,6 +54,7 @@ jobs:
             scripts/evidence/phase-3b5c-round2-lifecycle.mjs \
             scripts/evidence/phase-3b5c-round2-measure.mjs \
             scripts/evidence/phase-3b5c-round2-matrix.mjs \
+            scripts/evidence/phase-3b5c-round2-normalization-v2.mjs \
             | sort > /tmp/allowed-evidence-paths
           git -C evidence diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-evidence-paths
           diff -u /tmp/allowed-evidence-paths /tmp/actual-evidence-paths
@@ -63,6 +64,7 @@ jobs:
           node --check evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs
           node --check evidence/scripts/evidence/phase-3b5c-round2-measure.mjs
           node --check evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs
+          node --check evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs
           echo SOURCE_HEAD=$(git -C source rev-parse HEAD)
           echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree})
           echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1)
@@ -110,7 +112,6 @@ jobs:
       BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
       BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
       BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
-      SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
       EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
       REQUIRED_EVIDENCE_ANCESTOR: 64a834469ab83591c1446bab142dc31269473df3
       REPEAT: ${{ matrix.repeat }}
@@ -142,6 +143,7 @@ jobs:
           node --check evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs
           node --check evidence/scripts/evidence/phase-3b5c-round2-measure.mjs
           node --check evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs
+          node --check evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs
           echo CANARY_INPUT_IDENTITY_PASS
 
       - name: Prepare committed harness
@@ -161,7 +163,9 @@ jobs:
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs" phase-3b5c-round2-lifecycle.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-measure.mjs" phase-3b5c-round2-measure.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs" phase-3b5c-round2-matrix.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs" phase-3b5c-round2-normalization-v2.mjs
           node --check browser.mjs
+          node --check phase-3b5c-round2-normalization-v2.mjs
           echo COMMITTED_HARNESS_READY
 
       - name: P1 static inventory
@@ -171,32 +175,21 @@ jobs:
           HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
           OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
           cd "$HARNESS_DIR"
-          BASE_SHA="$BASE_SHA" node static.mjs \
-            --source="${GITHUB_WORKSPACE}/source" \
-            --out="$OUT_DIR/static-inventory.json"
+          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="$OUT_DIR/static-inventory.json"
           python3 -m json.tool "$OUT_DIR/static-inventory.json" >/dev/null
 
       - name: Run P1 S-S X-X S-X canary
-        id: browser
         shell: bash
         run: |
           set -uo pipefail
-          if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update -y >/dev/null
-            sudo apt-get install -y xvfb >/dev/null
-          fi
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
           CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$CHROME_BIN"
           HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
           OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
           cd "$HARNESS_DIR"
           set +e
-          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs \
-            --source="${GITHUB_WORKSPACE}/source" \
-            --static="$OUT_DIR/static-inventory.json" \
-            --out="$OUT_DIR/browser-evidence.json" \
-            --chrome="$CHROME_BIN" \
-            --repeat="$REPEAT"
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="$OUT_DIR/static-inventory.json" --out="$OUT_DIR/browser-evidence.json" --chrome="$CHROME_BIN" --repeat="$REPEAT"
           status=$?
           set -e
           echo "$status" > "$OUT_DIR/browser-exit.txt"
@@ -214,42 +207,27 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'
-          src=out/'browser-evidence.json'
+          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'; src=out/'browser-evidence.json'
           if not src.exists():
-              (out/'canary-summary.json').write_text(json.dumps({'ready':False,'reason':'browser-evidence-missing'},indent=2))
-              raise SystemExit(0)
-          b=json.loads(src.read_text())
-          modes=b.get('modes',{})
+              (out/'canary-summary.json').write_text(json.dumps({'ready':False,'reason':'browser-evidence-missing'},indent=2)); raise SystemExit(0)
+          b=json.loads(src.read_text()); modes=b.get('modes',{})
           mapping={'sourceSource':'control-source-source.json','syntheticSynthetic':'control-synthetic-synthetic.json','sourceSynthetic':'real-source-synthetic.json'}
-          for key,name in mapping.items():
-              (out/name).write_text(json.dumps(modes.get(key),indent=2,ensure_ascii=False))
-          deltas=[];inventories={};readiness={};pointers={};viewports={};scrolls={};motion={}
+          for key,name in mapping.items(): (out/name).write_text(json.dumps(modes.get(key),indent=2,ensure_ascii=False))
+          deltas=[]; inventories={}; readiness={}; pointers={}; viewports={}; scrolls={}; motion={}
           for key,m in modes.items():
-              records=[*m.get('records',[]),*m.get('motionRecords',[])]
-              deltas.extend(m.get('deltaAttribution',[]))
-              inventories[key]={'entranceMotion':m.get('entranceMotion'),'recordInventories':[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'source':r.get('source',{}).get('animationInventory'),'synthetic':r.get('synthetic',{}).get('animationInventory'),'normalization':r.get('normalization')} for r in m.get('records',[])],'motionInventories':[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'source':r.get('source',{}).get('animationInventory'),'synthetic':r.get('synthetic',{}).get('animationInventory'),'normalization':r.get('normalization')} for r in m.get('motionRecords',[])]}
+              records=[*m.get('records',[]),*m.get('motionRecords',[])]; deltas.extend(m.get('deltaAttribution',[]))
+              inventories[key]={'entranceMotion':m.get('entranceMotion'),'records':[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'source':r.get('source',{}).get('animationInventory'),'synthetic':r.get('synthetic',{}).get('animationInventory'),'normalization':r.get('normalization')} for r in records]}
               readiness[key]=[{'label':r.get('label'),'problems':r.get('readinessProblems'),'source':r.get('source',{}).get('readiness'),'synthetic':r.get('synthetic',{}).get('readiness')} for r in records]
               pointers[key]=[{'label':r.get('label'),'interactionApplicable':r.get('interactionApplicable'),'interactionTarget':r.get('interactionTarget'),'resetBefore':r.get('resetBefore'),'pointerReset':r.get('pointerReset'),'pointerResetBeforeAnchor':r.get('pointerResetBeforeAnchor'),'sequential':r.get('sequential'),'input':r.get('input')} for r in m.get('records',[]) if any(x in r for x in ['interactionApplicable','interactionTarget','resetBefore','pointerReset','pointerResetBeforeAnchor','sequential','input'])]
               viewports[key]=[{'label':r.get('label'),'sourceRequested':r.get('source',{}).get('readiness',{}).get('requestedViewport'),'syntheticRequested':r.get('synthetic',{}).get('readiness',{}).get('requestedViewport'),'sourceActual':r.get('source',{}).get('readiness',{}).get('viewport'),'syntheticActual':r.get('synthetic',{}).get('readiness',{}).get('viewport'),'sourceCapabilities':r.get('source',{}).get('readiness',{}).get('capabilities'),'syntheticCapabilities':r.get('synthetic',{}).get('readiness',{}).get('capabilities')} for r in records]
               scrolls[key]=[{'label':r.get('label'),'source':r.get('source',{}).get('readiness',{}).get('scroll'),'synthetic':r.get('synthetic',{}).get('readiness',{}).get('scroll'),'problems':r.get('readinessProblems')} for r in records]
-              motion[key]=[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'deltas':r.get('deltas'),'sourceNormalization':r.get('normalization',{}).get('source'),'syntheticNormalization':r.get('normalization',{}).get('synthetic')} for r in m.get('motionRecords',[])]
-          (out/'delta-attribution.json').write_text(json.dumps(deltas,indent=2,ensure_ascii=False))
-          (out/'animation-inventories.json').write_text(json.dumps(inventories,indent=2,ensure_ascii=False))
-          (out/'readiness-diagnostics.json').write_text(json.dumps(readiness,indent=2,ensure_ascii=False))
-          (out/'pointer-interaction-diagnostics.json').write_text(json.dumps(pointers,indent=2,ensure_ascii=False))
-          (out/'viewport-diagnostics.json').write_text(json.dumps(viewports,indent=2,ensure_ascii=False))
-          (out/'scroll-diagnostics.json').write_text(json.dumps(scrolls,indent=2,ensure_ascii=False))
-          (out/'normalized-motion-diagnostics.json').write_text(json.dumps(motion,indent=2,ensure_ascii=False))
+              motion[key]=[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'deltas':r.get('deltas'),'normalization':r.get('normalization')} for r in m.get('motionRecords',[])]
+          (out/'delta-attribution.json').write_text(json.dumps(deltas,indent=2,ensure_ascii=False)); (out/'animation-inventories.json').write_text(json.dumps(inventories,indent=2,ensure_ascii=False)); (out/'readiness-diagnostics.json').write_text(json.dumps(readiness,indent=2,ensure_ascii=False)); (out/'pointer-interaction-diagnostics.json').write_text(json.dumps(pointers,indent=2,ensure_ascii=False)); (out/'viewport-diagnostics.json').write_text(json.dumps(viewports,indent=2,ensure_ascii=False)); (out/'scroll-diagnostics.json').write_text(json.dumps(scrolls,indent=2,ensure_ascii=False)); (out/'normalized-motion-diagnostics.json').write_text(json.dumps(motion,indent=2,ensure_ascii=False))
           def brief(m):
-              t=(m or {}).get('totals',{});mt=(m or {}).get('motionTotals',{})
+              t=(m or {}).get('totals',{}); mt=(m or {}).get('motionTotals',{})
               return {'comparisons':t.get('comparisons',0),'motionComparisons':mt.get('comparisons',0),'computed':t.get('computed',0),'geometry':t.get('geometry',0),'custom':t.get('custom',0),'state':t.get('state',0),'motion':sum(mt.get(k,0) for k in ['computed','geometry','custom','state','accessibility']),'accessibility':t.get('accessibility',0),'resources':(m or {}).get('resourceFailureCount',0),'inventoryMismatches':t.get('inventoryMismatches',0)+mt.get('inventoryMismatches',0),'readinessBlockers':(m or {}).get('readinessBlockers',0),'blockers':len((m or {}).get('blockers',[])),'pass':(m or {}).get('pass',False)}
           summary={'repeat':b.get('repeat'),'baseSha':b.get('baseSha'),'schema':b.get('schema'),'rootCauseRepair':b.get('rootCauseRepair'),'variant':b.get('variant'),'S/S':brief(modes.get('sourceSource')),'X/X':brief(modes.get('syntheticSynthetic')),'S/X':brief(modes.get('sourceSynthetic')),'controlsPass':b.get('controlsPass'),'realPass':b.get('realPass'),'ready':b.get('ready'),'fatal':b.get('fatal')}
-          (out/'canary-summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False))
-          print('P1 CONTROL SOURCE/SOURCE',summary['S/S'])
-          print('P1 CONTROL SYNTHETIC/SYNTHETIC',summary['X/X'])
-          print('P1 REAL SOURCE/SYNTHETIC',summary['S/X'])
-          print('CANARY_READY',summary['ready'])
+          (out/'canary-summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False)); print('P1 CONTROL SOURCE/SOURCE',summary['S/S']); print('P1 CONTROL SYNTHETIC/SYNTHETIC',summary['X/X']); print('P1 REAL SOURCE/SYNTHETIC',summary['S/X']); print('CANARY_READY',summary['ready'])
           PY
 
       - name: Final frozen-source immutability
@@ -265,18 +243,7 @@ jobs:
           test -z "$(git -C source status --porcelain)"
           test -z "$(git -C source diff --name-only "$BASE_SHA"..HEAD)"
           (cd source && node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52)
-          {
-            echo SOURCE_HEAD=$(git -C source rev-parse HEAD)
-            echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree})
-            echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1)
-            echo SOURCE_MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA")
-            echo PRODUCTION_CHANGED_PATHS=0
-            echo PRODUCTION_CSS=52
-            echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD)
-            echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree})
-            echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1)
-            echo FINAL_SOURCE_IMMUTABILITY_PASS
-          } | tee "$OUT_DIR/final-source-identity.txt"
+          { echo SOURCE_HEAD=$(git -C source rev-parse HEAD); echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree}); echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1); echo SOURCE_MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA"); echo PRODUCTION_CHANGED_PATHS=0; echo PRODUCTION_CSS=52; echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD); echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree}); echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1); echo FINAL_SOURCE_IMMUTABILITY_PASS; } | tee "$OUT_DIR/final-source-identity.txt"
 
       - name: Upload P1 canary evidence even on failure
         if: always()
@@ -298,13 +265,9 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          p=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'/'canary-summary.json'
-          s=json.loads(p.read_text())
+          s=json.loads((Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'/'canary-summary.json').read_text())
           assert s.get('ready') is True, s
           for key in ['S/S','X/X','S/X']:
-              m=s[key]
-              assert m['comparisons']==93, (key,m)
-              assert m['motionComparisons']==5, (key,m)
-              assert all(m[x]==0 for x in ['computed','geometry','custom','state','motion','accessibility','resources','inventoryMismatches','readinessBlockers','blockers']), (key,m)
+              m=s[key]; assert m['comparisons']==93,(key,m); assert m['motionComparisons']==5,(key,m); assert all(m[x]==0 for x in ['computed','geometry','custom','state','motion','accessibility','resources','inventoryMismatches','readinessBlockers','blockers']),(key,m)
           print('P1_DETERMINISM_CANARY_PASS')
           PY
