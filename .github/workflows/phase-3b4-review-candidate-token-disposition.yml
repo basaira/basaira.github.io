@@ -150,6 +150,9 @@ jobs:
           print('DRAWER_PRODUCTION_EVENT_TRIGGER_PATCH_PASS')
           print('PRODUCTION_SETLANG_RTL_PATCH_PASS')
           PY
+          : > "${GITHUB_WORKSPACE}/source/tailwindcss"
+          trap 'rm -f "${GITHUB_WORKSPACE}/source/tailwindcss"' EXIT
+          echo BUILD_ONLY_TAILWIND_IMPORT_NORMALIZED_PASS
           BASE_SHA="$BASE_SHA" CHROME_BIN="$CHROME_BIN" xvfb-run -a node browser.mjs \
             --source="${GITHUB_WORKSPACE}/source" \
             --static="$OUT_DIR/static-inventory.json" \
