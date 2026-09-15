@@ -1,0 +1,101 @@
+name: Phase 3B-5C Diagnostic Artifact
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-5c-hero-ownership-characterization-diagnostic
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+      BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
+      SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization-diagnostic
+          fetch-depth: 0
+          path: evidence
+      - name: Checkout authoritative source
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization
+          fetch-depth: 0
+          path: source
+      - name: Verify source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test -z "$(git -C source status --porcelain)"
+          echo DIAGNOSTIC_SOURCE_IDENTITY_PASS
+      - name: Prepare harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-diagnostic"
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-diagnostic-out"
+          rm -rf "$HARNESS_DIR" "$OUT_DIR"
+          mkdir -p "$HARNESS_DIR" "$OUT_DIR"
+          cd "$HARNESS_DIR"
+          npm init -y >/dev/null
+          npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
+          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="$OUT_DIR/static-inventory.json"
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN"
+          set +e
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="$OUT_DIR/static-inventory.json" --out="$OUT_DIR/browser-evidence.json" --chrome="$CHROME_BIN"
+          status=$?
+          set -e
+          echo "$status" > "$OUT_DIR/browser-exit-status.txt"
+          test -s "$OUT_DIR/browser-evidence.json"
+          python3 -m json.tool "$OUT_DIR/browser-evidence.json" >/dev/null
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-diagnostic-out'
+          b=json.loads((out/'browser-evidence.json').read_text())
+          rows=[]
+          for p in b['pairs']:
+              bad=[]
+              for r in p['records']:
+                  d=r['deltas']
+                  n=sum(len(d[k]) for k in ['computed','geometry','custom','state','accessibility'])
+                  if n:
+                      bad.append({'label':r['label'],'category':r['category'],'counts':{k:len(d[k]) for k in d},'deltas':d})
+              rows.append({'pair':p['pair']['id'],'totals':p['totals'],'unresolved':p['unresolved'],'resourceFailures':p['resourceFailures'],'badRecords':bad})
+          (out/'delta-diagnostic.json').write_text(json.dumps(rows,indent=2,ensure_ascii=False))
+          for row in rows:
+              print('PAIR',row['pair'],'badRecords',len(row['badRecords']),'totals',row['totals'],'unresolved',len(row['unresolved']))
+              for r in row['badRecords'][:12]:
+                  print(' ',r['label'],r['counts'])
+                  for kind in ['computed','geometry','custom','state','accessibility']:
+                      if r['deltas'][kind]: print('   ',kind,r['deltas'][kind][:8])
+          PY
+          echo DIAGNOSTIC_BROWSER_ARTIFACT_CAPTURED exit=$status
+      - name: Final source immutability
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test -z "$(git -C source status --porcelain)"
+          echo DIAGNOSTIC_FINAL_SOURCE_IMMUTABILITY_PASS
+      - name: Upload diagnostic artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5c-diagnostic-artifact
+          path: ${{ runner.temp }}/phase3b5c-diagnostic-out
+          if-no-files-found: error
