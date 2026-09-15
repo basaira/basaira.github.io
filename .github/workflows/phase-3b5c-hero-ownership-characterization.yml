@@ -98,6 +98,49 @@ jobs:
           npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('browser.mjs')
+          s=p.read_text()
+          old_wait="""async function waitHero(page){
+  await page.waitForSelector('#home .hero-primary-cta',{timeout:12000});
+  await page.waitForSelector('#home .hero-secondary-cta',{timeout:12000});
+  await page.waitForSelector('#home .hero-visual-stage',{timeout:12000});
+  await page.waitForFunction(()=>typeof window.setLang==='function',{timeout:12000});
+}"""
+          new_wait="""async function waitHero(page){
+  await page.waitForSelector('#home .hero-primary-cta',{timeout:12000});
+  await page.waitForSelector('#home .hero-secondary-cta',{timeout:12000});
+  await page.waitForSelector('#home .hero-visual-stage',{timeout:12000});
+  await page.waitForFunction(()=>typeof window.setLang==='function',{timeout:12000});
+  await page.waitForFunction(()=>document.body.classList.contains('motion-entered'),{timeout:12000});
+  await sleep(120);
+}"""
+          if s.count(old_wait)!=1: raise SystemExit(f'WAIT_HERO_PATCH_ANCHOR_FAIL count={s.count(old_wait)}')
+          s=s.replace(old_wait,new_wait,1)
+          old_freeze="""async function freezeSettled(page){await page.evaluate(()=>{for(const a of document.getAnimations({subtree:true})){try{const t=a.effect?.getTiming?.()||{};if(t.iterations===Infinity){a.currentTime=0;a.pause();}else a.finish();}catch{try{a.pause()}catch{}}}});await sleep(30);}"""
+          new_freeze="""async function freezeSettled(page){await page.evaluate(async()=>{const raf=()=>new Promise(r=>requestAnimationFrame(()=>r()));for(let pass=0;pass<5;pass++){await raf();await raf();for(const a of document.getAnimations({subtree:true})){try{const t=a.effect?.getTiming?.()||{};if(t.iterations===Infinity){a.currentTime=0;a.pause();}else a.finish();}catch{try{a.pause()}catch{}}}}});await sleep(20);}"""
+          if s.count(old_freeze)!=1: raise SystemExit(f'FREEZE_SETTLED_PATCH_ANCHOR_FAIL count={s.count(old_freeze)}')
+          s=s.replace(old_freeze,new_freeze,1)
+          old_motion="""async function setMotionBoundary(page,phase){
+  await page.evaluate(p=>{if(p==='prep'){document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');}else{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');}},phase);
+  if(phase==='prep')await pauseAnimationsAtZero(page);else await freezeSettled(page);
+}"""
+          new_motion="""async function setMotionBoundary(page,phase){
+  await page.evaluate(p=>{if(p==='prep'){document.body.classList.add('motion-prep');document.body.classList.remove('motion-entered');}else{document.body.classList.add('motion-entered');document.body.classList.remove('motion-prep');}},phase);
+  if(phase==='prep'){
+    await pauseAnimationsAtZero(page);
+    await page.waitForFunction(()=>document.body.classList.contains('motion-prep')&&!document.body.classList.contains('motion-entered'),{timeout:2000});
+  }else await freezeSettled(page);
+}"""
+          if s.count(old_motion)!=1: raise SystemExit(f'MOTION_BOUNDARY_PATCH_ANCHOR_FAIL count={s.count(old_motion)}')
+          s=s.replace(old_motion,new_motion,1)
+          p.write_text(s)
+          print('HERO_ENTRANCE_CONTROLLER_SETTLE_PATCH_PASS')
+          print('HERO_MULTI_FRAME_ANIMATION_SETTLE_PATCH_PASS')
+          print('HERO_PREP_BOUNDARY_ASSERTION_PATCH_PASS')
+          PY
+          node --check browser.mjs
           echo HARNESS_READY
 
       - name: Run exact-current Hero static inventory
