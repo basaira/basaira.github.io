@@ -29,13 +29,33 @@ export async function forceMaterialization(page){
   });
 }
 
+async function pauseRelevantAnimations(page){
+  return page.evaluate(()=>{
+    const hero=document.querySelector('#home'),paused=[];
+    for(const a of document.getAnimations({subtree:true})){
+      const target=a.effect?.target,el=target instanceof Element?target:(target?.element instanceof Element?target.element:null);
+      if(!el||!(el===hero||hero?.contains(el)))continue;
+      try{a.pause();paused.push({type:a.constructor?.name||'Animation',name:a.animationName||a.transitionProperty||'',currentTime:a.currentTime,playState:a.playState});}catch(e){paused.push({type:a.constructor?.name||'Animation',name:a.animationName||a.transitionProperty||'',error:String(e)});}
+    }
+    return paused;
+  });
+}
+
 export async function stableAnimationInventory(page,maxPasses=MAX_INVENTORY_PASSES){
   let previous=null;const history=[];
   for(let pass=1;pass<=maxPasses;pass++){
     await forceMaterialization(page);
     const inventory=await relevantAnimationInventory(page),logical=logicalInventory(inventory),serialized=JSON.stringify(logical);
     history.push({pass,logical});
-    if(previous===serialized)return{stable:true,passes:pass,inventory,logical,history};
+    if(previous===serialized){
+      const paused=await pauseRelevantAnimations(page);
+      await forceMaterialization(page);
+      const frozenInventory=await relevantAnimationInventory(page),frozenLogical=logicalInventory(frozenInventory),frozenSerialized=JSON.stringify(frozenLogical);
+      history.push({pass:`${pass}-frozen`,logical:frozenLogical});
+      if(frozenSerialized===serialized)return{stable:true,passes:pass,inventory:frozenInventory,logical:frozenLogical,history,paused,frozen:true};
+      previous=frozenSerialized;
+      continue;
+    }
     previous=serialized;
   }
   const inventory=await relevantAnimationInventory(page);return{stable:false,passes:maxPasses,inventory,logical:logicalInventory(inventory),history};
