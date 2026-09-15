@@ -102,7 +102,7 @@ jobs:
     env:
       BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
       BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
-      BASE_PARENT: a4671e5f4aa706ecc56fbf1b0b619e26fcb105f22f
+      BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
       SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
       EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
       REQUIRED_EVIDENCE_ANCESTOR: b8e7b6df2f28f7b94d2623dc7a0671bb101b9bb5
