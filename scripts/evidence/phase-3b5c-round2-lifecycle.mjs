@@ -48,26 +48,17 @@ export async function normalizeAnimationsStable(page,finiteProgress=1){
     for(const a of document.getAnimations({subtree:true})){
       const effect=a.effect;if(!effect||!isHeroTarget(effect.target))continue;const t=effect.getTiming(),duration=Number(t.duration),delay=Number(t.delay)||0,iterations=Number(t.iterations);
       try{
-        a.pause();
-        if(t.iterations!==Infinity&&Number.isFinite(duration)&&Number.isFinite(iterations)){
-          const active=duration*iterations,desired=delay+active*progress;if(Number.isFinite(desired))a.currentTime=desired;
-        }
-        const c=effect.getComputedTiming();out.push({key:(a.animationName||a.transitionProperty||''),type:a.constructor?.name||'Animation',currentTime:a.currentTime,progress:c.progress,playState:a.playState,duration:t.duration,delay:t.delay,iterations:t.iterations});
+        a.pause();let desired=null;
+        if(t.iterations!==Infinity&&Number.isFinite(duration)&&Number.isFinite(iterations)){const active=duration*iterations;desired=delay+active*progress;if(Number.isFinite(desired))a.currentTime=desired;}
+        const c=effect.getComputedTiming();out.push({key:(a.animationName||a.transitionProperty||''),type:a.constructor?.name||'Animation',desiredCurrentTime:desired,currentTime:a.currentTime,computedProgress:c.progress,playState:a.playState,duration:t.duration,delay:t.delay,iterations:t.iterations});
       }catch(e){out.push({key:(a.animationName||a.transitionProperty||''),type:a.constructor?.name||'Animation',error:String(e)});}
     }
     document.documentElement.getBoundingClientRect();return out;
   },finiteProgress);
   const after=await stableAnimationInventory(page);if(!after.stable)return{stable:false,stage:'post-normalization',progress:finiteProgress,before,normalized,after};
-  const progressCheck=await page.evaluate(expected=>{
-    const hero=document.querySelector('#home'),bad=[];
-    for(const a of document.getAnimations({subtree:true})){
-      const effect=a.effect,target=effect?.target,el=target instanceof Element?target:(target?.element instanceof Element?target.element:null);if(!el||!(el===hero||hero?.contains(el)))continue;
-      const t=effect.getTiming();if(t.iterations===Infinity)continue;const c=effect.getComputedTiming(),p=c.progress;
-      if(typeof p!=='number'||Math.abs(p-expected)>1e-6)bad.push({type:a.constructor?.name||'Animation',name:a.animationName||a.transitionProperty||'',progress:p,expected,currentTime:a.currentTime,duration:t.duration,delay:t.delay,iterations:t.iterations});
-    }
-    return bad;
-  },finiteProgress);
-  return{stable:progressCheck.length===0,stage:progressCheck.length?'progress-check':'ok',progress:finiteProgress,before,normalized,after,progressProblems:progressCheck};
+  const expectedByKey=new Map(normalized.filter(x=>!x.error).map(x=>[`${x.type}|${x.key}`,x])),positionProblems=[];
+  for(const a of after.inventory){if(a.iterations===Infinity)continue;const e=expectedByKey.get(`${a.type}|${a.animationName||a.transitionProperty||''}`);if(!e)continue;if(Number.isFinite(e.desiredCurrentTime)&&Math.abs(Number(a.currentTime)-e.desiredCurrentTime)>1e-6)positionProblems.push({key:a.key,currentTime:a.currentTime,expectedCurrentTime:e.desiredCurrentTime});if(typeof e.computedProgress==='number'&&typeof a.progress==='number'&&Math.abs(a.progress-e.computedProgress)>1e-9)positionProblems.push({key:a.key,computedProgress:a.progress,expectedComputedProgress:e.computedProgress});}
+  return{stable:positionProblems.length===0,stage:positionProblems.length?'position-check':'ok',progress:finiteProgress,before,normalized,after,positionProblems};
 }
 
 export async function waitScrollStable(page,maxFrames=12){
@@ -94,8 +85,12 @@ export async function resetPointer(page,{waitAck=true}={}){
 }
 
 export async function openPage(browser,origin,config={}){const page=await browser.newPage(),monitor=await configurePage(page,origin,config);await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});await waitForProductionReady(page);return{page,monitor};}
+
 export async function setRequestedViewport(page,width,height){const requested={width,height,deviceScaleFactor:1,isMobile:false,hasTouch:false};await page.setViewport(requested);return requested;}
-export async function prepareStatic(page,{lang='en',phase='entered',width=1440,height=900}={}){const requestedViewport=await setRequestedViewport(page,width,height);await setLocale(page,lang);await setControllerState(page,phase);const normalization=await normalizeAnimationsStable(page,1);await page.evaluate(()=>scrollTo(0,0));await waitScrollStable(page);return{requestedViewport,normalization};}
+
+export async function prepareStatic(page,{lang='en',phase='entered',width=1440,height=900}={}){
+  const requestedViewport=await setRequestedViewport(page,width,height);await setLocale(page,lang);await setControllerState(page,phase);const pointerReset=await resetPointer(page);if(pointerReset.problems.length)throw new Error(`pointer baseline failed in prepareStatic: ${JSON.stringify(pointerReset.problems)}`);const normalization=await normalizeAnimationsStable(page,1);await page.evaluate(()=>scrollTo(0,0));await waitScrollStable(page);return{requestedViewport,normalization,pointerReset};
+}
 
 export async function readiness(page,meta,expected={}){
   return page.evaluate(({meta,expected})=>{
@@ -106,5 +101,17 @@ export async function readiness(page,meta,expected={}){
     return{...meta,readyState:document.readyState,heroExists:Boolean(hero),setLangReady:typeof window.setLang==='function',lang:document.documentElement.lang,dir:document.documentElement.dir,fontsStatus:document.fonts.status,titleFont:fontInfo(title),primaryFont:fontInfo(primary),images,localStylesheets:stylesheetLinks,localStylesheetsLoaded:stylesheetLinks.every(x=>x.loaded&&x.ruleCount!==null),viewport:{width:innerWidth,height:innerHeight,devicePixelRatio,visualWidth:visualViewport?.width??null,visualHeight:visualViewport?.height??null},scroll:{x:scrollX,y:scrollY},capabilities:{pointerFine:matchMedia('(pointer:fine)').matches,hoverHover:matchMedia('(hover:hover)').matches,pointerCoarse:matchMedia('(pointer:coarse)').matches,hoverNone:matchMedia('(hover:none)').matches,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,forced:matchMedia('(forced-colors: active)').matches},bootState:window.BasairBoot?.state?.()||null,bodyClasses:[...document.body.classList].sort(),heroClasses:hero?[...hero.classList].sort():[],routeClassOk:expected.lang?document.body.classList.contains(`route-${expected.lang}`):true,controllerStateOk:expected.phase==='prep'?(document.body.classList.contains('motion-prep')&&!document.body.classList.contains('motion-entered')):expected.phase==='entered'?(document.body.classList.contains('motion-entered')&&!document.body.classList.contains('motion-prep')):true};
   },{meta,expected});
 }
-export function absoluteReadinessProblems(f,expected){const p=[];if(f.readyState!=='complete')p.push(`readyState=${f.readyState}`);if(!f.heroExists)p.push('hero missing');if(!f.setLangReady)p.push('setLang missing');if(expected.lang&&f.lang!==expected.lang)p.push(`lang=${f.lang}`);if(expected.dir&&f.dir!==expected.dir)p.push(`dir=${f.dir}`);if(f.fontsStatus!=='loaded')p.push(`fontsStatus=${f.fontsStatus}`);if(!f.localStylesheetsLoaded)p.push('local stylesheets not loaded');if(f.bootState!=='released')p.push(`bootState=${f.bootState}`);if(!f.routeClassOk)p.push('route class mismatch');if(!f.controllerStateOk)p.push('controller state mismatch');if(f.images.some(x=>!x.complete||x.decode.startsWith('error:')))p.push('hero image readiness failure');return p;}
-export function pairReadinessProblems(a,b,{allowNonzeroScroll=false}={}){const pa=[],pb=[];if(a.viewport.width!==b.viewport.width||a.viewport.height!==b.viewport.height){pa.push(`actual viewport mismatch ${a.viewport.width}x${a.viewport.height} vs ${b.viewport.width}x${b.viewport.height}`);pb.push(`actual viewport mismatch ${b.viewport.width}x${b.viewport.height} vs ${a.viewport.width}x${a.viewport.height}`);}if(a.viewport.devicePixelRatio!==b.viewport.devicePixelRatio){pa.push('devicePixelRatio mismatch');pb.push('devicePixelRatio mismatch');}if(JSON.stringify(a.capabilities)!==JSON.stringify(b.capabilities)){pa.push('capabilities mismatch');pb.push('capabilities mismatch');}if(Math.abs(a.scroll.x-b.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(a.scroll.y-b.scroll.y)>GEOMETRY_TOLERANCE){pa.push(`scroll mismatch ${a.scroll.x},${a.scroll.y} vs ${b.scroll.x},${b.scroll.y}`);pb.push(`scroll mismatch ${b.scroll.x},${b.scroll.y} vs ${a.scroll.x},${a.scroll.y}`);}if(!allowNonzeroScroll&&(Math.abs(a.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(a.scroll.y)>GEOMETRY_TOLERANCE))pa.push(`unexpected nonzero scroll ${a.scroll.x},${a.scroll.y}`);if(!allowNonzeroScroll&&(Math.abs(b.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(b.scroll.y)>GEOMETRY_TOLERANCE))pb.push(`unexpected nonzero scroll ${b.scroll.x},${b.scroll.y}`);return{A:pa,B:pb};}
+
+export function absoluteReadinessProblems(f,expected){
+  const p=[];if(f.readyState!=='complete')p.push(`readyState=${f.readyState}`);if(!f.heroExists)p.push('hero missing');if(!f.setLangReady)p.push('setLang missing');if(expected.lang&&f.lang!==expected.lang)p.push(`lang=${f.lang}`);if(expected.dir&&f.dir!==expected.dir)p.push(`dir=${f.dir}`);if(f.fontsStatus!=='loaded')p.push(`fontsStatus=${f.fontsStatus}`);if(!f.localStylesheetsLoaded)p.push('local stylesheets not loaded');if(f.bootState!=='released')p.push(`bootState=${f.bootState}`);if(!f.routeClassOk)p.push('route class mismatch');if(!f.controllerStateOk)p.push('controller state mismatch');if(f.images.some(x=>!x.complete||x.decode.startsWith('error:')))p.push('hero image readiness failure');return p;
+}
+export function pairReadinessProblems(a,b,{allowNonzeroScroll=false}={}){
+  const pa=[],pb=[];
+  if(a.viewport.width!==b.viewport.width||a.viewport.height!==b.viewport.height){pa.push(`actual viewport mismatch ${a.viewport.width}x${a.viewport.height} vs ${b.viewport.width}x${b.viewport.height}`);pb.push(`actual viewport mismatch ${b.viewport.width}x${b.viewport.height} vs ${a.viewport.width}x${a.viewport.height}`);}
+  if(a.viewport.devicePixelRatio!==b.viewport.devicePixelRatio){pa.push('devicePixelRatio mismatch');pb.push('devicePixelRatio mismatch');}
+  if(JSON.stringify(a.capabilities)!==JSON.stringify(b.capabilities)){pa.push('capabilities mismatch');pb.push('capabilities mismatch');}
+  if(Math.abs(a.scroll.x-b.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(a.scroll.y-b.scroll.y)>GEOMETRY_TOLERANCE){pa.push(`scroll mismatch ${a.scroll.x},${a.scroll.y} vs ${b.scroll.x},${b.scroll.y}`);pb.push(`scroll mismatch ${b.scroll.x},${b.scroll.y} vs ${a.scroll.x},${a.scroll.y}`);}
+  if(!allowNonzeroScroll&&(Math.abs(a.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(a.scroll.y)>GEOMETRY_TOLERANCE)){pa.push(`unexpected nonzero scroll ${a.scroll.x},${a.scroll.y}`);}
+  if(!allowNonzeroScroll&&(Math.abs(b.scroll.x)>GEOMETRY_TOLERANCE||Math.abs(b.scroll.y)>GEOMETRY_TOLERANCE)){pb.push(`unexpected nonzero scroll ${b.scroll.x},${b.scroll.y}`);}
+  return{A:pa,B:pb};
+}
