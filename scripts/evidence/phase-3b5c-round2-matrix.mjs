@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import {MOTION_PROGRESS,VIEWPORT_WIDTHS,LOCALES,chrome,setLocale,setControllerState} from './phase-3b5c-round2-base.mjs';
-import {prepareStatic,stableAnimationInventory,waitAckReset,openPage,forceMaterialization,resetPointer} from './phase-3b5c-round2-lifecycle.mjs';
+import {prepareStatic,stableAnimationInventory,waitAckReset,waitScrollStable,openPage,forceMaterialization,resetPointer} from './phase-3b5c-round2-lifecycle.mjs';
 import {measurePair,measureSequentialHover,interactionPoint,measureSequentialActiveAndAck,measureSequentialKeyboard,pointerResetForAnchor,aggregate,deltaAttribution,capturePage,finalizePair} from './phase-3b5c-round2-measure.mjs';
 
 export async function runNormalizedEntranceMotion(a,b,monA,monB,mode,motionRecords){
