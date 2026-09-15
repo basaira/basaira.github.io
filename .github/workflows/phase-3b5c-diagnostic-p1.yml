@@ -1,0 +1,76 @@
+name: Phase 3B-5C Diagnostic P1
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-5c-hero-ownership-characterization-diagnostic-p1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization-diagnostic-p1
+          fetch-depth: 0
+          path: evidence
+      - uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization
+          fetch-depth: 0
+          path: source
+      - name: Run P1 diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          H="${RUNNER_TEMP}/p1"; O="${RUNNER_TEMP}/p1-out"; rm -rf "$H" "$O"; mkdir -p "$H" "$O"; cd "$H"
+          npm init -y >/dev/null
+          npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
+          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="$O/static-inventory.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('browser.mjs'); s=p.read_text()
+          old="const PAIRS=HERO_FILES.slice(0,-1).map((first,i)=>({id:`P${i+1}`,first,second:HERO_FILES[i+1]}));"
+          new="const PAIRS=[{id:'P1',first:HERO_FILES[0],second:HERO_FILES[1]}];"
+          if s.count(old)!=1: raise SystemExit('PAIR_PATCH_ANCHOR_FAIL')
+          p.write_text(s.replace(old,new,1))
+          PY
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"; test -n "$CHROME_BIN"
+          set +e
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="$O/static-inventory.json" --out="$O/browser-evidence.json" --chrome="$CHROME_BIN"
+          status=$?
+          set -e
+          echo "$status" > "$O/exit.txt"
+          test -s "$O/browser-evidence.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          o=Path(os.environ['RUNNER_TEMP'])/'p1-out'; b=json.loads((o/'browser-evidence.json').read_text()); p=b['pairs'][0]
+          out=[]
+          for r in p['records']:
+              d=r['deltas']; n=sum(len(d[k]) for k in ['computed','geometry','custom','state','accessibility'])
+              if n: out.append({'label':r['label'],'category':r['category'],'deltas':d})
+          (o/'p1-deltas.json').write_text(json.dumps({'totals':p['totals'],'unresolved':p['unresolved'],'resourceFailures':p['resourceFailures'],'badRecords':out},indent=2))
+          print('P1_TOTALS',p['totals'],'UNRESOLVED',p['unresolved'])
+          for r in out:
+              print('BAD',r['label'])
+              for k,v in r['deltas'].items():
+                  if v: print(k,v[:20])
+          PY
+          test "$(git -C "${GITHUB_WORKSPACE}/source" rev-parse HEAD)" = "$BASE_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5c-diagnostic-p1
+          path: ${{ runner.temp }}/p1-out
+          if-no-files-found: error
