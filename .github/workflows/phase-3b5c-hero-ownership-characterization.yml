@@ -1,4 +1,4 @@
-name: Phase 3B-5C Hero Determinism Canary
+name: Phase 3B-5C Full Deterministic Hero Pairwise Characterization
 
 on:
   push:
@@ -9,17 +9,18 @@ on:
 permissions:
   contents: read
 
+env:
+  BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+  BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
+  BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+  SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
+  EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
+  REQUIRED_EVIDENCE_ANCESTOR: 19790a0120161f732d578fe21ecbb8fc2880e649
+
 jobs:
   source-gate:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
-      BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
-      BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
-      SOURCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization
-      EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
-      REQUIRED_EVIDENCE_ANCESTOR: 64a834469ab83591c1446bab142dc31269473df3
     steps:
       - name: Checkout evidence
         uses: actions/checkout@v4
@@ -35,7 +36,7 @@ jobs:
           fetch-depth: 0
           path: source
 
-      - name: Verify frozen source and evidence lineage
+      - name: Verify frozen source and evidence-only lineage
         shell: bash
         run: |
           set -euo pipefail
@@ -55,16 +56,12 @@ jobs:
             scripts/evidence/phase-3b5c-round2-measure.mjs \
             scripts/evidence/phase-3b5c-round2-matrix.mjs \
             scripts/evidence/phase-3b5c-round2-normalization-v2.mjs \
+            scripts/evidence/phase-3b5c-full-pairwise-browser.mjs \
+            scripts/evidence/phase-3b5c-full-pairwise-summary.mjs \
             | sort > /tmp/allowed-evidence-paths
           git -C evidence diff --name-only "$BASE_SHA"..HEAD | sort > /tmp/actual-evidence-paths
           diff -u /tmp/allowed-evidence-paths /tmp/actual-evidence-paths
-          node --check evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-base.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-measure.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs
+          for f in evidence/scripts/evidence/phase-3b5c-*.mjs; do node --check "$f"; done
           echo SOURCE_HEAD=$(git -C source rev-parse HEAD)
           echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree})
           echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1)
@@ -99,38 +96,33 @@ jobs:
           (cd source && node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52)
           echo FINAL_SOURCE_IMMUTABILITY_PASS
 
-  p1-canary:
+  p4-canary:
     needs: source-gate
     strategy:
       fail-fast: false
       matrix:
-        repeat: [1, 2, 3]
-    name: P1 canary repeat ${{ matrix.repeat }}
+        repeat: [1, 2]
+    name: P4 generalization canary ${{ matrix.repeat }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
-      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
-      BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
-      BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
-      EVIDENCE_BRANCH: basair/phase-3b-5c-hero-ownership-characterization-evidence
-      REQUIRED_EVIDENCE_ANCESTOR: 64a834469ab83591c1446bab142dc31269473df3
+      PAIR: P4
       REPEAT: ${{ matrix.repeat }}
+      CAMPAIGN: p4-canary
     steps:
-      - name: Checkout committed evidence harness
+      - name: Checkout evidence
         uses: actions/checkout@v4
         with:
           ref: basair/phase-3b-5c-hero-ownership-characterization-evidence
           fetch-depth: 0
           path: evidence
-
       - name: Checkout frozen source
         uses: actions/checkout@v4
         with:
           ref: basair/phase-3b-5c-hero-ownership-characterization
           fetch-depth: 0
           path: source
-
-      - name: Verify canary input identity
+      - name: Verify pair input identity
         shell: bash
         run: |
           set -euo pipefail
@@ -138,136 +130,280 @@ jobs:
           test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
           test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
           git -C evidence merge-base --is-ancestor "$REQUIRED_EVIDENCE_ANCESTOR" HEAD
-          node --check evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-base.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-measure.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs
-          node --check evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs
-          echo CANARY_INPUT_IDENTITY_PASS
-
-      - name: Prepare committed harness
+          node --check evidence/scripts/evidence/phase-3b5c-full-pairwise-browser.mjs
+      - name: Prepare deterministic harness
         shell: bash
         run: |
           set -euo pipefail
-          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
-          rm -rf "$HARNESS_DIR" "$OUT_DIR"
-          mkdir -p "$HARNESS_DIR" "$OUT_DIR"
-          cd "$HARNESS_DIR"
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"; OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          rm -rf "$HARNESS_DIR" "$OUT_DIR"; mkdir -p "$HARNESS_DIR" "$OUT_DIR"; cd "$HARNESS_DIR"
           npm init -y >/dev/null
           npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
-          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-browser-characterization.mjs" browser.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-full-pairwise-browser.mjs" browser.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-base.mjs" phase-3b5c-round2-base.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs" phase-3b5c-round2-lifecycle.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-measure.mjs" phase-3b5c-round2-measure.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs" phase-3b5c-round2-matrix.mjs
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs" phase-3b5c-round2-normalization-v2.mjs
           node --check browser.mjs
-          node --check phase-3b5c-round2-normalization-v2.mjs
-          echo COMMITTED_HARNESS_READY
-
-      - name: P1 static inventory
+      - name: Static identity and pair facts
         shell: bash
         run: |
           set -euo pipefail
-          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
-          cd "$HARNESS_DIR"
-          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="$OUT_DIR/static-inventory.json"
-          python3 -m json.tool "$OUT_DIR/static-inventory.json" >/dev/null
-
-      - name: Run P1 S-S X-X S-X canary
+          cd "${RUNNER_TEMP}/phase3b5c-harness"
+          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="${RUNNER_TEMP}/phase3b5c-out/static-inventory.json"
+          python3 -m json.tool "${RUNNER_TEMP}/phase3b5c-out/static-inventory.json" >/dev/null
+      - name: Run P4 S-S X-X S-X
         shell: bash
         run: |
           set -uo pipefail
           if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
-          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
-          test -n "$CHROME_BIN"
-          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
-          cd "$HARNESS_DIR"
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"; test -n "$CHROME_BIN"
+          cd "${RUNNER_TEMP}/phase3b5c-harness"
           set +e
-          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="$OUT_DIR/static-inventory.json" --out="$OUT_DIR/browser-evidence.json" --chrome="$CHROME_BIN" --repeat="$REPEAT"
-          status=$?
-          set -e
-          echo "$status" > "$OUT_DIR/browser-exit.txt"
-          if [ -s "$OUT_DIR/browser-evidence.json" ]; then python3 -m json.tool "$OUT_DIR/browser-evidence.json" >/dev/null; fi
-          echo BROWSER_EXIT=$status
-          exit 0
-
-      - name: Build raw diagnostic artifacts
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
-          mkdir -p "$OUT_DIR"
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'; src=out/'browser-evidence.json'
-          if not src.exists():
-              (out/'canary-summary.json').write_text(json.dumps({'ready':False,'reason':'browser-evidence-missing'},indent=2)); raise SystemExit(0)
-          b=json.loads(src.read_text()); modes=b.get('modes',{})
-          mapping={'sourceSource':'control-source-source.json','syntheticSynthetic':'control-synthetic-synthetic.json','sourceSynthetic':'real-source-synthetic.json'}
-          for key,name in mapping.items(): (out/name).write_text(json.dumps(modes.get(key),indent=2,ensure_ascii=False))
-          deltas=[]; inventories={}; readiness={}; pointers={}; viewports={}; scrolls={}; motion={}
-          for key,m in modes.items():
-              records=[*m.get('records',[]),*m.get('motionRecords',[])]; deltas.extend(m.get('deltaAttribution',[]))
-              inventories[key]={'entranceMotion':m.get('entranceMotion'),'records':[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'source':r.get('source',{}).get('animationInventory'),'synthetic':r.get('synthetic',{}).get('animationInventory'),'normalization':r.get('normalization')} for r in records]}
-              readiness[key]=[{'label':r.get('label'),'problems':r.get('readinessProblems'),'source':r.get('source',{}).get('readiness'),'synthetic':r.get('synthetic',{}).get('readiness')} for r in records]
-              pointers[key]=[{'label':r.get('label'),'interactionApplicable':r.get('interactionApplicable'),'interactionTarget':r.get('interactionTarget'),'resetBefore':r.get('resetBefore'),'pointerReset':r.get('pointerReset'),'pointerResetBeforeAnchor':r.get('pointerResetBeforeAnchor'),'sequential':r.get('sequential'),'input':r.get('input')} for r in m.get('records',[]) if any(x in r for x in ['interactionApplicable','interactionTarget','resetBefore','pointerReset','pointerResetBeforeAnchor','sequential','input'])]
-              viewports[key]=[{'label':r.get('label'),'sourceRequested':r.get('source',{}).get('readiness',{}).get('requestedViewport'),'syntheticRequested':r.get('synthetic',{}).get('readiness',{}).get('requestedViewport'),'sourceActual':r.get('source',{}).get('readiness',{}).get('viewport'),'syntheticActual':r.get('synthetic',{}).get('readiness',{}).get('viewport'),'sourceCapabilities':r.get('source',{}).get('readiness',{}).get('capabilities'),'syntheticCapabilities':r.get('synthetic',{}).get('readiness',{}).get('capabilities')} for r in records]
-              scrolls[key]=[{'label':r.get('label'),'source':r.get('source',{}).get('readiness',{}).get('scroll'),'synthetic':r.get('synthetic',{}).get('readiness',{}).get('scroll'),'problems':r.get('readinessProblems')} for r in records]
-              motion[key]=[{'label':r.get('label'),'inventoryEqual':r.get('inventoryEqual'),'deltas':r.get('deltas'),'normalization':r.get('normalization')} for r in m.get('motionRecords',[])]
-          (out/'delta-attribution.json').write_text(json.dumps(deltas,indent=2,ensure_ascii=False)); (out/'animation-inventories.json').write_text(json.dumps(inventories,indent=2,ensure_ascii=False)); (out/'readiness-diagnostics.json').write_text(json.dumps(readiness,indent=2,ensure_ascii=False)); (out/'pointer-interaction-diagnostics.json').write_text(json.dumps(pointers,indent=2,ensure_ascii=False)); (out/'viewport-diagnostics.json').write_text(json.dumps(viewports,indent=2,ensure_ascii=False)); (out/'scroll-diagnostics.json').write_text(json.dumps(scrolls,indent=2,ensure_ascii=False)); (out/'normalized-motion-diagnostics.json').write_text(json.dumps(motion,indent=2,ensure_ascii=False))
-          def brief(m):
-              t=(m or {}).get('totals',{}); mt=(m or {}).get('motionTotals',{})
-              return {'comparisons':t.get('comparisons',0),'motionComparisons':mt.get('comparisons',0),'computed':t.get('computed',0),'geometry':t.get('geometry',0),'custom':t.get('custom',0),'state':t.get('state',0),'motion':sum(mt.get(k,0) for k in ['computed','geometry','custom','state','accessibility']),'accessibility':t.get('accessibility',0),'resources':(m or {}).get('resourceFailureCount',0),'inventoryMismatches':t.get('inventoryMismatches',0)+mt.get('inventoryMismatches',0),'readinessBlockers':(m or {}).get('readinessBlockers',0),'blockers':len((m or {}).get('blockers',[])),'pass':(m or {}).get('pass',False)}
-          summary={'repeat':b.get('repeat'),'baseSha':b.get('baseSha'),'schema':b.get('schema'),'rootCauseRepair':b.get('rootCauseRepair'),'variant':b.get('variant'),'S/S':brief(modes.get('sourceSource')),'X/X':brief(modes.get('syntheticSynthetic')),'S/X':brief(modes.get('sourceSynthetic')),'controlsPass':b.get('controlsPass'),'realPass':b.get('realPass'),'ready':b.get('ready'),'fatal':b.get('fatal')}
-          (out/'canary-summary.json').write_text(json.dumps(summary,indent=2,ensure_ascii=False)); print('P1 CONTROL SOURCE/SOURCE',summary['S/S']); print('P1 CONTROL SYNTHETIC/SYNTHETIC',summary['X/X']); print('P1 REAL SOURCE/SYNTHETIC',summary['S/X']); print('CANARY_READY',summary['ready'])
-          PY
-
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="${RUNNER_TEMP}/phase3b5c-out/static-inventory.json" --out="${RUNNER_TEMP}/phase3b5c-out/browser-evidence.json" --chrome="$CHROME_BIN" --pair="$PAIR" --repeat="$REPEAT" --campaign="$CAMPAIGN"
+          status=$?; set -e; echo "$status" > "${RUNNER_TEMP}/phase3b5c-out/browser-exit.txt"; exit 0
       - name: Final frozen-source immutability
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"; mkdir -p "$OUT_DIR"
           test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
           test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
           test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
-          test "$(git -C source merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
           test -z "$(git -C source status --porcelain)"
           test -z "$(git -C source diff --name-only "$BASE_SHA"..HEAD)"
           (cd source && node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52)
           { echo SOURCE_HEAD=$(git -C source rev-parse HEAD); echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree}); echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1); echo SOURCE_MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA"); echo PRODUCTION_CHANGED_PATHS=0; echo PRODUCTION_CSS=52; echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD); echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree}); echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1); echo FINAL_SOURCE_IMMUTABILITY_PASS; } | tee "$OUT_DIR/final-source-identity.txt"
-
-      - name: Upload P1 canary evidence even on failure
+      - name: Upload P4 canary evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase-3b5c-p1-determinism-round2-${{ matrix.repeat }}
+          name: phase-3b5c-p4-canary-${{ matrix.repeat }}
           path: ${{ runner.temp }}/phase3b5c-out
           if-no-files-found: warn
           compression-level: 6
-
-      - name: Enforce canary gate after artifacts
+      - name: Enforce P4 canary gate
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
-          test -s "$OUT_DIR/browser-exit.txt"
-          test "$(cat "$OUT_DIR/browser-exit.txt")" = "0"
+          OUT="${RUNNER_TEMP}/phase3b5c-out"; test "$(cat "$OUT/browser-exit.txt")" = "0"
           python3 - <<'PY'
-          import json, os
+          import json,os
           from pathlib import Path
-          s=json.loads((Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'/'canary-summary.json').read_text())
-          assert s.get('ready') is True, s
-          for key in ['S/S','X/X','S/X']:
-              m=s[key]; assert m['comparisons']==93,(key,m); assert m['motionComparisons']==5,(key,m); assert all(m[x]==0 for x in ['computed','geometry','custom','state','motion','accessibility','resources','inventoryMismatches','readinessBlockers','blockers']),(key,m)
-          print('P1_DETERMINISM_CANARY_PASS')
+          b=json.loads((Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'/'browser-evidence.json').read_text())
+          assert b['pair']['id']=='P4' and b['ready'] is True,b
+          for k in ['sourceSource','syntheticSynthetic','sourceSynthetic']:
+              m=b['modes'][k]; t=m['totals']; mt=m['motionTotals']
+              assert t['comparisons']==93 and mt['comparisons']==5,(k,t,mt)
+              assert all((t.get(x,0)==0) for x in ['computed','geometry','custom','state','accessibility','inventoryMismatches']),(k,t)
+              assert all((mt.get(x,0)==0) for x in ['computed','geometry','custom','state','accessibility','inventoryMismatches']),(k,mt)
+              assert m['resourceFailureCount']==0 and m['readinessBlockers']==0 and len(m['blockers'])==0,(k,m['blockers'])
+          print('P4_GENERALIZATION_CANARY_PASS')
+          PY
+
+  full-matrix:
+    needs: p4-canary
+    strategy:
+      fail-fast: false
+      matrix:
+        pair: [P1, P2, P3, P4, P5, P6]
+    name: Full characterization ${{ matrix.pair }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      PAIR: ${{ matrix.pair }}
+      REPEAT: 1
+      CAMPAIGN: full
+    steps:
+      - name: Checkout evidence
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization-evidence
+          fetch-depth: 0
+          path: evidence
+      - name: Checkout frozen source
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization
+          fetch-depth: 0
+          path: source
+      - name: Verify pair input identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          git -C evidence merge-base --is-ancestor "$REQUIRED_EVIDENCE_ANCESTOR" HEAD
+          node --check evidence/scripts/evidence/phase-3b5c-full-pairwise-browser.mjs
+      - name: Prepare deterministic harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          HARNESS_DIR="${RUNNER_TEMP}/phase3b5c-harness"; OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"
+          rm -rf "$HARNESS_DIR" "$OUT_DIR"; mkdir -p "$HARNESS_DIR" "$OUT_DIR"; cd "$HARNESS_DIR"
+          npm init -y >/dev/null
+          npm install --no-package-lock postcss postcss-selector-parser puppeteer-core >/dev/null
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-hero-static-characterization.mjs" static.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-full-pairwise-browser.mjs" browser.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-base.mjs" phase-3b5c-round2-base.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-lifecycle.mjs" phase-3b5c-round2-lifecycle.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-measure.mjs" phase-3b5c-round2-measure.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-matrix.mjs" phase-3b5c-round2-matrix.mjs
+          cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b5c-round2-normalization-v2.mjs" phase-3b5c-round2-normalization-v2.mjs
+          node --check browser.mjs
+      - name: Static identity and pair facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/phase3b5c-harness"
+          BASE_SHA="$BASE_SHA" node static.mjs --source="${GITHUB_WORKSPACE}/source" --out="${RUNNER_TEMP}/phase3b5c-out/static-inventory.json"
+      - name: Run pair S-S X-X S-X
+        shell: bash
+        run: |
+          set -uo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"; test -n "$CHROME_BIN"
+          cd "${RUNNER_TEMP}/phase3b5c-harness"
+          set +e
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="${GITHUB_WORKSPACE}/source" --static="${RUNNER_TEMP}/phase3b5c-out/static-inventory.json" --out="${RUNNER_TEMP}/phase3b5c-out/browser-evidence.json" --chrome="$CHROME_BIN" --pair="$PAIR" --repeat="$REPEAT" --campaign="$CAMPAIGN"
+          status=$?; set -e; echo "$status" > "${RUNNER_TEMP}/phase3b5c-out/browser-exit.txt"; exit 0
+      - name: Final frozen-source immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT_DIR="${RUNNER_TEMP}/phase3b5c-out"; mkdir -p "$OUT_DIR"
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          test -z "$(git -C source status --porcelain)"
+          test -z "$(git -C source diff --name-only "$BASE_SHA"..HEAD)"
+          (cd source && node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52)
+          { echo SOURCE_HEAD=$(git -C source rev-parse HEAD); echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree}); echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1); echo SOURCE_MERGE_BASE=$(git -C source merge-base HEAD "$BASE_SHA"); echo PRODUCTION_CHANGED_PATHS=0; echo PRODUCTION_CSS=52; echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD); echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree}); echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1); echo FINAL_SOURCE_IMMUTABILITY_PASS; } | tee "$OUT_DIR/final-source-identity.txt"
+      - name: Upload full pair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5c-full-${{ matrix.pair }}
+          path: ${{ runner.temp }}/phase3b5c-out
+          if-no-files-found: warn
+          compression-level: 6
+      - name: Enforce pair gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b5c-out"; test "$(cat "$OUT/browser-exit.txt")" = "0"
+          PAIR_EXPECTED="$PAIR" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          b=json.loads((Path(os.environ['RUNNER_TEMP'])/'phase3b5c-out'/'browser-evidence.json').read_text())
+          assert b['pair']['id']==os.environ['PAIR_EXPECTED'] and b['ready'] is True,b
+          for k in ['sourceSource','syntheticSynthetic','sourceSynthetic']:
+              m=b['modes'][k]; t=m['totals']; mt=m['motionTotals']
+              assert t['comparisons']==93 and mt['comparisons']==5,(k,t,mt)
+              assert all((t.get(x,0)==0) for x in ['computed','geometry','custom','state','accessibility','inventoryMismatches']),(k,t)
+              assert all((mt.get(x,0)==0) for x in ['computed','geometry','custom','state','accessibility','inventoryMismatches']),(k,mt)
+              assert m['resourceFailureCount']==0 and m['readinessBlockers']==0 and len(m['blockers'])==0,(k,m['blockers'])
+          print('PAIR_DETERMINISTIC_PASS',b['pair']['id'])
+          PY
+
+  final-summary:
+    if: always()
+    needs: [source-gate, p4-canary, full-matrix]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout evidence
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization-evidence
+          fetch-depth: 0
+          path: evidence
+      - name: Checkout frozen source
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-5c-hero-ownership-characterization
+          fetch-depth: 0
+          path: source
+      - name: Download P4 canary artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: phase-3b5c-p4-canary-*
+          path: results
+      - name: Download full matrix artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: phase-3b5c-full-*
+          path: results
+      - name: Build final machine-readable disposition
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p final-out
+          set +e
+          node evidence/scripts/evidence/phase-3b5c-full-pairwise-summary.mjs --input=results --out=final-out/phase-3b5c-final-evidence.json
+          status=$?
+          set -e
+          echo "$status" > final-out/summary-exit.txt
+          if [ -s final-out/phase-3b5c-final-evidence.json ]; then
+            EVIDENCE_HEAD="$(git -C evidence rev-parse HEAD)" EVIDENCE_TREE="$(git -C evidence rev-parse HEAD^{tree})" EVIDENCE_PARENT="$(git -C evidence rev-parse HEAD^1)" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path('final-out/phase-3b5c-final-evidence.json'); d=json.loads(p.read_text())
+          d['evidence'].update({'head':os.environ['EVIDENCE_HEAD'],'tree':os.environ['EVIDENCE_TREE'],'parent':os.environ['EVIDENCE_PARENT']})
+          first=next((x for x in d.get('pairResults',[]) if x.get('pair')=='P1'),None)
+          browser_files=list(Path('results').rglob('browser-evidence.json'))
+          if browser_files:
+              b=json.loads(browser_files[0].read_text()); mode=b.get('modes',{}).get('sourceSource',{})
+              d['pointerCapabilities']=mode.get('environment')
+              recs=mode.get('records',[])
+              d['viewportMatrix']=sorted({json.dumps(r.get('source',{}).get('context',{}).get('viewport'),sort_keys=True) for r in recs if r.get('source',{}).get('context',{}).get('viewport') is not None})
+              d['locales']=sorted({r.get('source',{}).get('context',{}).get('locale') for r in recs if r.get('source',{}).get('context',{}).get('locale')})
+              d['directions']=sorted({r.get('source',{}).get('state',{}).get('dir') for r in recs if r.get('source',{}).get('state',{}).get('dir')})
+          p.write_text(json.dumps(d,indent=2,ensure_ascii=False))
+          PY
+          fi
+          exit 0
+      - name: Final frozen-source immutability
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C source rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git -C source rev-parse HEAD^1)" = "$BASE_PARENT"
+          test -z "$(git -C source status --porcelain)"
+          test -z "$(git -C source diff --name-only "$BASE_SHA"..HEAD)"
+          (cd source && node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=52)
+          { echo SOURCE_HEAD=$(git -C source rev-parse HEAD); echo SOURCE_TREE=$(git -C source rev-parse HEAD^{tree}); echo SOURCE_PARENT=$(git -C source rev-parse HEAD^1); echo PRODUCTION_CHANGED_PATHS=0; echo PRODUCTION_CSS=52; echo EVIDENCE_HEAD=$(git -C evidence rev-parse HEAD); echo EVIDENCE_TREE=$(git -C evidence rev-parse HEAD^{tree}); echo EVIDENCE_PARENT=$(git -C evidence rev-parse HEAD^1); echo FINAL_SOURCE_IMMUTABILITY_PASS; } | tee final-out/final-source-identity.txt
+      - name: Upload final characterization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5c-final-pairwise-characterization
+          path: final-out
+          if-no-files-found: warn
+      - name: Enforce final characterization gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(cat final-out/summary-exit.txt)" = "0"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('final-out/phase-3b5c-final-evidence.json').read_text())
+          assert d['p4GeneralizationCanary']['pass'] is True,d['p4GeneralizationCanary']
+          assert len(d['pairResults'])==6,d['pairResults']
+          assert d['readyForPhase3B5'] is True,d['readinessChecks']
+          assert all(not p['finalDisposition'].startswith('E') for p in d['pairResults'])
+          print('PHASE_3B5C_FULL_PAIRWISE_PASS')
           PY
