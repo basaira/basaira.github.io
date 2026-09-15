@@ -1,0 +1,90 @@
+name: Phase 3B-4 Readiness Diagnostic
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-4-review-candidate-token-disposition-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-4-review-candidate-token-disposition-evidence
+          path: evidence
+      - uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-4-review-candidate-token-disposition
+          path: source
+      - name: Produce static inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/out" "$RUNNER_TEMP/static"
+          cd "$RUNNER_TEMP/static"
+          npm init -y >/dev/null
+          npm install --no-package-lock postcss postcss-selector-parser >/dev/null
+          cp "$GITHUB_WORKSPACE/evidence/scripts/evidence/phase-3b4-review-candidate-token-disposition.mjs" characterize.mjs
+          BASE_SHA="$BASE_SHA" node characterize.mjs --source="$GITHUB_WORKSPACE/source" --out="$RUNNER_TEMP/out/static-inventory.json"
+      - name: Run same browser evidence and print readiness diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then sudo apt-get update -y >/dev/null && sudo apt-get install -y xvfb >/dev/null; fi
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN"
+          mkdir -p "$RUNNER_TEMP/browser"
+          cd "$RUNNER_TEMP/browser"
+          npm init -y >/dev/null
+          npm install --no-package-lock puppeteer-core >/dev/null
+          cp "$GITHUB_WORKSPACE/evidence/scripts/evidence/phase-3b4-browser-token-disposition.mjs" browser.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('browser.mjs'); s=p.read_text()
+          anchor="contentType:'text/javascript',body:"; cors="contentType:'text/javascript',headers:{'access-control-allow-origin':'*'},body:"
+          if s.count(anchor)!=2: raise SystemExit('cors anchor')
+          s=s.replace(anchor,cors)
+          pairs=[
+          ("await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});","await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.move(1,1);await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});"),
+          ("await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(180);records.push({state:'coarse-touch-reset',raw:await rawButton(coarse)});","await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await sleep(180);records.push({state:'coarse-touch-reset',raw:await rawButton(coarse)});"),
+          ("async function drawerMatrix(browser,base){const page=await browser.newPage();const mon=await configurePage(page,{viewport:{width:390,height:844},touch:true});await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});await waitPublicReady(page);const out=[];out.push({state:'ltr-closed',snap:await drawerSnapshot(page)});await page.click('#mobile-menu-btn');await sleep(500);out.push({state:'ltr-open-settled',snap:await drawerSnapshot(page)});const closeSel=await page.$('#mobile-menu-close')?'#mobile-menu-close':'#mobile-menu-btn';await page.click(closeSel);await sleep(500);out.push({state:'ltr-closed-settled',snap:await drawerSnapshot(page)});await switchArabic(page);out.push({state:'rtl-closed',snap:await drawerSnapshot(page)});await page.click('#mobile-menu-btn');await sleep(500);out.push({state:'rtl-open-settled',snap:await drawerSnapshot(page)});await page.click(closeSel);await sleep(500);out.push({state:'rtl-closed-settled',snap:await drawerSnapshot(page)});","async function drawerMatrix(browser,base){const page=await browser.newPage();const mon=await configurePage(page,{viewport:{width:390,height:844},touch:true});await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});await waitPublicReady(page);const out=[];const toggle=async()=>page.evaluate(()=>document.querySelector('#mobile-menu-btn')?.click());out.push({state:'ltr-closed',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'ltr-open-settled',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'ltr-closed-settled',snap:await drawerSnapshot(page)});await switchArabic(page);out.push({state:'rtl-closed',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'rtl-open-settled',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'rtl-closed-settled',snap:await drawerSnapshot(page)});"),
+          ("out.push({state:'reduced-ltr-closed',snap:await drawerSnapshot(reduced)});await reduced.click('#mobile-menu-btn');await sleep(80);out.push({state:'reduced-ltr-open',snap:await drawerSnapshot(reduced)});","out.push({state:'reduced-ltr-closed',snap:await drawerSnapshot(reduced)});await reduced.evaluate(()=>document.querySelector('#mobile-menu-btn')?.click());await sleep(80);out.push({state:'reduced-ltr-open',snap:await drawerSnapshot(reduced)});"),
+          ("async function switchArabic(page){const candidates=await page.$$('[data-lang=\"ar\"]');if(!candidates.length)throw new Error('Arabic language control not found');await page.evaluate(()=>{const e=[...document.querySelectorAll('[data-lang=\"ar\"]')].find(x=>x.tagName==='BUTTON'||x.tagName==='A')||document.querySelector('[data-lang=\"ar\"]');e.click();});await page.waitForFunction(()=>document.documentElement.dir==='rtl'&&document.body.classList.contains('route-ar'),{timeout:8000});await sleep(300);}","async function switchArabic(page){await page.waitForFunction(()=>typeof window.setLang==='function',{timeout:8000});await page.evaluate(async()=>{await window.setLang('ar');});await page.waitForFunction(()=>document.documentElement.dir==='rtl'&&document.documentElement.lang==='ar'&&document.body.classList.contains('route-ar'),{timeout:8000});await sleep(300);}")]
+          for old,new in pairs:
+              if s.count(old)!=1: raise SystemExit('patch anchor failed')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          set +e
+          BASE_SHA="$BASE_SHA" xvfb-run -a node browser.mjs --source="$GITHUB_WORKSPACE/source" --static="$RUNNER_TEMP/out/static-inventory.json" --out="$RUNNER_TEMP/out/runtime-evidence.json" --chrome="$CHROME_BIN"
+          rc=$?
+          set -e
+          test -s "$RUNNER_TEMP/out/runtime-evidence.json"
+          python3 - <<'PY'
+          import json, os
+          p=os.path.join(os.environ['RUNNER_TEMP'],'out/runtime-evidence.json')
+          d=json.load(open(p))
+          print('READY=',d.get('readyForFinalClosureReview'))
+          print('READINESS=',json.dumps(d.get('readiness'),sort_keys=True))
+          print('SOURCE_FAILURES=',json.dumps(d.get('sourceFailures'),sort_keys=True))
+          print('COURSE_RESOURCE_FAILURES=',json.dumps(d.get('courseButtons',{}).get('resourceFailures'),sort_keys=True))
+          print('COURSE_FORBIDDEN=',json.dumps(d.get('courseButtons',{}).get('forbiddenNetworkEscapes'),sort_keys=True))
+          print('DRAWER_RESOURCE_FAILURES=',json.dumps(d.get('drawer',{}).get('resourceFailures'),sort_keys=True))
+          print('DRAWER_FORBIDDEN=',json.dumps(d.get('drawer',{}).get('forbiddenNetworkEscapes'),sort_keys=True))
+          PY
+          echo HARNESS_EXIT=$rc
+      - name: Upload diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b4-readiness-diagnostic
+          path: ${{ runner.temp }}/out
+          if-no-files-found: error
