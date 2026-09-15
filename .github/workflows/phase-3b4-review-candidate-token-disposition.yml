@@ -121,22 +121,24 @@ jobs:
           s=p.read_text()
           old="await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});"
           new="await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.move(1,1);await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});"
-          if s.count(old)!=1:
-              raise SystemExit(f'CTA_PRESS_RESET_PATCH_ANCHOR_FAIL count={s.count(old)}')
+          if s.count(old)!=1: raise SystemExit(f'CTA_PRESS_RESET_PATCH_ANCHOR_FAIL count={s.count(old)}')
           s=s.replace(old,new,1)
           old_draw="async function drawerMatrix(browser,base){const page=await browser.newPage();const mon=await configurePage(page,{viewport:{width:390,height:844},touch:true});await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});await waitPublicReady(page);const out=[];out.push({state:'ltr-closed',snap:await drawerSnapshot(page)});await page.click('#mobile-menu-btn');await sleep(500);out.push({state:'ltr-open-settled',snap:await drawerSnapshot(page)});const closeSel=await page.$('#mobile-menu-close')?'#mobile-menu-close':'#mobile-menu-btn';await page.click(closeSel);await sleep(500);out.push({state:'ltr-closed-settled',snap:await drawerSnapshot(page)});await switchArabic(page);out.push({state:'rtl-closed',snap:await drawerSnapshot(page)});await page.click('#mobile-menu-btn');await sleep(500);out.push({state:'rtl-open-settled',snap:await drawerSnapshot(page)});await page.click(closeSel);await sleep(500);out.push({state:'rtl-closed-settled',snap:await drawerSnapshot(page)});"
           new_draw="async function drawerMatrix(browser,base){const page=await browser.newPage();const mon=await configurePage(page,{viewport:{width:390,height:844},touch:true});await page.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});await waitPublicReady(page);const out=[];const toggle=async()=>page.evaluate(()=>document.querySelector('#mobile-menu-btn')?.click());out.push({state:'ltr-closed',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'ltr-open-settled',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'ltr-closed-settled',snap:await drawerSnapshot(page)});await switchArabic(page);out.push({state:'rtl-closed',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'rtl-open-settled',snap:await drawerSnapshot(page)});await toggle();await sleep(500);out.push({state:'rtl-closed-settled',snap:await drawerSnapshot(page)});"
-          if s.count(old_draw)!=1:
-              raise SystemExit(f'DRAWER_TOGGLE_PATCH_ANCHOR_FAIL count={s.count(old_draw)}')
+          if s.count(old_draw)!=1: raise SystemExit(f'DRAWER_TOGGLE_PATCH_ANCHOR_FAIL count={s.count(old_draw)}')
           s=s.replace(old_draw,new_draw,1)
           old_reduced="out.push({state:'reduced-ltr-closed',snap:await drawerSnapshot(reduced)});await reduced.click('#mobile-menu-btn');await sleep(80);out.push({state:'reduced-ltr-open',snap:await drawerSnapshot(reduced)});"
           new_reduced="out.push({state:'reduced-ltr-closed',snap:await drawerSnapshot(reduced)});await reduced.evaluate(()=>document.querySelector('#mobile-menu-btn')?.click());await sleep(80);out.push({state:'reduced-ltr-open',snap:await drawerSnapshot(reduced)});"
-          if s.count(old_reduced)!=1:
-              raise SystemExit(f'DRAWER_REDUCED_PATCH_ANCHOR_FAIL count={s.count(old_reduced)}')
+          if s.count(old_reduced)!=1: raise SystemExit(f'DRAWER_REDUCED_PATCH_ANCHOR_FAIL count={s.count(old_reduced)}')
           s=s.replace(old_reduced,new_reduced,1)
+          old_lang="async function switchArabic(page){const candidates=await page.$$('[data-lang=\"ar\"]');if(!candidates.length)throw new Error('Arabic language control not found');await page.evaluate(()=>{const e=[...document.querySelectorAll('[data-lang=\"ar\"]')].find(x=>x.tagName==='BUTTON'||x.tagName==='A')||document.querySelector('[data-lang=\"ar\"]');e.click();});await page.waitForFunction(()=>document.documentElement.dir==='rtl'&&document.body.classList.contains('route-ar'),{timeout:8000});await sleep(300);}"
+          new_lang="async function switchArabic(page){await page.waitForFunction(()=>typeof window.setLang==='function',{timeout:8000});await page.evaluate(async()=>{await window.setLang('ar');});await page.waitForFunction(()=>document.documentElement.dir==='rtl'&&document.documentElement.lang==='ar'&&document.body.classList.contains('route-ar'),{timeout:8000});await sleep(300);}"
+          if s.count(old_lang)!=1: raise SystemExit(f'PRODUCTION_SETLANG_PATCH_ANCHOR_FAIL count={s.count(old_lang)}')
+          s=s.replace(old_lang,new_lang,1)
           p.write_text(s)
           print('CTA_PRESS_RESET_NO_ACTIVATION_PATCH_PASS')
           print('DRAWER_PRODUCTION_EVENT_TRIGGER_PATCH_PASS')
+          print('PRODUCTION_SETLANG_RTL_PATCH_PASS')
           PY
           BASE_SHA="$BASE_SHA" CHROME_BIN="$CHROME_BIN" xvfb-run -a node browser.mjs \
             --source="${GITHUB_WORKSPACE}/source" \
