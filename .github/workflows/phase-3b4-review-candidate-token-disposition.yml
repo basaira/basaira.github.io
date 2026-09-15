@@ -115,6 +115,17 @@ jobs:
           npm init -y >/dev/null
           npm install --no-package-lock puppeteer-core >/dev/null
           cp "${GITHUB_WORKSPACE}/evidence/scripts/evidence/phase-3b4-browser-token-disposition.mjs" browser.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('browser.mjs')
+          s=p.read_text()
+          old="await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});"
+          new="await page.mouse.down();await sleep(100);records.push({state:'active-press',raw:await rawButton(page)});await page.mouse.move(1,1);await page.mouse.up();await sleep(180);records.push({state:'press-reset',raw:await rawButton(page)});"
+          if s.count(old)!=1:
+              raise SystemExit(f'CTA_PRESS_RESET_PATCH_ANCHOR_FAIL count={s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          print('CTA_PRESS_RESET_NO_ACTIVATION_PATCH_PASS')
+          PY
           BASE_SHA="$BASE_SHA" CHROME_BIN="$CHROME_BIN" xvfb-run -a node browser.mjs \
             --source="${GITHUB_WORKSPACE}/source" \
             --static="$OUT_DIR/static-inventory.json" \
