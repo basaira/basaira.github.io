@@ -1,0 +1,281 @@
+name: Phase 3B-5 Hero P4 Exact-Concat Implementation
+
+on:
+  push:
+    branches:
+      - basair/phase-3b-5-hero-delight-animate-exact-concat-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify:
+    runs-on: ubuntu-24.04
+    env:
+      BASE_SHA: e72fc5b2bfa073806e514cd7a05fdab6315a1df7
+      BASE_TREE: 805265ffc0d24238490948c48830e329d6cba644
+      BASE_PARENT: a4671e5f4aa6ecc56fbf1b0b619e26fcb105f22f
+      IMPL_BRANCH: basair/phase-3b-5-hero-delight-animate-exact-concat
+      EXPECTED_DELIGHT_SHA256: 29c82df864f9d5418152e065e2a2b3430ce69c4ba2ca36f84fbe4b09a1794962
+      EXPECTED_ANIMATE_SHA256: af77fbc72ab919d4954d863e403fb7d28cdfff872dd7bbabbaaa348714004f8a
+      EXPECTED_CONCAT_SHA256: 3c2a9d40f1efe649e7d71496fbd3904ea44caa12c39fe4c7b0bb83a9ee3b1ba7
+    steps:
+      - name: Checkout implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.IMPL_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Prove exact base identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/phase3b5"
+          {
+            echo "BRANCH=$(git branch --show-current)"
+            echo "HEAD=$(git rev-parse HEAD)"
+            echo "TREE=$(git rev-parse HEAD^{tree})"
+            echo "PARENT=$(git rev-parse HEAD^1)"
+            echo "MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")"
+          } | tee "$RUNNER_TEMP/phase3b5/base-identity.txt"
+          test "$(git branch --show-current)" = "$IMPL_BRANCH"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD^{tree})" = "$BASE_TREE"
+          test "$(git rev-parse HEAD^1)" = "$BASE_PARENT"
+          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Construct exact P4 concat and exact HTML transform
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          cp hero-delight-v4.css "$OUT/base-hero-delight-v4.css"
+          cp hero-animate-v4.css "$OUT/base-hero-animate-v4.css"
+          cp index.html "$OUT/base-index.html"
+          cp token-authority-manifest.json "$OUT/base-token-authority-manifest.json"
+          cp hero-delight-animate-polish-v4-check.mjs "$OUT/base-hero-final-check.mjs"
+
+          test "$(wc -c < "$OUT/base-hero-delight-v4.css" | tr -d ' ')" = "2959"
+          test "$(sha256sum "$OUT/base-hero-delight-v4.css" | awk '{print $1}')" = "$EXPECTED_DELIGHT_SHA256"
+          test "$(wc -c < "$OUT/base-hero-animate-v4.css" | tr -d ' ')" = "6484"
+          test "$(sha256sum "$OUT/base-hero-animate-v4.css" | awk '{print $1}')" = "$EXPECTED_ANIMATE_SHA256"
+
+          cat "$OUT/base-hero-delight-v4.css" "$OUT/base-hero-animate-v4.css" > hero-delight-v4.css
+          test "$(wc -c < hero-delight-v4.css | tr -d ' ')" = "9443"
+          test "$(sha256sum hero-delight-v4.css | awk '{print $1}')" = "$EXPECTED_CONCAT_SHA256"
+          echo EXACT_CONCAT_PASS | tee "$OUT/exact-concat.txt"
+          echo "candidate bytes=9443" >> "$OUT/exact-concat.txt"
+          echo "candidate sha256=$EXPECTED_CONCAT_SHA256" >> "$OUT/exact-concat.txt"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          b=p.read_bytes()
+          lines=b.splitlines(keepends=True)
+          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
+          assert len(hits)==1, hits
+          p.write_bytes(b''.join(line for i,line in enumerate(lines) if i!=hits[0]))
+          PY
+
+          rm hero-animate-v4.css
+
+          python3 - <<'PY'
+          from pathlib import Path
+          base=Path('/tmp').joinpath('unused')
+          src=Path(__import__('os').environ['RUNNER_TEMP'])/'phase3b5'/'base-index.html'
+          b=src.read_bytes()
+          lines=b.splitlines(keepends=True)
+          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
+          assert len(hits)==1, hits
+          expected=b''.join(line for i,line in enumerate(lines) if i!=hits[0])
+          candidate=Path('index.html').read_bytes()
+          assert candidate==expected
+          assert b'hero-animate-v4.css' not in candidate
+          print('HERO_P4_SYNTHETIC_HTML_MATCH')
+          PY
+          echo HERO_P4_SYNTHETIC_HTML_MATCH | tee "$OUT/synthetic-html.txt"
+
+      - name: Structural CSS count proof before manifest metadata change
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 | tee "$RUNNER_TEMP/phase3b5/pre-manifest-preflight.txt"
+          grep -q 'productionCss=51' "$RUNNER_TEMP/phase3b5/pre-manifest-preflight.txt"
+
+      - name: Apply only authorized manifest and checker maintenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          m=Path('token-authority-manifest.json')
+          s=m.read_text()
+          needle='"productionCssFileCount": 52'
+          assert s.count(needle)==1, s.count(needle)
+          m.write_text(s.replace(needle,'"productionCssFileCount": 51',1))
+
+          p=Path('hero-delight-animate-polish-v4-check.mjs')
+          s=p.read_text()
+          retired="  'hero-animate-v4.css',\n"
+          assert s.count(retired)==1, s.count(retired)
+          s=s.replace(retired,'',1)
+
+          loop="for(const token of required){\n  if(!html.includes(token)) throw new Error(`Missing ${token} in index.html`);\n}\n"
+          assert s.count(loop)==1, s.count(loop)
+          s=s.replace(loop, loop + "if(html.includes('hero-animate-v4.css')) throw new Error('Retired hero-animate-v4.css must not be loaded');\nif(fs.existsSync('hero-animate-v4.css')) throw new Error('Retired hero-animate-v4.css physical file must be absent');\n",1)
+
+          old="for(const file of ['hero-delight-v4.css','hero-animate-v4.css','hero-polish-v4.css']){"
+          new="for(const file of ['hero-delight-v4.css','hero-polish-v4.css']){"
+          assert s.count(old)==1, s.count(old)
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import difflib, os
+          out=Path(os.environ['RUNNER_TEMP'])/'phase3b5'
+          old=(out/'base-token-authority-manifest.json').read_text().splitlines(True)
+          new=Path('token-authority-manifest.json').read_text().splitlines(True)
+          diff=''.join(difflib.unified_diff(old,new,fromfile='base/token-authority-manifest.json',tofile='candidate/token-authority-manifest.json'))
+          (out/'manifest.diff').write_text(diff)
+          assert diff.count('-') >= 1 and diff.count('+') >= 1
+          assert 'productionCssFileCount' in diff and '52' in diff and '51' in diff
+
+          oldc=(out/'base-hero-final-check.mjs').read_text().splitlines(True)
+          newc=Path('hero-delight-animate-polish-v4-check.mjs').read_text().splitlines(True)
+          (out/'checker.diff').write_text(''.join(difflib.unified_diff(oldc,newc,fromfile='base/checker',tofile='candidate/checker')))
+          PY
+
+      - name: Enforce exact five-path implementation diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          git diff --name-status | tee "$OUT/precommit-name-status.txt"
+          python3 - <<'PY'
+          import subprocess
+          expected={
+            'hero-delight-v4.css',
+            'hero-animate-v4.css',
+            'index.html',
+            'token-authority-manifest.json',
+            'hero-delight-animate-polish-v4-check.mjs',
+          }
+          names=set(subprocess.check_output(['git','diff','--name-only'],text=True).splitlines())
+          assert names==expected, (names, expected)
+          PY
+          git diff --check
+
+      - name: Commit exact implementation locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'basair-phase-3b5'
+          git config user.email 'actions@users.noreply.github.com'
+          git add hero-delight-v4.css hero-animate-v4.css index.html token-authority-manifest.json hero-delight-animate-polish-v4-check.mjs
+          git commit -m 'Phase 3B-5: exact-concat Hero delight/animate'
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)" | tee "$RUNNER_TEMP/phase3b5/candidate-identity.txt"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})" >> "$RUNNER_TEMP/phase3b5/candidate-identity.txt"
+          echo "CANDIDATE_PARENT=$(git rev-parse HEAD^1)" >> "$RUNNER_TEMP/phase3b5/candidate-identity.txt"
+
+      - name: Exact concat and synthetic correspondence proof on candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          cat "$OUT/base-hero-delight-v4.css" "$OUT/base-hero-animate-v4.css" > "$OUT/reconstructed-survivor.css"
+          cmp -s "$OUT/reconstructed-survivor.css" hero-delight-v4.css
+          test "$(wc -c < hero-delight-v4.css | tr -d ' ')" = "9443"
+          test "$(sha256sum hero-delight-v4.css | awk '{print $1}')" = "$EXPECTED_CONCAT_SHA256"
+          test ! -e hero-animate-v4.css
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          src=Path(os.environ['RUNNER_TEMP'])/'phase3b5'/'base-index.html'
+          b=src.read_bytes(); lines=b.splitlines(keepends=True)
+          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
+          assert len(hits)==1
+          expected=b''.join(line for i,line in enumerate(lines) if i!=hits[0])
+          assert Path('index.html').read_bytes()==expected
+          print('HERO_P4_SYNTHETIC_HTML_MATCH')
+          PY
+          echo EXACT_CONCAT_PASS
+
+      - name: Full verification gate on exact candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 | tee "$OUT/final-preflight.txt"
+          npm ci | tee "$OUT/npm-ci.txt"
+          npm run verify | tee "$OUT/npm-verify.txt"
+          npm run build | tee "$OUT/npm-build.txt"
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          node token-authority-check.mjs | tee "$OUT/token-authority.txt"
+          grep -q 'production CSS=51' "$OUT/token-authority.txt"
+          grep -q '106 canonical' "$OUT/token-authority.txt"
+          grep -q 'aliases A/B/C/D/E=1/49/23/23/2' "$OUT/token-authority.txt"
+          grep -q 'corrected conflicts=40' "$OUT/token-authority.txt"
+          grep -q 'inline styles=1' "$OUT/token-authority.txt"
+          grep -q 'HERO SECTION CHECK PASSED' "$OUT/npm-verify.txt"
+          grep -q 'HERO DELIGHT + ANIMATE + POLISH v4 CHECK PASSED' "$OUT/npm-verify.txt"
+          grep -q 'HERO CTA OVERDRIVE CHECK PASSED' "$OUT/npm-verify.txt"
+
+      - name: Final compare contract before push
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          test "$(git rev-parse HEAD^1)" = "$BASE_SHA"
+          test "$(git merge-base HEAD "$BASE_SHA")" = "$BASE_SHA"
+          git diff --name-only "$BASE_SHA"..HEAD | sort | tee "$OUT/final-paths.txt"
+          test "$(wc -l < "$OUT/final-paths.txt" | tr -d ' ')" = "5"
+          cat > "$OUT/expected-paths.txt" <<'EOF'
+          hero-animate-v4.css
+          hero-delight-animate-polish-v4-check.mjs
+          hero-delight-v4.css
+          index.html
+          token-authority-manifest.json
+          EOF
+          diff -u "$OUT/expected-paths.txt" "$OUT/final-paths.txt"
+          test -z "$(git status --porcelain)"
+
+      - name: Push implementation commit without force
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:$IMPL_BRANCH"
+
+      - name: Record final pushed identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/phase3b5"
+          git fetch origin "$IMPL_BRANCH"
+          remote="$(git rev-parse "origin/$IMPL_BRANCH")"
+          test "$remote" = "$(git rev-parse HEAD)"
+          {
+            echo "FINAL_HEAD=$(git rev-parse HEAD)"
+            echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
+            echo "FINAL_PARENT=$(git rev-parse HEAD^1)"
+            echo "MERGE_BASE=$(git merge-base HEAD "$BASE_SHA")"
+            echo "AHEAD=$(git rev-list --count "$BASE_SHA"..HEAD)"
+            echo "BEHIND=$(git rev-list --count HEAD.."$BASE_SHA")"
+            echo "PRODUCTION_CSS=51"
+            echo "EXACT_CONCAT_PASS"
+            echo "HERO_P4_SYNTHETIC_HTML_MATCH"
+          } | tee "$OUT/final-pushed-identity.txt"
+
+      - name: Upload Phase 3B-5 implementation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b5-hero-p4-exact-concat-evidence
+          path: ${{ runner.temp }}/phase3b5
+          if-no-files-found: warn
