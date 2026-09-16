@@ -73,23 +73,21 @@ jobs:
           from pathlib import Path
           p=Path('index.html')
           b=p.read_bytes()
-          lines=b.splitlines(keepends=True)
-          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
-          assert len(hits)==1, hits
-          p.write_bytes(b''.join(line for i,line in enumerate(lines) if i!=hits[0]))
+          needle=b'<link href="hero-animate-v4.css?v=20260829-herofinal4" rel="stylesheet"/>'
+          assert b.count(needle)==1, b.count(needle)
+          p.write_bytes(b.replace(needle,b'',1))
           PY
 
           rm hero-animate-v4.css
 
           python3 - <<'PY'
           from pathlib import Path
-          base=Path('/tmp').joinpath('unused')
-          src=Path(__import__('os').environ['RUNNER_TEMP'])/'phase3b5'/'base-index.html'
+          import os
+          src=Path(os.environ['RUNNER_TEMP'])/'phase3b5'/'base-index.html'
           b=src.read_bytes()
-          lines=b.splitlines(keepends=True)
-          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
-          assert len(hits)==1, hits
-          expected=b''.join(line for i,line in enumerate(lines) if i!=hits[0])
+          needle=b'<link href="hero-animate-v4.css?v=20260829-herofinal4" rel="stylesheet"/>'
+          assert b.count(needle)==1, b.count(needle)
+          expected=b.replace(needle,b'',1)
           candidate=Path('index.html').read_bytes()
           assert candidate==expected
           assert b'hero-animate-v4.css' not in candidate
@@ -196,10 +194,10 @@ jobs:
           from pathlib import Path
           import os
           src=Path(os.environ['RUNNER_TEMP'])/'phase3b5'/'base-index.html'
-          b=src.read_bytes(); lines=b.splitlines(keepends=True)
-          hits=[i for i,line in enumerate(lines) if b'hero-animate-v4.css' in line]
-          assert len(hits)==1
-          expected=b''.join(line for i,line in enumerate(lines) if i!=hits[0])
+          b=src.read_bytes()
+          needle=b'<link href="hero-animate-v4.css?v=20260829-herofinal4" rel="stylesheet"/>'
+          assert b.count(needle)==1
+          expected=b.replace(needle,b'',1)
           assert Path('index.html').read_bytes()==expected
           print('HERO_P4_SYNTHETIC_HTML_MATCH')
           PY
