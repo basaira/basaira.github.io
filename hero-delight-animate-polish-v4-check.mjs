@@ -4,7 +4,6 @@ const html = fs.readFileSync('index.html','utf8');
 const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
 const required = [
   'hero-delight-v4.css',
-  'hero-animate-v4.css',
   'hero-polish-v4.css',
   'hero-delight-v4.js',
   'track-buttons-v6.css?v=20260830-surgical2'
@@ -12,6 +11,8 @@ const required = [
 for(const token of required){
   if(!html.includes(token)) throw new Error(`Missing ${token} in index.html`);
 }
+if(html.includes('hero-animate-v4.css')) throw new Error('Retired hero-animate-v4.css must not be loaded');
+if(fs.existsSync('hero-animate-v4.css')) throw new Error('Retired hero-animate-v4.css physical file must be absent');
 for(const old of ['hero-delight-v3.css','hero-animate-v3.css','hero-polish-v3.css','hero-delight-v3.js']){
   if(html.includes(old)) throw new Error(`Legacy hero final layer still loaded: ${old}`);
 }
@@ -19,7 +20,7 @@ const styles = [...html.matchAll(/<link[^>]+href="([^"]+\.css[^\"]*)"[^>]*>/g)].
 if(!styles.length || !styles.at(-1)?.startsWith('track-buttons-v6.css')){
   throw new Error('track-buttons-v6.css must remain the final stylesheet');
 }
-for(const file of ['hero-delight-v4.css','hero-animate-v4.css','hero-polish-v4.css']){
+for(const file of ['hero-delight-v4.css','hero-polish-v4.css']){
   const css=fs.readFileSync(file,'utf8');
   const opens=(css.match(/\{/g)||[]).length;
   const closes=(css.match(/\}/g)||[]).length;
