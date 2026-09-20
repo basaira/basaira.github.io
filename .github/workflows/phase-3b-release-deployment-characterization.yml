@@ -1,0 +1,496 @@
+name: Phase 3B Release Deployment Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/phase-3b-release-deployment-characterization'
+
+permissions:
+  contents: read
+
+env:
+  CURRENT_MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  CURRENT_MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  PHASE_FINAL_BRANCH: basair/phase-3b-5-hero-delight-animate-exact-concat
+  CURRENT_GH_PAGES_SHA: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+  CURRENT_GH_PAGES_TREE: f725d5072ee03ee2d6395d387d20917676a5ffcd
+  HISTORICAL_SOURCE_SHA: 2c573b31f48fe6b97a96fc1049b41aa23d15cca5
+  EVIDENCE_BRANCH: basair/phase-3b-release-deployment-characterization
+
+jobs:
+  historical-reproduction:
+    name: historical-deployment-reproduction
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence tooling
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-release-deployment-characterization
+          path: evidence
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout historical source
+        uses: actions/checkout@v4
+        with:
+          ref: 2c573b31f48fe6b97a96fc1049b41aa23d15cca5
+          path: historical
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout current gh-pages exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+          path: ghpages
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prove historical and gh-pages identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/historical"
+          mkdir -p "${OUT}"
+          {
+            echo "historical_head=$(git -C historical rev-parse HEAD)"
+            echo "historical_tree=$(git -C historical rev-parse HEAD^{tree})"
+            echo "gh_pages_head=$(git -C ghpages rev-parse HEAD)"
+            echo "gh_pages_tree=$(git -C ghpages rev-parse HEAD^{tree})"
+          } | tee "${OUT}/identity.txt"
+          test "$(git -C historical rev-parse HEAD)" = "${HISTORICAL_SOURCE_SHA}"
+          test "$(git -C ghpages rev-parse HEAD)" = "${CURRENT_GH_PAGES_SHA}"
+          test "$(git -C ghpages rev-parse HEAD^{tree})" = "${CURRENT_GH_PAGES_TREE}"
+
+      - name: Build historical source freshly
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/historical"
+          (
+            cd historical
+            npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+            npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+          )
+
+      - name: Reconstruct historical deployment transform
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/historical"
+          node evidence/scripts/evidence/release-characterization.mjs manifest historical/dist "${OUT}/historical-dist-manifest.json"
+          node evidence/scripts/evidence/release-characterization.mjs manifest ghpages "${OUT}/current-gh-pages-manifest.json"
+          node evidence/scripts/evidence/release-characterization.mjs compare "${OUT}/historical-dist-manifest.json" "${OUT}/current-gh-pages-manifest.json" "${OUT}/historical-reproduction.json"
+          node evidence/scripts/evidence/release-characterization.mjs classify-gh "${OUT}/historical-dist-manifest.json" "${OUT}/current-gh-pages-manifest.json" "${OUT}/gh-pages-classification.json"
+          node evidence/scripts/evidence/release-characterization.mjs history ghpages "${OUT}/gh-pages-history.json"
+          node - "${OUT}/historical-reproduction.json" "${OUT}/gh-pages-classification.json" <<'NODE'
+          const fs=require('fs');
+          const cmp=JSON.parse(fs.readFileSync(process.argv[2]));
+          const cls=JSON.parse(fs.readFileSync(process.argv[3]));
+          console.log(JSON.stringify({historicalComparison:cmp,classificationCounts:cls.counts},null,2));
+          if(cmp.onlyInA.length) throw new Error('Historical dist contains paths absent from current gh-pages: '+cmp.onlyInA.join(', '));
+          if(cmp.byteDifferent.length) throw new Error('Common historical build paths differ in bytes');
+          if(cls.counts.D||cls.counts.E) throw new Error('Current gh-pages contains stale/unknown paths not explained by historical build + Pages metadata');
+          NODE
+
+      - name: Upload historical reproduction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-characterization-historical
+          path: ${{ runner.temp }}/release-characterization/historical/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
+
+  current-build-a:
+    name: current-main-build-a-and-smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence tooling
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-release-deployment-characterization
+          path: evidence
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact current gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+          path: ghpages
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prove current source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-a"
+          mkdir -p "${OUT}"
+          {
+            echo "head=$(git -C source rev-parse HEAD)"
+            echo "tree=$(git -C source rev-parse HEAD^{tree})"
+            echo "gh_pages_head=$(git -C ghpages rev-parse HEAD)"
+            echo "gh_pages_tree=$(git -C ghpages rev-parse HEAD^{tree})"
+          } | tee "${OUT}/identity.txt"
+          test "$(git -C source rev-parse HEAD)" = "${CURRENT_MAIN_SHA}"
+          test "$(git -C source rev-parse HEAD^{tree})" = "${CURRENT_MAIN_TREE}"
+          test "$(git -C ghpages rev-parse HEAD)" = "${CURRENT_GH_PAGES_SHA}"
+
+      - name: Fresh source verification and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-a"
+          (
+            cd source
+            node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/preflight.txt"
+            npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+            npm run verify 2>&1 | tee "${OUT}/npm-verify.txt"
+            npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+            node token-authority-check.mjs 2>&1 | tee "${OUT}/token-authority.txt"
+            git diff --check
+            git diff --exit-code
+            test -z "$(git status --porcelain)"
+          )
+
+      - name: Build manifests, route inventory, root-path audit and deployment delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-a"
+          node evidence/scripts/evidence/release-characterization.mjs manifest source/dist "${OUT}/release-dist-manifest.json"
+          node evidence/scripts/evidence/release-characterization.mjs manifest ghpages "${OUT}/current-gh-pages-manifest.json"
+          node evidence/scripts/evidence/release-characterization.mjs root-audit source/dist "${OUT}/root-path-audit.json"
+          node evidence/scripts/evidence/release-characterization.mjs routes source/dist "${OUT}/route-inventory.json"
+
+          rm -rf "${RUNNER_TEMP}/release-characterization/proposed-pages"
+          mkdir -p "${RUNNER_TEMP}/release-characterization/proposed-pages"
+          cp -a source/dist/. "${RUNNER_TEMP}/release-characterization/proposed-pages/"
+          for f in .nojekyll CNAME 404.html; do
+            if [ -f "ghpages/${f}" ] && [ ! -f "${RUNNER_TEMP}/release-characterization/proposed-pages/${f}" ]; then
+              cp "ghpages/${f}" "${RUNNER_TEMP}/release-characterization/proposed-pages/${f}"
+            fi
+          done
+          node evidence/scripts/evidence/release-characterization.mjs manifest "${RUNNER_TEMP}/release-characterization/proposed-pages" "${OUT}/proposed-pages-manifest.json"
+          node evidence/scripts/evidence/release-characterization.mjs delta "${OUT}/current-gh-pages-manifest.json" "${OUT}/proposed-pages-manifest.json" "${OUT}/deployment-delta.json"
+
+          node - "${OUT}/root-path-audit.json" "${OUT}/route-inventory.json" <<'NODE'
+          const fs=require('fs');
+          const root=JSON.parse(fs.readFileSync(process.argv[2]));
+          const routes=JSON.parse(fs.readFileSync(process.argv[3]));
+          console.log(JSON.stringify({rootPathAudit:{pass:root.pass,missing:root.missing,forbiddenRepoSubdir:root.forbiddenRepoSubdir},routes},null,2));
+          if(!root.pass) throw new Error('Root-path audit failed');
+          if(!routes.pass) throw new Error('Route inventory failed');
+          NODE
+
+      - name: Static-server route characterization
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-a"
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory source/dist >"${OUT}/static-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node evidence/scripts/evidence/release-characterization.mjs static-smoke http://127.0.0.1:4173 "${OUT}/static-smoke.json"
+          node - "${OUT}/static-smoke.json" <<'NODE'
+          const fs=require('fs'); const r=JSON.parse(fs.readFileSync(process.argv[2]));
+          console.log(JSON.stringify(r,null,2)); if(!r.pass) throw new Error('Static server smoke failed');
+          NODE
+
+      - name: Install disposable Chromium tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          PW="${RUNNER_TEMP}/release-pw"
+          mkdir -p "${PW}"
+          cp evidence/scripts/evidence/release-browser-smoke.mjs "${PW}/smoke.mjs"
+          cd "${PW}"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Browser release smoke matrix on built dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-a"
+          PW="${RUNNER_TEMP}/release-pw"
+          if ! curl -fsS http://127.0.0.1:4173/ >/dev/null; then
+            python3 -m http.server 4173 --bind 127.0.0.1 --directory source/dist >"${OUT}/browser-static-server.log" 2>&1 &
+            echo $! >"${RUNNER_TEMP}/release-browser-server.pid"
+            for i in $(seq 1 30); do
+              if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+              sleep 1
+            done
+          fi
+          node "${PW}/smoke.mjs" http://127.0.0.1:4173 "${OUT}/browser-smoke.json"
+          if [ -f "${RUNNER_TEMP}/release-browser-server.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/release-browser-server.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload exact proposed Pages snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-phase-3b-release-pages-snapshot
+          path: ${{ runner.temp }}/release-characterization/proposed-pages/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
+
+      - name: Upload current-build-A characterization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-characterization-current-a
+          path: ${{ runner.temp }}/release-characterization/current-a/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
+
+  current-build-b:
+    name: current-main-build-b-reproducibility
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence tooling
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-release-deployment-characterization
+          path: evidence
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Independent fresh build B
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/current-b"
+          mkdir -p "${OUT}"
+          test "$(git -C source rev-parse HEAD)" = "${CURRENT_MAIN_SHA}"
+          test "$(git -C source rev-parse HEAD^{tree})" = "${CURRENT_MAIN_TREE}"
+          (
+            cd source
+            npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+            npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+          )
+          node evidence/scripts/evidence/release-characterization.mjs manifest source/dist "${OUT}/release-dist-manifest.json"
+
+      - name: Upload current-build-B reproducibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-characterization-current-b
+          path: ${{ runner.temp }}/release-characterization/current-b/
+          if-no-files-found: error
+          retention-days: 90
+
+  characterization-summary:
+    name: release-deployment-characterization-summary
+    needs:
+      - historical-reproduction
+      - current-build-a
+      - current-build-b
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence branch read-only
+        uses: actions/checkout@v4
+        with:
+          ref: basair/phase-3b-release-deployment-characterization
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download historical evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: release-characterization-historical
+          path: evidence-download/historical
+
+      - name: Download current build A evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: release-characterization-current-a
+          path: evidence-download/current-a
+
+      - name: Download current build B evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: release-characterization-current-b
+          path: evidence-download/current-b
+
+      - name: Produce terminal release characterization summary
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          HIST_JOB: ${{ needs.historical-reproduction.result }}
+          BUILD_A_JOB: ${{ needs.current-build-a.result }}
+          BUILD_B_JOB: ${{ needs.current-build-b.result }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization/summary"
+          mkdir -p "${OUT}"
+
+          read_ref() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/$1" | jq -r '.object.sha'
+          }
+
+          REMOTE_MAIN="$(read_ref main)"
+          REMOTE_FINAL="$(read_ref "${PHASE_FINAL_BRANCH}")"
+          REMOTE_GH="$(read_ref gh-pages)"
+          printf 'main=%s\nfinal=%s\ngh_pages=%s\n' "${REMOTE_MAIN}" "${REMOTE_FINAL}" "${REMOTE_GH}" | tee "${OUT}/terminal-refs.txt"
+
+          test "${REMOTE_MAIN}" = "${CURRENT_MAIN_SHA}"
+          test "${REMOTE_FINAL}" = "${CURRENT_MAIN_SHA}"
+          test "${REMOTE_GH}" = "${CURRENT_GH_PAGES_SHA}"
+
+          node - <<'NODE'
+          const fs=require('fs'),path=require('path'),crypto=require('crypto');
+          const R='evidence-download';
+          const read=p=>JSON.parse(fs.readFileSync(path.join(R,p),'utf8'));
+          const hist=read('historical/historical-reproduction.json');
+          const ghClass=read('historical/gh-pages-classification.json');
+          const ghManifest=read('historical/current-gh-pages-manifest.json');
+          const ghHistory=read('historical/gh-pages-history.json');
+          const a=read('current-a/release-dist-manifest.json');
+          const b=read('current-b/release-dist-manifest.json');
+          const proposed=read('current-a/proposed-pages-manifest.json');
+          const delta=read('current-a/deployment-delta.json');
+          const root=read('current-a/root-path-audit.json');
+          const routes=read('current-a/route-inventory.json');
+          const stat=read('current-a/static-smoke.json');
+          const browser=read('current-a/browser-smoke.json');
+
+          const sameBuild=JSON.stringify(a.files)===JSON.stringify(b.files);
+          const histExplained=hist.onlyInA.length===0&&hist.byteDifferent.length===0&&ghClass.counts.D===0&&ghClass.counts.E===0;
+          const metadata=ghClass.rows.filter(x=>x.classification==='B').map(x=>x.path);
+          const jobs={historical:process.env.HIST_JOB,buildA:process.env.BUILD_A_JOB,buildB:process.env.BUILD_B_JOB};
+          const jobPass=Object.values(jobs).every(x=>x==='success');
+          const allPass=jobPass&&histExplained&&sameBuild&&root.pass&&routes.pass&&stat.pass&&browser.pass;
+          const classification=allPass
+            ? (metadata.length?'B — DEPLOYMENT READY WITH REQUIRED METADATA PRESERVATION':'A — CLEAN SNAPSHOT DEPLOYMENT READY')
+            : 'E — BLOCKED / UNKNOWN';
+          const snapshotModel=allPass?'CLEAN SNAPSHOT REPLACEMENT':'UNDECIDED';
+          const summary={
+            authorities:{
+              main:process.env.CURRENT_MAIN_SHA,
+              mainTree:process.env.CURRENT_MAIN_TREE,
+              ghPages:process.env.CURRENT_GH_PAGES_SHA,
+              ghPagesTree:process.env.CURRENT_GH_PAGES_TREE
+            },
+            jobs,
+            currentGhPages:{
+              fileCount:ghManifest.totalFileCount,
+              totalBytes:ghManifest.totalBytes,
+              manifestDigest:ghManifest.manifestDigest,
+              classificationCounts:ghClass.counts,
+              metadata,
+              historyModel:ghHistory.model,
+              recentCommits:ghHistory.commits
+            },
+            historicalReproduction:{
+              explained:histExplained,
+              exactMatch:hist.exactMatch,
+              onlyInHistoricalDist:hist.onlyInA,
+              onlyInGhPages:hist.onlyInB,
+              byteDifferent:hist.byteDifferent,
+              identicalCount:hist.identicalCount,
+              transform:metadata.length?'historical dist plus explicit preservation/injection of listed Pages metadata':'exact historical dist snapshot'
+            },
+            currentBuild:{
+              verificationJobPassed:jobs.buildA==='success',
+              distFileCount:a.totalFileCount,
+              distBytes:a.totalBytes,
+              distManifestDigest:a.manifestDigest,
+              reproducible:sameBuild,
+              secondManifestDigest:b.manifestDigest
+            },
+            rootPathAudit:{pass:root.pass,checkedLocalReferences:root.checkedLocalReferences,missing:root.missing,forbiddenRepoSubdir:root.forbiddenRepoSubdir},
+            routeInventory:routes,
+            staticSmoke:stat,
+            browserSmoke:{pass:browser.pass,caseCount:browser.caseCount,failures:browser.failures},
+            proposedSnapshot:{fileCount:proposed.totalFileCount,totalBytes:proposed.totalBytes,manifestDigest:proposed.manifestDigest},
+            deploymentDelta:delta,
+            metadataPolicy:{
+              preserveOrInject:metadata,
+              nojekyll:metadata.includes('.nojekyll')?'PRESERVE/INJECT':'ABSENT AND NOT REQUIRED BY HISTORICAL MODEL',
+              CNAME:metadata.includes('CNAME')?'PRESERVE/INJECT':'ABSENT',
+              html404:metadata.includes('404.html')?'PRESERVE/INJECT':'ABSENT'
+            },
+            deploymentModel:{
+              snapshotModel,
+              overlayRejected:allPass,
+              rationale:allPass?'Use a clean exact snapshot to prevent stale hashed Vite assets; retain only explicitly characterized Pages metadata.':'Insufficient evidence',
+              futureCommit:{
+                parent:'current gh-pages HEAD at execution time',
+                tree:'exact characterized proposed Pages snapshot',
+                history:'append-only normal parented gh-pages commit',
+                sourceHistoryMerge:false,
+                force:false
+              }
+            },
+            classification,
+            readyForFinalClosureReview:allPass,
+            nextGate:allPass?'PHASE 3B RELEASE / DEPLOYMENT IMPLEMENTATION':'NONE — RELEASE BLOCKED',
+            doNotDeploy:true
+          };
+          fs.mkdirSync(process.env.RUNNER_TEMP+'/release-characterization/summary',{recursive:true});
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/release-characterization/summary/release-characterization-summary.json',JSON.stringify(summary,null,2)+'\n');
+          fs.copyFileSync(path.join(R,'current-a/release-dist-manifest.json'),process.env.RUNNER_TEMP+'/release-characterization/summary/release-dist-manifest.json');
+          fs.copyFileSync(path.join(R,'historical/current-gh-pages-manifest.json'),process.env.RUNNER_TEMP+'/release-characterization/summary/current-gh-pages-manifest.json');
+          fs.copyFileSync(path.join(R,'current-a/deployment-delta.json'),process.env.RUNNER_TEMP+'/release-characterization/summary/deployment-delta.json');
+          fs.copyFileSync(path.join(R,'current-a/browser-smoke.json'),process.env.RUNNER_TEMP+'/release-characterization/summary/browser-smoke.json');
+          console.log(JSON.stringify(summary,null,2));
+          if(!allPass) process.exit(1);
+          NODE
+
+      - name: Upload release characterization summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-characterization-summary
+          path: ${{ runner.temp }}/release-characterization/summary/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
