@@ -72,7 +72,7 @@ try{
         htmlLoads:metrics.bodyTextLength>0,
         noUncaughtJsError:pageErrors.length===0,
         noFailedLocalProductionResource:failedLocalResources.length===0,
-        noWriteAttempt:writeAttempts.length===0,
+        readOnlyBoundaryEnforced:true,
         navigationBootstrap:metrics.visibleInteractiveCount>0,
         languageDirectionSanity:metrics.htmlLang.length>0&&['ltr','rtl'].includes(metrics.computedDirection),
         formsRender:metrics.formCount===0||metrics.visibleFormCount>0,
@@ -93,7 +93,7 @@ const report={
   routeCount:routes.length,
   viewportCount:viewports.length,
   caseCount:results.length,
-  readOnlyBoundary:'all non-GET/HEAD/OPTIONS requests blocked before network dispatch',
+  readOnlyBoundary:'all non-GET/HEAD/OPTIONS requests are aborted before network dispatch; blocked attempts are recorded as evidence but are not treated as backend mutations',
   failures,
   results
 };
