@@ -1,0 +1,349 @@
+name: Phase 3B Release Deployment Implementation
+
+on:
+  push:
+    branches:
+      - 'basair/phase-3b-release-deployment-implementation-evidence'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: basair-phase-3b-pages-deployment
+  cancel-in-progress: false
+
+env:
+  MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  FINAL_BRANCH: basair/phase-3b-5-hero-delight-animate-exact-concat
+  OLD_GH_SHA: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+  OLD_GH_TREE: f725d5072ee03ee2d6395d387d20917676a5ffcd
+  EXPECTED_FILES: '25'
+  EXPECTED_BYTES: '2555386'
+  EXPECTED_MANIFEST: sha256:e83d62b376f75cd8334a30619e8eb04ad28e78176565415f27c92f3cacf4746f
+  DEPLOY_MESSAGE: Deploy Phase 3B release f66f41a
+
+jobs:
+  deployment-gates-and-commit:
+    name: deployment-gates-and-commit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact current gh-pages parent
+        uses: actions/checkout@v4
+        with:
+          ref: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+          path: deploy
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fresh pre-deployment authority check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+          mkdir -p "${OUT}"
+
+          read_ref() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/$1" | jq -r '.object.sha'
+          }
+
+          REMOTE_MAIN="$(read_ref main)"
+          REMOTE_FINAL="$(read_ref "${FINAL_BRANCH}")"
+          REMOTE_GH="$(read_ref gh-pages)"
+          {
+            echo "main=${REMOTE_MAIN}"
+            echo "final=${REMOTE_FINAL}"
+            echo "gh_pages=${REMOTE_GH}"
+            echo "source_head=$(git -C source rev-parse HEAD)"
+            echo "source_tree=$(git -C source rev-parse HEAD^{tree})"
+            echo "deploy_parent_head=$(git -C deploy rev-parse HEAD)"
+            echo "deploy_parent_tree=$(git -C deploy rev-parse HEAD^{tree})"
+          } | tee "${OUT}/pre-authorities.txt"
+
+          test "${REMOTE_MAIN}" = "${MAIN_SHA}"
+          test "${REMOTE_FINAL}" = "${MAIN_SHA}"
+          test "${REMOTE_GH}" = "${OLD_GH_SHA}"
+          test "$(git -C source rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git -C source rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          test "$(git -C deploy rev-parse HEAD)" = "${OLD_GH_SHA}"
+          test "$(git -C deploy rev-parse HEAD^{tree})" = "${OLD_GH_TREE}"
+
+      - name: Fresh source verification and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+          (
+            cd source
+            node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/preflight.txt"
+            npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+            npm run verify 2>&1 | tee "${OUT}/npm-verify.txt"
+            npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+            git diff --check 2>&1 | tee "${OUT}/git-diff-check.txt"
+            git diff --exit-code 2>&1 | tee "${OUT}/git-diff-exit-code.txt"
+            STATUS="$(git status --porcelain)"
+            printf '%s\n' "${STATUS}" | tee "${OUT}/git-status.txt"
+            test -z "${STATUS}"
+            node token-authority-check.mjs 2>&1 | tee "${OUT}/token-authority.txt"
+          )
+
+      - name: Create manifest and delta utility
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >"${RUNNER_TEMP}/release-impl.mjs" <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+
+          const [,,cmd,...args]=process.argv;
+          const slash=p=>p.split(path.sep).join('/');
+          const sha256=b=>crypto.createHash('sha256').update(b).digest('hex');
+          function walk(root,dir=root){
+            const out=[];
+            for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+              if(e.name==='.git') continue;
+              const full=path.join(dir,e.name);
+              if(e.isDirectory()) out.push(...walk(root,full));
+              else if(e.isFile()) out.push(slash(path.relative(root,full)));
+            }
+            return out.sort();
+          }
+          function manifest(root){
+            const files=walk(root).map(p=>{
+              const b=fs.readFileSync(path.join(root,p));
+              return {path:p,size:b.length,sha256:sha256(b)};
+            });
+            return {
+              files,
+              totalFileCount:files.length,
+              totalBytes:files.reduce((n,f)=>n+f.size,0),
+              manifestDigest:'sha256:'+sha256(Buffer.from(JSON.stringify(files)))
+            };
+          }
+          function write(file,obj){fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,JSON.stringify(obj,null,2)+'\n');}
+          if(cmd==='manifest'){
+            write(args[1],manifest(args[0]));
+          }else if(cmd==='delta'){
+            const old=JSON.parse(fs.readFileSync(args[0])),neu=JSON.parse(fs.readFileSync(args[1]));
+            const O=new Map(old.files.map(x=>[x.path,x])),N=new Map(neu.files.map(x=>[x.path,x]));
+            const rows=[],counts={ADD:0,MODIFY:0,DELETE:0,PRESERVE:0};
+            for(const p of [...new Set([...O.keys(),...N.keys()])].sort()){
+              const o=O.get(p),n=N.get(p); let action;
+              if(!o&&n) action='ADD';
+              else if(o&&!n) action='DELETE';
+              else if(o.sha256===n.sha256&&o.size===n.size) action='PRESERVE';
+              else action='MODIFY';
+              counts[action]++; rows.push({path:p,action,old:o||null,new:n||null});
+            }
+            write(args[2],{counts,rows});
+          }else throw new Error('unknown command '+cmd);
+          NODE
+
+      - name: Prove fresh release snapshot identity and content policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+          node "${RUNNER_TEMP}/release-impl.mjs" manifest source/dist "${OUT}/fresh-dist-manifest.json"
+          node - "${OUT}/fresh-dist-manifest.json" <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync(process.argv[2]));
+          const expectedRoutes=[
+            'index.html','admin.html',
+            'en/index.html','en/quran-kids/index.html','en/quran-adults/index.html','en/arabic/index.html',
+            'ru/index.html','ru/quran/index.html','ru/arabic/index.html',
+            'uz/index.html','uz/quran/index.html','uz/arabic/index.html'
+          ];
+          console.log(JSON.stringify({fileCount:m.totalFileCount,totalBytes:m.totalBytes,manifestDigest:m.manifestDigest},null,2));
+          if(String(m.totalFileCount)!==process.env.EXPECTED_FILES) throw new Error('file count mismatch');
+          if(String(m.totalBytes)!==process.env.EXPECTED_BYTES) throw new Error('byte count mismatch');
+          if(m.manifestDigest!==process.env.EXPECTED_MANIFEST) throw new Error('manifest mismatch');
+          const paths=new Set(m.files.map(x=>x.path));
+          for(const r of expectedRoutes) if(!paths.has(r)) throw new Error('missing route '+r);
+          for(const x of ['.nojekyll','CNAME','404.html']) if(paths.has(x)) throw new Error('unexpected metadata '+x);
+          for(const p of paths){
+            if(p.startsWith('node_modules/')||p.startsWith('.github/')||p.startsWith('scripts/')) throw new Error('source/evidence path in dist: '+p);
+          }
+          NODE
+
+      - name: Replace old gh-pages snapshot cleanly and prove exact staged snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+
+          node "${RUNNER_TEMP}/release-impl.mjs" manifest deploy "${OUT}/old-gh-pages-manifest.json"
+
+          find deploy -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a source/dist/. deploy/
+
+          node "${RUNNER_TEMP}/release-impl.mjs" manifest deploy "${OUT}/staged-snapshot-manifest.json"
+          cmp <(jq -S . "${OUT}/fresh-dist-manifest.json") <(jq -S . "${OUT}/staged-snapshot-manifest.json")
+
+          git -C deploy add -A
+          test -z "$(git -C deploy status --porcelain | awk '$1=="??"{print}')"
+
+      - name: Prove expected deployment delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+          node "${RUNNER_TEMP}/release-impl.mjs" delta "${OUT}/old-gh-pages-manifest.json" "${OUT}/staged-snapshot-manifest.json" "${OUT}/deployment-delta.json"
+          node - "${OUT}/deployment-delta.json" <<'NODE'
+          const fs=require('fs');
+          const d=JSON.parse(fs.readFileSync(process.argv[2]));
+          const required={ADD:7,MODIFY:12,DELETE:7,PRESERVE:6};
+          for(const [k,v] of Object.entries(required)) if(d.counts[k]!==v) throw new Error(k+' expected '+v+' got '+d.counts[k]);
+          const deleted=d.rows.filter(x=>x.action==='DELETE').map(x=>x.path).sort();
+          const added=d.rows.filter(x=>x.action==='ADD').map(x=>x.path).sort();
+          const expectedDeleted=[
+            'assets/acquisition-B3zKZrDc.css',
+            'assets/acquisition-YbPaga39.js',
+            'assets/admin-C0yueViI.css',
+            'assets/admin-DY5t-cYj.js',
+            'assets/form-polish-v2-DfG2nD1T.css',
+            'assets/main-BfbBE8C6.css',
+            'assets/main-BrQX_13Z.js'
+          ].sort();
+          const expectedAdded=[
+            'assets/acquisition-DLDphUzd.js',
+            'assets/acquisition-eZqd7U8u.css',
+            'assets/admin-Bj9qN61i.js',
+            'assets/admin-KP_-cv_r.css',
+            'assets/form-overdrive-v1-DfG2nD1T.css',
+            'assets/main-7lqh8VQc.js',
+            'assets/main-DWDLbThX.css'
+          ].sort();
+          if(JSON.stringify(deleted)!==JSON.stringify(expectedDeleted)) throw new Error('deleted hashed asset set mismatch');
+          if(JSON.stringify(added)!==JSON.stringify(expectedAdded)) throw new Error('replacement hashed asset set mismatch');
+          if(deleted.some(x=>['.nojekyll','CNAME','404.html'].includes(x))) throw new Error('metadata deletion detected');
+          console.log(JSON.stringify(d.counts,null,2));
+          NODE
+
+      - name: Create exact deployment Git objects and one normal commit
+        id: prepare
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+          TREE_JSON="${OUT}/tree-elements.json"
+          echo '[]' > "${TREE_JSON}"
+
+          while IFS= read -r -d '' FILE; do
+            REL="${FILE#deploy/}"
+            LOCAL_BLOB="$(git -C deploy hash-object "${REL}")"
+            B64="$(base64 -w0 "${FILE}")"
+            RESP="$(curl --fail --silent --show-error --location \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/blobs" \
+              -d "$(jq -nc --arg content "${B64}" '{content:$content,encoding:"base64"}')")"
+            REMOTE_BLOB="$(jq -r '.sha' <<<"${RESP}")"
+            test "${REMOTE_BLOB}" = "${LOCAL_BLOB}"
+            jq --arg p "${REL}" --arg s "${REMOTE_BLOB}" '. + [{path:$p,mode:"100644",type:"blob",sha:$s}]' "${TREE_JSON}" > "${TREE_JSON}.tmp"
+            mv "${TREE_JSON}.tmp" "${TREE_JSON}"
+          done < <(find deploy -type f ! -path 'deploy/.git/*' ! -path 'deploy/.git' -print0 | sort -z)
+
+          LOCAL_TREE="$(git -C deploy write-tree)"
+          TREE_RESP="$(curl --fail --silent --show-error --location \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/trees" \
+            -d "$(jq -nc --slurpfile tree "${TREE_JSON}" '{tree:$tree[0]}')")"
+          DEPLOY_TREE_SHA="$(jq -r '.sha' <<<"${TREE_RESP}")"
+          test "${DEPLOY_TREE_SHA}" = "${LOCAL_TREE}"
+
+          COMMIT_RESP="$(curl --fail --silent --show-error --location \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits" \
+            -d "$(jq -nc --arg message "${DEPLOY_MESSAGE}" --arg tree "${DEPLOY_TREE_SHA}" --arg parent "${OLD_GH_SHA}" '{message:$message,tree:$tree,parents:[$parent]}')")"
+          DEPLOY_COMMIT_SHA="$(jq -r '.sha' <<<"${COMMIT_RESP}")"
+          COMMIT_PARENT="$(jq -r '.parents[0].sha' <<<"${COMMIT_RESP}")"
+          COMMIT_TREE="$(jq -r '.tree.sha' <<<"${COMMIT_RESP}")"
+          test "${COMMIT_PARENT}" = "${OLD_GH_SHA}"
+          test "${COMMIT_TREE}" = "${DEPLOY_TREE_SHA}"
+          test "$(jq '.parents|length' <<<"${COMMIT_RESP}")" -eq 1
+
+          {
+            echo "deploy_commit_sha=${DEPLOY_COMMIT_SHA}"
+            echo "deploy_tree_sha=${DEPLOY_TREE_SHA}"
+            echo "parent=${COMMIT_PARENT}"
+            echo "message=${DEPLOY_MESSAGE}"
+            echo "parent_count=1"
+          } | tee "${OUT}/deployment-commit.txt"
+
+          echo "commit_sha=${DEPLOY_COMMIT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "tree_sha=${DEPLOY_TREE_SHA}" >> "${GITHUB_OUTPUT}"
+
+      - name: Final pre-mutation race check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-release-implementation"
+
+          read_ref() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/$1" | jq -r '.object.sha'
+          }
+
+          REMOTE_MAIN="$(read_ref main)"
+          REMOTE_FINAL="$(read_ref "${FINAL_BRANCH}")"
+          REMOTE_GH="$(read_ref gh-pages)"
+          {
+            echo "main=${REMOTE_MAIN}"
+            echo "final=${REMOTE_FINAL}"
+            echo "gh_pages=${REMOTE_GH}"
+            echo "prepared_deploy_commit=${{ steps.prepare.outputs.commit_sha }}"
+            echo "prepared_deploy_tree=${{ steps.prepare.outputs.tree_sha }}"
+          } | tee "${OUT}/pre-push-race-check.txt"
+          test "${REMOTE_MAIN}" = "${MAIN_SHA}"
+          test "${REMOTE_FINAL}" = "${MAIN_SHA}"
+          test "${REMOTE_GH}" = "${OLD_GH_SHA}"
+
+      - name: Upload implementation preparation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b-release-deployment-implementation-prepared
+          path: ${{ runner.temp }}/phase3b-release-implementation/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
