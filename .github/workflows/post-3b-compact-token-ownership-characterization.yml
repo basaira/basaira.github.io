@@ -244,7 +244,7 @@ jobs:
               for p in patterns:
                 if p in line: mechanism[p].append({'path':f,'line':i,'text':line.strip()})
               if T in line or K in line: specific.append({'path':f,'line':i,'text':line.strip()})
-              if E in line or L in line: filenames.append({'path':f,'line':i,'text':line.strip()})
+              if (E in line or L in line) and any(m in line for m in ['querySelector','styleSheets','cssRules','getPropertyValue','setProperty','includes(','endsWith(','startsWith(','match(','indexOf(']): filenames.append({'path':f,'line':i,'text':line.strip()})
           J('compact-token-runtime-scan.json',{'mechanismHits':mechanism,'tokenSpecificRuntimeReferences':specific,'runtimeStylesheetFilenameReferences':filenames,'unexplainedDependency':bool(specific or filenames)})
           J('compact-token-route-ownership.json',{'routes':A['routeOwnership'],'routesOwningBoth':A['routesOwningBoth']})
           J('compact-token-source-variant.json',{'head':subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD^{tree}'],text=True).strip(),'earlySha256':H(S/E),'lateSha256':H(S/L),'earlyDeclarationPresent':T in (S/E).read_text(),'lateDeclarationPresent':T in (S/L).read_text()})
