@@ -136,8 +136,16 @@ async function staticAnalysis(root, out) {
 
 async function provenance(out) {
   const { chromium } = require('playwright');
+  const { spawn } = require('child_process');
   const routes = routeFiles.map(x => x[0]);
-  const bases = { baseline: 'http://127.0.0.1:4173', candidate: 'http://127.0.0.1:4174' };
+  const sourceRoot = path.join(process.env.GITHUB_WORKSPACE, 'source');
+  const candidateRoot = path.join(process.env.RUNNER_TEMP, 'candidate');
+  const servers = [
+    spawn('python3', ['-m','http.server','4183','--bind','127.0.0.1','--directory',sourceRoot], {stdio:'ignore'}),
+    spawn('python3', ['-m','http.server','4184','--bind','127.0.0.1','--directory',candidateRoot], {stdio:'ignore'})
+  ];
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  const bases = { baseline: 'http://127.0.0.1:4183', candidate: 'http://127.0.0.1:4184' };
 
   async function scan(page) {
     return page.evaluate((tok) => {
@@ -198,7 +206,10 @@ async function provenance(out) {
         await context.close();
       }
     }
-  } finally { await browser.close(); }
+  } finally {
+    await browser.close();
+    for (const s of servers) { try { s.kill('SIGTERM'); } catch {} }
+  }
 
   const baseline = rows.filter(x => x.variant === 'baseline');
   const owningRoutes = baseline.filter(x =>
