@@ -223,7 +223,7 @@ async function provenance(out) {
       return hit.length === 2 &&
         hit.some(o => (o.href || '').includes(earlyOwner)) &&
         hit.some(o => (o.href || '').includes(lateOwner)) &&
-        hit.every(o => o.parentConditions.length === 0);
+        hit.every(o => o.parentConditions.every(p => p === '@import'));
     }),
     candidateOwningRoutesHaveOnlyLateOwner: rows.filter(x => x.variant === 'candidate' && owningRoutes.includes(x.route)).every(x => {
       const hit = x.owners.filter(o => (o.href || '').includes(earlyOwner) || (o.href || '').includes(lateOwner));
