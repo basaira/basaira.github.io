@@ -151,7 +151,7 @@ jobs:
           set -euo pipefail
           PW="${RUNNER_TEMP}/compact-pw"
           mkdir -p "${PW}"
-          cp evidence/scripts/evidence/compact-token-characterization.mjs "${PW}/characterize.cjs"
+          cp evidence/scripts/evidence/compact-token-characterization.mjs "${PW}/characterize.mjs"
           cd "${PW}"
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright@1.55.0
@@ -185,14 +185,14 @@ jobs:
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}/compact-pw"
-          node characterize.cjs provenance "${RUNNER_TEMP}/compact-characterization/compact-token-runtime-ownership.json"
+          node characterize.mjs provenance "${RUNNER_TEMP}/compact-characterization/compact-token-runtime-ownership.json"
 
       - name: Responsive remove-earlier-owner simulation matrix
         shell: bash
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}/compact-pw"
-          node characterize.cjs responsive "${RUNNER_TEMP}/compact-characterization/compact-token-responsive-matrix.json" "${RUNNER_TEMP}/compact-characterization/screenshots"
+          node characterize.mjs responsive "${RUNNER_TEMP}/compact-characterization/compact-token-responsive-matrix.json" "${RUNNER_TEMP}/compact-characterization/screenshots"
 
       - name: Produce characterization disposition
         shell: bash
