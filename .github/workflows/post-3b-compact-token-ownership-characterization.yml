@@ -1,0 +1,243 @@
+name: Post-3B Compact Token Ownership Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-ownership-characterization'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  LIVE_GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  LIVE_GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+
+jobs:
+  characterize:
+    name: compact-token-ownership-read-only-characterization
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout evidence tooling
+        uses: actions/checkout@v4
+        with:
+          ref: basair/post-3b-compact-token-ownership-characterization
+          path: evidence
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Freeze authorities
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/compact-characterization"
+          mkdir -p "${OUT}"
+
+          read_ref() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/$1" | jq -r '.object.sha'
+          }
+
+          MAIN="$(read_ref main)"
+          FINAL="$(read_ref basair/phase-3b-5-hero-delight-animate-exact-concat)"
+          GH="$(read_ref gh-pages)"
+          MAIN_GIT="$(curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          MAIN_REMOTE_TREE="$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"
+          GH_REMOTE_TREE="$(jq -r '.tree.sha' <<<"${GH_GIT}")"
+
+          jq -n \
+            --arg main "${MAIN}" --arg final "${FINAL}" --arg gh "${GH}" \
+            --arg mainTree "${MAIN_REMOTE_TREE}" --arg ghTree "${GH_REMOTE_TREE}" \
+            --arg localHead "$(git -C source rev-parse HEAD)" --arg localTree "$(git -C source rev-parse HEAD^{tree})" \
+            '{main:$main,final:$final,gh_pages:$gh,main_tree:$mainTree,gh_pages_tree:$ghTree,local_head:$localHead,local_tree:$localTree}' \
+            | tee "${OUT}/frozen-authorities.json"
+
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${FINAL}" = "${MAIN_SHA}"
+          test "${GH}" = "${LIVE_GH_SHA}"
+          test "${MAIN_REMOTE_TREE}" = "${MAIN_TREE}"
+          test "${GH_REMOTE_TREE}" = "${LIVE_GH_TREE}"
+          test "$(git -C source rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git -C source rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+
+      - name: Fresh baseline verification and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/compact-characterization"
+          (
+            cd source
+            node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/baseline-css-preflight.txt"
+            npm ci 2>&1 | tee "${OUT}/baseline-npm-ci.txt"
+            npm run verify 2>&1 | tee "${OUT}/baseline-npm-verify.txt"
+            npm run build 2>&1 | tee "${OUT}/baseline-npm-build.txt"
+            node token-authority-check.mjs 2>&1 | tee "${OUT}/baseline-token-authority.txt"
+            git diff --check
+            git diff --exit-code
+            test -z "$(git status --porcelain)"
+          )
+          mv source/dist "${RUNNER_TEMP}/baseline-dist"
+
+      - name: Static ownership and current manifest analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          node evidence/scripts/evidence/compact-token-characterization.cjs static source "${RUNNER_TEMP}/compact-characterization/compact-token-static-analysis.json"
+
+      - name: Prepare remove-earlier-owner simulation only
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/compact-characterization"
+          rsync -a --exclude node_modules --exclude dist source/ "${RUNNER_TEMP}/candidate/"
+          ln -s "${GITHUB_WORKSPACE}/source/node_modules" "${RUNNER_TEMP}/candidate/node_modules"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path(os.environ['RUNNER_TEMP'])/'candidate'/'tokens-public-compat.css'
+          text=p.read_text()
+          needle='  --layout-section-compact: var(--space-layout-section-compact);\n'
+          count=text.count(needle)
+          if count != 1:
+              raise SystemExit(f'expected exactly one removable early declaration, found {count}')
+          p.write_text(text.replace(needle,'',1))
+          PY
+
+          diff -u source/tokens-public-compat.css "${RUNNER_TEMP}/candidate/tokens-public-compat.css" | tee "${OUT}/simulation-only.diff" || true
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path(os.environ['RUNNER_TEMP'])/'compact-characterization'/'simulation-only.diff'
+          lines=p.read_text().splitlines()
+          removed=[x for x in lines if x.startswith('-') and not x.startswith('---')]
+          added=[x for x in lines if x.startswith('+') and not x.startswith('+++')]
+          expected=['-  --layout-section-compact: var(--space-layout-section-compact);']
+          if removed != expected or added:
+              raise SystemExit(f'unexpected simulation diff: removed={removed}, added={added}')
+          PY
+
+          (
+            cd "${RUNNER_TEMP}/candidate"
+            npm run build 2>&1 | tee "${OUT}/candidate-npm-build.txt"
+          )
+          mv "${RUNNER_TEMP}/candidate/dist" "${RUNNER_TEMP}/candidate-dist"
+
+      - name: Install disposable Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          PW="${RUNNER_TEMP}/compact-pw"
+          mkdir -p "${PW}"
+          cp evidence/scripts/evidence/compact-token-characterization.cjs "${PW}/characterize.cjs"
+          cd "${PW}"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start baseline and candidate source and dist servers
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/compact-characterization"
+          (cd source && npm run dev -- --host 127.0.0.1 --port 4173 --strictPort >"${OUT}/baseline-dev.log" 2>&1) &
+          echo $! >"${RUNNER_TEMP}/baseline-dev.pid"
+          (cd "${RUNNER_TEMP}/candidate" && npm run dev -- --host 127.0.0.1 --port 4174 --strictPort >"${OUT}/candidate-dev.log" 2>&1) &
+          echo $! >"${RUNNER_TEMP}/candidate-dev.pid"
+          python3 -m http.server 4175 --bind 127.0.0.1 --directory "${RUNNER_TEMP}/baseline-dist" >"${OUT}/baseline-dist-server.log" 2>&1 &
+          echo $! >"${RUNNER_TEMP}/baseline-dist.pid"
+          python3 -m http.server 4176 --bind 127.0.0.1 --directory "${RUNNER_TEMP}/candidate-dist" >"${OUT}/candidate-dist-server.log" 2>&1 &
+          echo $! >"${RUNNER_TEMP}/candidate-dist.pid"
+
+          for port in 4173 4174 4175 4176; do
+            ok=0
+            for i in $(seq 1 60); do
+              if curl -fsS "http://127.0.0.1:${port}/" >/dev/null; then ok=1; break; fi
+              sleep 1
+            done
+            test "${ok}" = 1
+          done
+
+      - name: CSSOM provenance scan on all production routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/compact-pw"
+          node characterize.cjs provenance "${RUNNER_TEMP}/compact-characterization/compact-token-runtime-ownership.json"
+
+      - name: Responsive remove-earlier-owner simulation matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/compact-pw"
+          node characterize.cjs responsive "${RUNNER_TEMP}/compact-characterization/compact-token-responsive-matrix.json" "${RUNNER_TEMP}/compact-characterization/screenshots"
+
+      - name: Produce characterization disposition
+        shell: bash
+        run: |
+          set -euo pipefail
+          node evidence/scripts/evidence/compact-token-characterization.cjs summary "${RUNNER_TEMP}/compact-characterization"
+
+      - name: Terminal authority check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/compact-characterization"
+          read_ref() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/$1" | jq -r '.object.sha'
+          }
+          MAIN="$(read_ref main)"
+          FINAL="$(read_ref basair/phase-3b-5-hero-delight-animate-exact-concat)"
+          GH="$(read_ref gh-pages)"
+          jq -n --arg main "${MAIN}" --arg final "${FINAL}" --arg gh "${GH}" '{main:$main,final:$final,gh_pages:$gh}' | tee "${OUT}/terminal-authorities.json"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${FINAL}" = "${MAIN_SHA}"
+          test "${GH}" = "${LIVE_GH_SHA}"
+
+      - name: Stop local servers
+        if: always()
+        shell: bash
+        run: |
+          for f in baseline-dev candidate-dev baseline-dist candidate-dist; do
+            if [ -f "${RUNNER_TEMP}/${f}.pid" ]; then
+              kill "$(cat "${RUNNER_TEMP}/${f}.pid")" 2>/dev/null || true
+            fi
+          done
+
+      - name: Upload characterization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-ownership-characterization
+          path: ${{ runner.temp }}/compact-characterization/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
