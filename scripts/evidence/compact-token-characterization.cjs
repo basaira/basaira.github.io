@@ -280,6 +280,9 @@ async function responsive(out, screenshotDir) {
         const splash = document.getElementById('splash-screen');
         return !splash || getComputedStyle(splash).display === 'none';
       }, { timeout: 3500 });
+      // Hero delight/animate uses higher-specificity !important one-shot animation.
+      // Let that authored post-splash lifecycle reach its terminal state before measuring layout.
+      await page.waitForTimeout(1300);
     }
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}' });
     if (route === '/') {
