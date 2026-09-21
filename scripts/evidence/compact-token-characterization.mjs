@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -244,7 +246,7 @@ async function responsive(out, screenshotDir) {
   const provenanceFile = path.join(path.dirname(out), 'compact-token-runtime-ownership.json');
   const prov = JSON.parse(fs.readFileSync(provenanceFile, 'utf8'));
   const routes = prov.owningRoutes;
-  const widths = [390, 766, 767, 768, 1119, 1120, 1121, 1440];
+  const widths = [390, 766, 767, 768, 1119, 1120, 1121, 1200, 1440];
   const langs = ['en', 'ar'];
   const bases = { baseline: 'http://127.0.0.1:4175', candidate: 'http://127.0.0.1:4176' };
   fs.mkdirSync(screenshotDir, { recursive: true });
@@ -259,7 +261,7 @@ async function responsive(out, screenshotDir) {
       locale: lang === 'ar' ? 'ar-EG' : 'en-US'
     });
     const page = await context.newPage();
-    const localBlocked = [], pageErrors = [];
+    const localBlocked = [], pageErrors = [], localFailures = [], consoleEntries = [];
     await page.route('**/*', async r => {
       const req = r.request(), method = req.method().toUpperCase();
       const u = new URL(req.url());
@@ -274,6 +276,9 @@ async function responsive(out, screenshotDir) {
       return r.continue();
     });
     page.on('pageerror', e => pageErrors.push(String(e)));
+    page.on('requestfailed', req => { try { const u = new URL(req.url()); if (['127.0.0.1','localhost'].includes(u.hostname)) localFailures.push({ kind:'requestfailed', url:req.url(), failure:req.failure() }); } catch {} });
+    page.on('response', res => { try { const u = new URL(res.url()); if (['127.0.0.1','localhost'].includes(u.hostname) && res.status() >= 400) localFailures.push({ kind:'http', url:res.url(), status:res.status() }); } catch {} });
+    page.on('console', msg => { if (msg.type() === 'error' || msg.type() === 'warning') consoleEntries.push({ type:msg.type(), text:msg.text() }); });
     const resp = await page.goto(base + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
     if (route === '/') {
       await page.waitForFunction(() => {
@@ -309,8 +314,15 @@ async function responsive(out, screenshotDir) {
           x: +r.x.toFixed(3), y: +r.y.toFixed(3), w: +r.width.toFixed(3), h: +r.height.toFixed(3),
           display: s.display, position: s.position,
           pt: s.paddingTop, pb: s.paddingBottom, mt: s.marginTop, mb: s.marginBottom,
-          gap: s.gap, rowGap: s.rowGap, columnGap: s.columnGap
+          gap: s.gap, rowGap: s.rowGap, columnGap: s.columnGap,
+          gridTemplateColumns: s.gridTemplateColumns, transform: s.transform
         };
+      });
+      const structuralSelectors = ['html','body','#home','#about','#tracks','#video-library','#testimonials','#faq','#contact'].map((selector) => {
+        const el = document.querySelector(selector);
+        if (!el) return { selector, present:false };
+        const r = el.getBoundingClientRect(), st = getComputedStyle(el);
+        return { selector, present:true, x:+r.x.toFixed(3), y:+r.y.toFixed(3), width:+r.width.toFixed(3), height:+r.height.toFixed(3), paddingTop:st.paddingTop, paddingBottom:st.paddingBottom, marginTop:st.marginTop, marginBottom:st.marginBottom, gap:st.gap, rowGap:st.rowGap, columnGap:st.columnGap, gridTemplateColumns:st.gridTemplateColumns, transform:st.transform };
       });
       return {
         htmlLang: document.documentElement.lang,
@@ -322,7 +334,8 @@ async function responsive(out, screenshotDir) {
         tokenPx,
         bodyScrollHeight: document.body.scrollHeight,
         documentScrollHeight: document.documentElement.scrollHeight,
-        geometry
+        geometry,
+        structuralSelectors
       };
     }, token);
     const screenshot = await page.screenshot({ fullPage: true, animations: 'disabled' });
@@ -334,7 +347,7 @@ async function responsive(out, screenshotDir) {
     return {
       variant, route, width, height, lang,
       httpStatus: resp && resp.status() || null,
-      pageErrors, state,
+      pageErrors, localFailures, consoleEntries, state,
       screenshotSha256: sha256(screenshot),
       screenshotFile: filename
     };
@@ -365,7 +378,7 @@ async function responsive(out, screenshotDir) {
         const x = b.state.geometry[i], y = c.state.geometry[i];
         const d = Math.max(...['x', 'y', 'w', 'h'].map(k => Math.abs(x[k] - y[k])));
         maxDelta = Math.max(maxDelta, d);
-        if (d > 0.05 || x.key !== y.key || x.pt !== y.pt || x.pb !== y.pb || x.mt !== y.mt || x.mb !== y.mb || x.gap !== y.gap || x.rowGap !== y.rowGap || x.columnGap !== y.columnGap) {
+        if (d > 0.05 || x.key !== y.key || x.pt !== y.pt || x.pb !== y.pb || x.mt !== y.mt || x.mb !== y.mb || x.gap !== y.gap || x.rowGap !== y.rowGap || x.columnGap !== y.columnGap || x.gridTemplateColumns !== y.gridTemplateColumns || x.transform !== y.transform) {
           changedGeometry.push({ index: i, baseline: x, candidate: y, maxRectDelta: d });
         }
       }
@@ -373,6 +386,7 @@ async function responsive(out, screenshotDir) {
     const checks = {
       httpSuccess: b.httpStatus === 200 && c.httpStatus === 200,
       noPageErrors: b.pageErrors.length === 0 && c.pageErrors.length === 0,
+      localResourceFailuresZero: b.localFailures.length === 0 && c.localFailures.length === 0,
       tokenRawEqual: b.state.tokenRaw === c.state.tokenRaw,
       tokenResolvedPxEqual: b.state.tokenPx === c.state.tokenPx,
       directionEqual: b.state.computedDir === c.state.computedDir,
@@ -391,12 +405,16 @@ async function responsive(out, screenshotDir) {
       baseline: {
         tokenRaw: b.state.tokenRaw, canonicalRaw: b.state.canonicalRaw, tokenPx: b.state.tokenPx,
         dir: b.state.computedDir, htmlLang: b.state.htmlLang, htmlDir: b.state.htmlDir,
-        scrollHeight: b.state.documentScrollHeight, screenshotSha256: b.screenshotSha256
+        scrollHeight: b.state.documentScrollHeight, screenshotSha256: b.screenshotSha256,
+        structuralSelectors: b.state.structuralSelectors,
+        pageErrors: b.pageErrors, localFailures: b.localFailures, consoleEntries: b.consoleEntries
       },
       candidate: {
         tokenRaw: c.state.tokenRaw, canonicalRaw: c.state.canonicalRaw, tokenPx: c.state.tokenPx,
         dir: c.state.computedDir, htmlLang: c.state.htmlLang, htmlDir: c.state.htmlDir,
-        scrollHeight: c.state.documentScrollHeight, screenshotSha256: c.screenshotSha256
+        scrollHeight: c.state.documentScrollHeight, screenshotSha256: c.screenshotSha256,
+        structuralSelectors: c.state.structuralSelectors,
+        pageErrors: c.pageErrors, localFailures: c.localFailures, consoleEntries: c.consoleEntries
       }
     });
   }

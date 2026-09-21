@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node evidence/scripts/evidence/compact-token-characterization.cjs static source "${RUNNER_TEMP}/compact-characterization/compact-token-static-analysis.json"
+          node evidence/scripts/evidence/compact-token-characterization.mjs static source "${RUNNER_TEMP}/compact-characterization/compact-token-static-analysis.json"
 
       - name: Prepare remove-earlier-owner simulation only
         shell: bash
@@ -151,7 +151,7 @@ jobs:
           set -euo pipefail
           PW="${RUNNER_TEMP}/compact-pw"
           mkdir -p "${PW}"
-          cp evidence/scripts/evidence/compact-token-characterization.cjs "${PW}/characterize.cjs"
+          cp evidence/scripts/evidence/compact-token-characterization.mjs "${PW}/characterize.cjs"
           cd "${PW}"
           npm init -y >/dev/null
           npm install --no-audit --no-fund playwright@1.55.0
@@ -198,7 +198,78 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node evidence/scripts/evidence/compact-token-characterization.cjs summary "${RUNNER_TEMP}/compact-characterization"
+          node evidence/scripts/evidence/compact-token-characterization.mjs summary "${RUNNER_TEMP}/compact-characterization"
+
+      - name: Project exact contract evidence files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re, hashlib, subprocess, pathlib, os
+          O=pathlib.Path(os.environ['RUNNER_TEMP'])/'compact-characterization'
+          S=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'source'
+          C=pathlib.Path(os.environ['RUNNER_TEMP'])/'candidate'
+          T='--layout-section-compact'; K='--space-layout-section-compact'
+          E='tokens-public-compat.css'; L='visual-layout-hotfix-v2.css'
+          def J(name,obj): (O/name).write_text(json.dumps(obj,indent=2,ensure_ascii=False)+'\n')
+          def R(name): return json.loads((O/name).read_text())
+          def H(p): return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+          files=subprocess.check_output(['git','-C',str(S),'ls-files'],text=True).splitlines()
+          X={}
+          for f in files:
+            if pathlib.Path(f).suffix.lower() not in {'.css','.html','.js','.mjs','.ts','.json','.md','.yml','.yaml'}: continue
+            try: X[f]=(S/f).read_text()
+            except UnicodeDecodeError: pass
+          def hits(term):
+            out=[]
+            for f,t in X.items():
+              for i,line in enumerate(t.splitlines(),1):
+                if term in line: out.append({'path':f,'line':i,'text':line.strip()})
+            return out
+          A=R('compact-token-static-analysis.json'); RT=R('compact-token-runtime-ownership.json'); M=R('compact-token-responsive-matrix.json')
+          raw={q:hits(q) for q in [T,K,E,L]}
+          D=[x for x in hits(T) if re.search(re.escape(T)+r'\s*:',x['text'])]
+          U=[x for x in hits(T) if re.search(r'var\(\s*'+re.escape(T)+r'(?:\s*[,)]|\s)',x['text'])]
+          KD=[x for x in hits(K) if re.search(re.escape(K)+r'\s*:',x['text'])]
+          KU=[x for x in hits(K) if re.search(r'var\(\s*'+re.escape(K)+r'(?:\s*[,)]|\s)',x['text'])]
+          currentBlobs={f:subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD:'+f],text=True).strip() for f in [E,L]}
+          historicalBlobs={f:subprocess.check_output(['git','-C',str(S),'rev-parse','e72fc5b2bfa073806e514cd7a05fdab6315a1df7:'+f],text=True).strip() for f in [E,L]}
+          inventory={'token':T,'canonicalToken':K,'declarations':D,'consumers':U,'canonicalDeclarations':KD,'canonicalConsumers':KU,'rawMentions':raw,'jsMjsTsReferences':[x for q in raw.values() for x in q if pathlib.Path(x['path']).suffix.lower() in {'.js','.mjs','.ts'}],'testVerifierReferences':[x for q in raw.values() for x in q if re.search(r'(scripts/|verify|check|test)',x['path'],re.I)],'documentationEvidenceReferences':[x for q in raw.values() for x in q if pathlib.Path(x['path']).suffix.lower() in {'.md','.json'} or 'evidence' in x['path'].lower()],'ownerBlobShas':currentBlobs,'historicalOwnerBlobShas':historicalBlobs,'ownerBlobsUnchangedFromPhase3B4':currentBlobs==historicalBlobs,'manifest':A['manifest']}
+          J('compact-token-static-inventory.json',inventory)
+          patterns=['getPropertyValue','setProperty','getComputedStyle','document.styleSheets','cssRules','CSSStyleSheet','insertRule','deleteRule','querySelector']
+          mechanism={p:[] for p in patterns}; specific=[]; filenames=[]
+          for f,t in X.items():
+            if pathlib.Path(f).suffix.lower() not in {'.html','.js','.mjs','.ts'} or f.startswith('scripts/'): continue
+            for i,line in enumerate(t.splitlines(),1):
+              for p in patterns:
+                if p in line: mechanism[p].append({'path':f,'line':i,'text':line.strip()})
+              if T in line or K in line: specific.append({'path':f,'line':i,'text':line.strip()})
+              if E in line or L in line: filenames.append({'path':f,'line':i,'text':line.strip()})
+          J('compact-token-runtime-scan.json',{'mechanismHits':mechanism,'tokenSpecificRuntimeReferences':specific,'runtimeStylesheetFilenameReferences':filenames,'unexplainedDependency':bool(specific or filenames)})
+          J('compact-token-route-ownership.json',{'routes':A['routeOwnership'],'routesOwningBoth':A['routesOwningBoth']})
+          J('compact-token-source-variant.json',{'head':subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD'],text=True).strip(),'tree':subprocess.check_output(['git','-C',str(S),'rev-parse','HEAD^{tree}'],text=True).strip(),'earlySha256':H(S/E),'lateSha256':H(S/L),'earlyDeclarationPresent':T in (S/E).read_text(),'lateDeclarationPresent':T in (S/L).read_text()})
+          J('compact-token-candidate-variant.json',{'earlySha256':H(C/E),'lateSha256':H(C/L),'earlyDeclarationPresent':T in (C/E).read_text(),'lateDeclarationPresent':T in (C/L).read_text(),'lateByteIdentical':(S/L).read_bytes()==(C/L).read_bytes(),'diff':(O/'simulation-only.diff').read_text()})
+          ownerMap={(x['variant'],x['route']):x['owners'] for x in RT['rows'] if x['route'] in RT['owningRoutes']}
+          prov=[]
+          for p in M['pairs']:
+            prov.append({'route':p['route'],'width':p['width'],'lang':p['lang'],'baseline':{'raw':p['baseline']['tokenRaw'],'canonical':p['baseline']['canonicalRaw'],'px':p['baseline']['tokenPx'],'owners':ownerMap.get(('baseline',p['route']),[]),'winningDeclaration':L},'candidate':{'raw':p['candidate']['tokenRaw'],'canonical':p['candidate']['canonicalRaw'],'px':p['candidate']['tokenPx'],'owners':ownerMap.get(('candidate',p['route']),[]),'winningDeclaration':L},'equal':p['checks']['tokenRawEqual'] and p['checks']['tokenResolvedPxEqual']})
+          J('compact-token-computed-provenance.json',{'states':prov})
+          J('compact-token-geometry-comparison.json',{'tolerancePx':0.05,'properties':['x','y','width','height','padding-top','padding-bottom','margin-top','margin-bottom','gap','row-gap','column-gap','grid-template-columns','transform'],'pairs':[{'route':p['route'],'width':p['width'],'lang':p['lang'],'pass':p['checks']['geometryEqual'],'maxDelta':p['maxGeometryDelta'],'changedCount':p['changedGeometryCount'],'baseline':p['baseline']['structuralSelectors'],'candidate':p['candidate']['structuralSelectors']} for p in M['pairs']]})
+          J('compact-token-browser-matrix.json',{'routes':M['routes'],'widths':M['widths'],'langs':M['langs'],'stateCount':M['stateCount'],'allPass':M['allPass'],'pairs':M['pairs'],'blockedExternalRequests':M.get('blockedRequests',[])})
+          hist={'phase3B4Run':34989128726,'artifact':10405126530,'historical':{'declarations':2,'cssConsumers':0,'runtimeConsumers':0,'earlierRemovalPreserves':True,'laterRemovalChanges':True,'bothRemovalClears':True,'widths':[1440,1200,1121,1120,1119,768,767,766,390]},'fresh':{'declarations':len(D),'consumers':len(U),'earlierRemovalPreserves':M['allPass'],'ownerBlobsUnchanged':currentBlobs==historicalBlobs}}
+          hist['agrees']=hist['fresh']['declarations']==2 and hist['fresh']['consumers']==0 and hist['fresh']['earlierRemovalPreserves'] and hist['fresh']['ownerBlobsUnchanged']
+          J('compact-token-historical-reconciliation.json',hist)
+          Q=R('compact-token-characterization-summary.json')
+          pre=(O/'baseline-css-preflight.txt').read_text(); tc=(O/'baseline-token-authority.txt').read_text()
+          runtimeScan=R('compact-token-runtime-scan.json')
+          expectedWidths=[390,766,767,768,1119,1120,1121,1200,1440]
+          ok=(len(D)==2 and sorted({x['path'] for x in D})==sorted([E,L]) and len(U)==0 and not runtimeScan['unexplainedDependency'] and currentBlobs==historicalBlobs and A['routesOwningBoth']==['/'] and M['widths']==expectedWidths and M['stateCount']==len(M['routes'])*len(expectedWidths)*len(M['langs']) and M['allPass'] and hist['agrees'] and 'productionCss=51; canonical=106' in pre and 'aliases A/B/C/D/E=1/49/23/23/2; corrected conflicts=40; production CSS=51; inline styles=1' in tc)
+          required=['compact-token-static-inventory.json','compact-token-runtime-scan.json','compact-token-route-ownership.json','compact-token-source-variant.json','compact-token-candidate-variant.json','compact-token-computed-provenance.json','compact-token-geometry-comparison.json','compact-token-browser-matrix.json','compact-token-historical-reconciliation.json','compact-token-characterization-summary.json']
+          Q.update({'manifestTruth':A['manifest'],'contractComplete':ok,'requiredEvidenceFiles':required,'disposition':('B \u2014 SAFE MUTATION DESIGN: REMOVE EARLIER OWNER ONLY' if ok else 'C \u2014 DEFER / BLOCK'),'characterization':('READY FOR FINAL CLOSURE REVIEW' if ok else 'BLOCKED / DEFERRED'),'implementation':'NOT AUTHORIZED','nextPossibleGate':('COMPACT TOKEN OWNERSHIP IMPLEMENTATION AUTHORIZATION REVIEW' if ok else None)})
+          J('compact-token-characterization-summary.json',Q)
+          if not ok or any(not (O/f).exists() for f in required): raise SystemExit('contract evidence assertion failure')
+          print(json.dumps({'PASS':True,'widths':M['widths'],'states':M['stateCount'],'disposition':Q['disposition']},indent=2))
+          PY
 
       - name: Terminal authority check
         shell: bash
