@@ -275,6 +275,12 @@ async function responsive(out, screenshotDir) {
     });
     page.on('pageerror', e => pageErrors.push(String(e)));
     const resp = await page.goto(base + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (route === '/') {
+      await page.waitForFunction(() => {
+        const splash = document.getElementById('splash-screen');
+        return !splash || getComputedStyle(splash).display === 'none';
+      }, { timeout: 3500 });
+    }
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}' });
     if (route === '/') {
       await page.evaluate((language) => {
