@@ -361,13 +361,12 @@ jobs:
           }
           function classifyConsole(text,blocked){
             const t=text.toLowerCase();
-            const blockedContext=blocked.some(b=>{
-              try{
-                const u=new URL(b.url);
-                return text.includes(u.hostname)||t.includes('firestore')||t.includes('google-analytics')||t.includes('googletagmanager')||t.includes('blockedbyclient')||t.includes('err_failed')||t.includes('webchannel')||t.includes('listen');
-              }catch{return false;}
-            });
-            if(blockedContext) return 'B — expected blocked analytics/backend-read artifact';
+            const firestoreWasBlocked=blocked.some(b=>b.url.includes('firestore.googleapis.com'));
+            if(t.includes('err_blocked_by_client')) return 'B — expected blocked analytics/backend-read artifact';
+            if(t.includes('firestore')&&firestoreWasBlocked) return 'B — expected blocked analytics/backend-read artifact';
+            if((t.includes('google.com/g/collect')||t.includes('google-analytics')||t.includes('googletagmanager'))&&(t.includes('refused')||t.includes('cannot load')||t.includes('blocked')||t.includes('content security policy'))) return 'B — expected blocked analytics/backend-read artifact';
+            if(t.includes('frame-ancestors')&&t.includes('ignored')) return 'C — browser/CSP diagnostic';
+            if(t.includes('content security policy')&&t.includes('meta')&&t.includes('ignored')) return 'C — browser/CSP diagnostic';
             if(t.includes('favicon')&&t.includes('404')) return 'C — browser noise';
             return 'E — unknown';
           }
@@ -437,6 +436,7 @@ jobs:
                     computedDirection:getComputedStyle(document.documentElement).direction,
                     formCount:forms.length,
                     visibleFormCount:forms.filter(visible).length,
+                    formVisibleEnabledControlCount:forms.reduce((n,f)=>n+[...f.querySelectorAll('input,select,textarea,button')].filter(el=>visible(el)&&!el.disabled).length,0),
                     controlCount:controls.length,
                     visibleControlCount:controls.filter(visible).length,
                     visibleEnabledControlCount:controls.filter(el=>visible(el)&&!el.disabled).length,
@@ -466,7 +466,7 @@ jobs:
                   });
                 }
                 const adminPass=route!=='/admin.html'||(metrics.formCount>0&&metrics.visibleFormCount>0&&metrics.visibleEnabledControlCount>0);
-                const formsPass=metrics.formCount===0||(metrics.visibleFormCount>0&&metrics.visibleEnabledControlCount>0);
+                const formsPass=metrics.formCount===0||metrics.formVisibleEnabledControlCount>0;
                 const localePass=!!exp&&metrics.lang.toLowerCase().startsWith(exp.lang)&&metrics.computedDirection===exp.dir;
                 const heroPass=route!=='/'||(metrics.heroShellVisible&&metrics.heroTitleVisible&&metrics.visibleHeroCtaCount>0&&metrics.heroShellBox?.width>0&&metrics.heroShellBox?.height>0&&ctaTargetPass);
                 const hardConsoleFailure=classifiedErrors.some(x=>x.classification.startsWith('A')||x.classification.startsWith('E'));
@@ -548,6 +548,70 @@ jobs:
           set -euo pipefail
           node "${RUNNER_TEMP}/live-browser.mjs"
 
+      - name: Isolated service-worker and cache audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >"${RUNNER_TEMP}/live-sw-audit.mjs" <<'NODE'
+          import fs from 'node:fs';
+          import { createRequire } from 'node:module';
+          const require=createRequire(process.env.RUNNER_TEMP+'/live-pw/package.json');
+          const { chromium }=require('playwright');
+          const origin=process.env.LIVE_ORIGIN;
+          const out=process.env.RUNNER_TEMP+'/phase3b-live';
+          const retired=[
+            'assets/acquisition-B3zKZrDc.css','assets/acquisition-YbPaga39.js',
+            'assets/admin-C0yueViI.css','assets/admin-DY5t-cYj.js',
+            'assets/form-polish-v2-DfG2nD1T.css','assets/main-BfbBE8C6.css','assets/main-BrQX_13Z.js'
+          ];
+          const browser=await chromium.launch({headless:true});
+          let report;
+          try{
+            const context=await browser.newContext({serviceWorkers:'allow'});
+            const page=await context.newPage();
+            const blocked=[];
+            await context.route('**/*',async r=>{
+              const method=r.request().method().toUpperCase();
+              if(!['GET','HEAD','OPTIONS'].includes(method)){
+                blocked.push({url:r.request().url(),method,resourceType:r.request().resourceType()});
+                await r.abort('blockedbyclient');
+              }else await r.continue();
+            });
+            const resp=await page.goto(origin,{waitUntil:'domcontentloaded',timeout:30000});
+            await page.waitForTimeout(1500);
+            const state=await page.evaluate(async()=>{
+              const regs=('serviceWorker' in navigator)?await navigator.serviceWorker.getRegistrations():[];
+              const registrations=regs.map(r=>({scope:r.scope,active:r.active?.scriptURL||null,waiting:r.waiting?.scriptURL||null,installing:r.installing?.scriptURL||null}));
+              const cacheEntries=[];
+              if('caches' in window){
+                for(const name of await caches.keys()){
+                  const cache=await caches.open(name);
+                  const keys=await cache.keys();
+                  cacheEntries.push({name,urls:keys.map(k=>k.url)});
+                }
+              }
+              return {registrations,cacheEntries};
+            });
+            const scriptUrls=[...new Set(state.registrations.flatMap(r=>[r.active,r.waiting,r.installing].filter(Boolean)))];
+            const scripts=[];
+            for(const url of scriptUrls){
+              const res=await fetch(url,{headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
+              const text=await res.text();
+              scripts.push({url,status:res.status,retiredReferences:retired.filter(x=>text.includes(x))});
+            }
+            const cachedRetired=state.cacheEntries.flatMap(c=>c.urls.filter(u=>retired.some(x=>u.includes(x))).map(url=>({cache:c.name,url})));
+            const pass=state.registrations.length===0||(scripts.every(s=>s.status===200&&s.retiredReferences.length===0)&&cachedRetired.length===0);
+            report={pass,status:resp?.status()??null,registrations:state.registrations,cacheEntries:state.cacheEntries,scriptChecks:scripts,cachedRetired,blockedRequests:blocked,productionMutation:false};
+            await context.close();
+          }finally{
+            await browser.close();
+          }
+          fs.writeFileSync(out+'/live-service-worker.json',JSON.stringify(report,null,2)+'\n');
+          console.log(JSON.stringify(report,null,2));
+          if(!report.pass) process.exit(1);
+          NODE
+          node "${RUNNER_TEMP}/live-sw-audit.mjs"
+
       - name: Terminal authority check and release summary
         shell: bash
         run: |
@@ -574,7 +638,7 @@ jobs:
           const mixed=read('live-mixed-content.json');
           const exact=stat.exact&&stat.matched===25&&stat.mismatched===0&&stat.missing===0;
           const oldGone=graph.oldAssets.every(x=>x.notLive);
-          const all=exact&&oldGone&&routes.pass&&graph.pass&&browser.pass&&consoles.blockingErrors.length===0&&mixed.count===0&&!backend.mutationDispatched;
+          const all=exact&&oldGone&&routes.pass&&graph.pass&&browser.pass&&consoles.blockingErrors.length===0&&mixed.count===0&&sw.pass&&!backend.mutationDispatched;
           const summary={
             classification:all?'A — LIVE RELEASE VERIFIED':'E — BLOCKED / UNKNOWN',
             readyForFinalClosureReview:all,
