@@ -1,0 +1,610 @@
+name: Phase 3B Post-Release Live Verification
+
+on:
+  push:
+    branches:
+      - 'basair/phase-3b-post-release-live-verification'
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  EXPECTED_MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  EXPECTED_GH: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  EXPECTED_GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+  EXPECTED_GH_PARENT: 72df1faa15c1277eace3a7ceb2161c48cd0dd19d
+  EXPECTED_FILES: '25'
+  EXPECTED_BYTES: '2555386'
+  EXPECTED_MANIFEST: sha256:e83d62b376f75cd8334a30619e8eb04ad28e78176565415f27c92f3cacf4746f
+  EXPECTED_PAGES_RUN: '35519140447'
+  LIVE_ORIGIN: https://basaira.github.io/
+
+jobs:
+  live-read-only-verification:
+    name: live-read-only-verification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact deployed gh-pages snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+          path: expected
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Preflight authorities and Pages deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-live"
+          mkdir -p "${OUT}"
+
+          MAIN="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
+          FINAL="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/basair/phase-3b-5-hero-delight-animate-exact-concat | awk '{print $1}')"
+          GH="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/gh-pages | awk '{print $1}')"
+
+          test "${MAIN}" = "${EXPECTED_MAIN}"
+          test "${FINAL}" = "${EXPECTED_MAIN}"
+          test "${GH}" = "${EXPECTED_GH}"
+          test "$(git -C expected rev-parse HEAD)" = "${EXPECTED_GH}"
+          test "$(git -C expected rev-parse HEAD^{tree})" = "${EXPECTED_GH_TREE}"
+          test "$(git -C expected rev-parse HEAD^)" = "${EXPECTED_GH_PARENT}"
+
+          RUN_JSON="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${EXPECTED_PAGES_RUN}")"
+          test "$(jq -r '.head_branch' <<<"${RUN_JSON}")" = "gh-pages"
+          test "$(jq -r '.head_sha' <<<"${RUN_JSON}")" = "${EXPECTED_GH}"
+          test "$(jq -r '.status' <<<"${RUN_JSON}")" = "completed"
+          test "$(jq -r '.conclusion' <<<"${RUN_JSON}")" = "success"
+
+          JOBS_JSON="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${EXPECTED_PAGES_RUN}/jobs?per_page=100")"
+          for NAME in build report-build-status deploy; do
+            test "$(jq -r --arg n "${NAME}" '.jobs[]|select(.name==$n)|.conclusion' <<<"${JOBS_JSON}")" = "success"
+          done
+
+          LATEST="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=gh-pages&per_page=30")"
+          LATER_DIFFERENT="$(jq --arg created "$(jq -r '.created_at' <<<"${RUN_JSON}")" --arg sha "${EXPECTED_GH}" '[.workflow_runs[]|select(.created_at>$created and .head_sha!=$sha)]|length' <<<"${LATEST}")"
+          test "${LATER_DIFFERENT}" -eq 0
+
+          jq -n \
+            --arg main "${MAIN}" --arg final "${FINAL}" --arg gh "${GH}" \
+            --arg run "${EXPECTED_PAGES_RUN}" \
+            '{main:$main,final:$final,gh_pages:$gh,pages_run:($run|tonumber),pages_status:"completed",pages_conclusion:"success",later_different_deployments:0}' \
+            > "${OUT}/preflight-authorities.json"
+
+      - name: Create live static verification script
+        shell: bash
+        run: |
+          cat >"${RUNNER_TEMP}/live-static.mjs" <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+
+          const origin=process.env.LIVE_ORIGIN;
+          const expectedRoot='expected';
+          const out=process.env.RUNNER_TEMP+'/phase3b-live';
+          const expectedManifest=process.env.EXPECTED_MANIFEST;
+          const expectedFiles=Number(process.env.EXPECTED_FILES);
+          const expectedBytes=Number(process.env.EXPECTED_BYTES);
+          const releaseSha=process.env.EXPECTED_GH;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const sha256=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const slash=p=>p.split(path.sep).join('/');
+
+          const routes=[
+            {route:'/',file:'index.html'},
+            {route:'/en/',file:'en/index.html'},
+            {route:'/en/quran-kids/',file:'en/quran-kids/index.html'},
+            {route:'/en/quran-adults/',file:'en/quran-adults/index.html'},
+            {route:'/en/arabic/',file:'en/arabic/index.html'},
+            {route:'/ru/',file:'ru/index.html'},
+            {route:'/ru/quran/',file:'ru/quran/index.html'},
+            {route:'/ru/arabic/',file:'ru/arabic/index.html'},
+            {route:'/uz/',file:'uz/index.html'},
+            {route:'/uz/quran/',file:'uz/quran/index.html'},
+            {route:'/uz/arabic/',file:'uz/arabic/index.html'},
+            {route:'/admin.html',file:'admin.html'}
+          ];
+          const newAssets=[
+            'assets/acquisition-DLDphUzd.js',
+            'assets/acquisition-eZqd7U8u.css',
+            'assets/admin-Bj9qN61i.js',
+            'assets/admin-KP_-cv_r.css',
+            'assets/form-overdrive-v1-DfG2nD1T.css',
+            'assets/main-7lqh8VQc.js',
+            'assets/main-DWDLbThX.css'
+          ];
+          const oldAssets=[
+            'assets/acquisition-B3zKZrDc.css',
+            'assets/acquisition-YbPaga39.js',
+            'assets/admin-C0yueViI.css',
+            'assets/admin-DY5t-cYj.js',
+            'assets/form-polish-v2-DfG2nD1T.css',
+            'assets/main-BfbBE8C6.css',
+            'assets/main-BrQX_13Z.js'
+          ];
+
+          function walk(root,dir=root){
+            const out=[];
+            for(const e of fs.readdirSync(dir,{withFileTypes:true})){
+              if(e.name==='.git') continue;
+              const full=path.join(dir,e.name);
+              if(e.isDirectory()) out.push(...walk(root,full));
+              else if(e.isFile()) out.push(slash(path.relative(root,full)));
+            }
+            return out.sort();
+          }
+          function expected(){
+            const files=walk(expectedRoot).map(p=>{
+              const body=fs.readFileSync(path.join(expectedRoot,p));
+              return {path:p,size:body.length,sha256:sha256(body)};
+            });
+            return {files,totalFileCount:files.length,totalBytes:files.reduce((n,x)=>n+x.size,0),manifestDigest:'sha256:'+sha256(Buffer.from(JSON.stringify(files)))};
+          }
+          async function get(url){
+            const res=await fetch(url,{headers:{'Cache-Control':'no-cache','Pragma':'no-cache'},redirect:'follow'});
+            const body=Buffer.from(await res.arrayBuffer());
+            return {
+              status:res.status,
+              finalUrl:res.url,
+              body,
+              headers:{
+                'cache-control':res.headers.get('cache-control'),
+                'etag':res.headers.get('etag'),
+                'last-modified':res.headers.get('last-modified'),
+                'age':res.headers.get('age'),
+                'content-type':res.headers.get('content-type'),
+                'content-encoding':res.headers.get('content-encoding')
+              }
+            };
+          }
+          const em=expected();
+          if(em.totalFileCount!==expectedFiles) throw new Error('expected checkout file count mismatch');
+          if(em.totalBytes!==expectedBytes) throw new Error('expected checkout byte count mismatch');
+          if(em.manifestDigest!==expectedManifest) throw new Error('expected checkout manifest mismatch');
+
+          let firstSeen=null,finalState=null;
+          const maxAttempts=40;
+          for(let attempt=1;attempt<=maxAttempts;attempt++){
+            const fileRows=[];
+            for(const f of em.files){
+              const u=new URL(f.path,origin);
+              u.searchParams.set('phase3b_verify',releaseSha.slice(0,12));
+              u.searchParams.set('attempt',String(attempt));
+              const r=await get(u.href);
+              fileRows.push({path:f.path,expectedSize:f.size,expectedSha256:f.sha256,status:r.status,liveBytes:r.body.length,liveSha256:sha256(r.body),headers:r.headers,match:r.status===200&&r.body.length===f.size&&sha256(r.body)===f.sha256});
+            }
+            const oldRows=[];
+            for(const p of oldAssets){
+              const u=new URL(p,origin);
+              u.searchParams.set('phase3b_retired_check',releaseSha.slice(0,12));
+              u.searchParams.set('attempt',String(attempt));
+              const r=await get(u.href);
+              oldRows.push({path:p,status:r.status,notLive:r.status===404||r.status===410});
+            }
+            const state={
+              attempt,
+              at:new Date().toISOString(),
+              matched:fileRows.filter(x=>x.match).length,
+              mismatched:fileRows.filter(x=>x.status===200&&!x.match).length,
+              missing:fileRows.filter(x=>x.status!==200).length,
+              oldAssetsGone:oldRows.filter(x=>x.notLive).length,
+              fileRows,
+              oldRows
+            };
+            if(!firstSeen) firstSeen=state;
+            finalState=state;
+            if(state.matched===expectedFiles&&state.oldAssetsGone===oldAssets.length) break;
+            if(attempt<maxAttempts) await sleep(15000);
+          }
+
+          const staticPass=finalState.matched===expectedFiles&&finalState.mismatched===0&&finalState.missing===0;
+          const oldPass=finalState.oldAssetsGone===oldAssets.length;
+          const mismatchClassification=finalState.fileRows.filter(x=>!x.match).map(x=>({
+            path:x.path,
+            classification:x.status===200?'D — genuine deployed-byte mismatch':'E — unknown / unavailable live path',
+            status:x.status,
+            expectedSha256:x.expectedSha256,
+            liveSha256:x.liveSha256
+          }));
+
+          const routeRows=[];
+          const liveHtml=new Map();
+          for(const item of routes){
+            const u=new URL(item.route,origin);
+            u.searchParams.set('phase3b_route_verify',releaseSha.slice(0,12));
+            const r=await get(u.href);
+            const exp=fs.readFileSync(path.join(expectedRoot,item.file));
+            const row={
+              route:item.route,expectedFile:item.file,status:r.status,finalUrl:r.finalUrl,
+              liveBytes:r.body.length,expectedBytes:exp.length,
+              liveSha256:sha256(r.body),expectedSha256:sha256(exp),
+              exact:r.status===200&&sha256(r.body)===sha256(exp),
+              redirectLoop:false
+            };
+            routeRows.push(row);
+            liveHtml.set(item.route,r.body.toString('utf8'));
+          }
+
+          function localRefs(html,route){
+            const refs=[];
+            const tags=[
+              ...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi),
+              ...html.matchAll(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi),
+              ...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi),
+              ...html.matchAll(/<source\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)
+            ];
+            for(const m of tags){
+              const raw=m[1];
+              if(!raw||raw.startsWith('data:')||raw.startsWith('blob:')||raw.startsWith('#')) continue;
+              const abs=new URL(raw,new URL(route,origin));
+              if(abs.origin!==new URL(origin).origin) continue;
+              refs.push({raw,url:abs.href,path:abs.pathname.replace(/^\//,'')});
+            }
+            return refs;
+          }
+          const graph=[];
+          const expectedPathSet=new Set(em.files.map(x=>x.path));
+          for(const item of routes){
+            for(const ref of localRefs(liveHtml.get(item.route)||'',item.route)){
+              const old=oldAssets.includes(ref.path);
+              const repoSubdir=ref.path.startsWith('basaira.github.io/');
+              const accidentalEvidence=ref.path.startsWith('.github/')||ref.path.startsWith('scripts/evidence/');
+              let exists=expectedPathSet.has(ref.path);
+              if(!exists){
+                const r=await get(ref.url);
+                exists=r.status===200;
+              }
+              graph.push({from:item.route,...ref,exists,oldRetiredAsset:old,repoSubdirAssumption:repoSubdir,accidentalEvidencePath:accidentalEvidence});
+            }
+          }
+          const graphPass=graph.every(x=>x.exists&&!x.oldRetiredAsset&&!x.repoSubdirAssumption&&!x.accidentalEvidencePath);
+
+          const mainJs='assets/main-7lqh8VQc.js';
+          const mainCss='assets/main-DWDLbThX.css';
+          const cacheTargets=[
+            {name:'root',url:new URL('/',origin).href},
+            {name:'locale-html',url:new URL('/en/',origin).href},
+            {name:'main-js',url:new URL(mainJs,origin).href},
+            {name:'main-css',url:new URL(mainCss,origin).href}
+          ];
+          const cache=[];
+          for(const t of cacheTargets){
+            const r=await get(t.url);
+            cache.push({name:t.name,url:t.url,status:r.status,...r.headers});
+          }
+
+          const newRows=finalState.fileRows.filter(x=>newAssets.includes(x.path));
+          const sentinels={
+            newMainJs:newRows.some(x=>x.path===mainJs&&x.match),
+            newMainCss:newRows.some(x=>x.path===mainCss&&x.match),
+            oldMainJsGone:finalState.oldRows.some(x=>x.path==='assets/main-BrQX_13Z.js'&&x.notLive),
+            oldMainCssGone:finalState.oldRows.some(x=>x.path==='assets/main-BfbBE8C6.css'&&x.notLive),
+            formOverdriveCss:newRows.some(x=>x.path==='assets/form-overdrive-v1-DfG2nD1T.css'&&x.match),
+            formPolishRetired:finalState.oldRows.some(x=>x.path==='assets/form-polish-v2-DfG2nD1T.css'&&x.notLive)
+          };
+
+          fs.writeFileSync(out+'/live-static-identity.json',JSON.stringify({
+            expectedManifest:em,
+            firstSeen,
+            finalSeen:finalState,
+            matched:finalState.matched,
+            mismatched:finalState.mismatched,
+            missing:finalState.missing,
+            mismatchClassification,
+            exact:staticPass,
+            propagationAttempts:finalState.attempt
+          },null,2)+'\n');
+          fs.writeFileSync(out+'/live-route-status.json',JSON.stringify({pass:routeRows.every(x=>x.exact),routes:routeRows},null,2)+'\n');
+          fs.writeFileSync(out+'/live-resource-graph.json',JSON.stringify({pass:graphPass,referenceCount:graph.length,refs:graph,newAssets:newRows,oldAssets:finalState.oldRows,sentinels},null,2)+'\n');
+          fs.writeFileSync(out+'/live-cache-headers.json',JSON.stringify(cache,null,2)+'\n');
+
+          const result={
+            staticPass,oldPass,routePass:routeRows.every(x=>x.exact),graphPass,
+            newAssetsPass:newRows.length===newAssets.length&&newRows.every(x=>x.match),
+            sentinelPass:Object.values(sentinels).every(Boolean),
+            propagationAttempts:finalState.attempt
+          };
+          console.log(JSON.stringify(result,null,2));
+          if(!Object.values(result).every((v,k)=>k===6?true:typeof v==='boolean'?v:true)) process.exit(1);
+          NODE
+
+      - name: Live static identity, routes, assets and propagation gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "${RUNNER_TEMP}/live-static.mjs"
+
+      - name: Install disposable Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          PW="${RUNNER_TEMP}/live-pw"
+          mkdir -p "${PW}"
+          cd "${PW}"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Create live browser verification script
+        shell: bash
+        run: |
+          cat >"${RUNNER_TEMP}/live-browser.mjs" <<'NODE'
+          import fs from 'node:fs';
+          import { createRequire } from 'node:module';
+          const require=createRequire(process.env.RUNNER_TEMP+'/live-pw/package.json');
+          const { chromium }=require('playwright');
+
+          const origin=process.env.LIVE_ORIGIN;
+          const out=process.env.RUNNER_TEMP+'/phase3b-live';
+          const routes=[
+            '/', '/en/', '/en/quran-kids/', '/en/quran-adults/', '/en/arabic/',
+            '/ru/', '/ru/quran/', '/ru/arabic/',
+            '/uz/', '/uz/quran/', '/uz/arabic/', '/admin.html'
+          ];
+          const viewports=[
+            {name:'desktop',width:1440,height:1000},
+            {name:'mobile',width:390,height:844}
+          ];
+          function expectation(route){
+            if(route==='/') return {lang:'en',dir:'ltr'};
+            if(route==='/admin.html') return {lang:'ar',dir:'rtl'};
+            if(route.startsWith('/en/')) return {lang:'en',dir:'ltr'};
+            if(route.startsWith('/ru/')) return {lang:'ru',dir:'ltr'};
+            if(route.startsWith('/uz/')) return {lang:'uz',dir:'ltr'};
+            return null;
+          }
+          function classifyConsole(text,blocked){
+            const t=text.toLowerCase();
+            const blockedContext=blocked.some(b=>{
+              try{
+                const u=new URL(b.url);
+                return text.includes(u.hostname)||t.includes('firestore')||t.includes('google-analytics')||t.includes('googletagmanager')||t.includes('blockedbyclient')||t.includes('err_failed')||t.includes('webchannel')||t.includes('listen');
+              }catch{return false;}
+            });
+            if(blockedContext) return 'B — expected blocked analytics/backend-read artifact';
+            if(t.includes('favicon')&&t.includes('404')) return 'C — browser noise';
+            return 'E — unknown';
+          }
+
+          const browser=await chromium.launch({headless:true});
+          const results=[],consoleRows=[],blockedAll=[],serviceWorkerRows=[],mixedContent=[];
+          try{
+            for(const vp of viewports){
+              for(const route of routes){
+                const context=await browser.newContext({
+                  viewport:{width:vp.width,height:vp.height},
+                  locale:'en-US',
+                  serviceWorkers:'block'
+                });
+                const page=await context.newPage();
+                const pageErrors=[],consoleErrors=[],consoleWarnings=[],failedLocal=[],blocked=[],httpLocalErrors=[],mixed=[];
+                page.on('pageerror',e=>pageErrors.push(String(e)));
+                page.on('console',m=>{
+                  const row={route,viewport:vp.name,type:m.type(),text:m.text()};
+                  if(m.type()==='error') consoleErrors.push(row);
+                  if(m.type()==='warning') consoleWarnings.push(row);
+                });
+                page.on('request',req=>{
+                  if(page.url().startsWith('https://')&&req.url().startsWith('http://')) mixed.push({url:req.url(),method:req.method()});
+                });
+                page.on('requestfailed',req=>{
+                  const u=new URL(req.url());
+                  if(u.origin===new URL(origin).origin) failedLocal.push({url:req.url(),method:req.method(),failure:req.failure()?.errorText||''});
+                });
+                page.on('response',res=>{
+                  const u=new URL(res.url());
+                  if(u.origin===new URL(origin).origin&&res.status()>=400) httpLocalErrors.push({url:res.url(),status:res.status(),method:res.request().method()});
+                });
+                await page.route('**/*',async r=>{
+                  const req=r.request();
+                  const method=req.method().toUpperCase();
+                  if(!['GET','HEAD','OPTIONS'].includes(method)){
+                    const row={route,viewport:vp.name,url:req.url(),method,resourceType:req.resourceType()};
+                    blocked.push(row); blockedAll.push(row);
+                    await r.abort('blockedbyclient');
+                  }else await r.continue();
+                });
+
+                let status=null,navError=null;
+                try{
+                  const resp=await page.goto(new URL(route,origin).href,{waitUntil:'networkidle',timeout:30000});
+                  status=resp?.status()??null;
+                }catch(e){navError=String(e);}
+                await page.waitForTimeout(400);
+
+                const metrics=await page.evaluate(()=>{
+                  const visible=el=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0;};
+                  const forms=[...document.querySelectorAll('form')];
+                  const controls=[...document.querySelectorAll('input,select,textarea,button')];
+                  const navs=[...document.querySelectorAll('nav,a,button')];
+                  const heroShell=document.querySelector('.hero-shell');
+                  const heroTitle=document.querySelector('.hero-title');
+                  const heroCtas=[...document.querySelectorAll('.hero-cta')];
+                  const visibleCtas=heroCtas.filter(visible);
+                  const ctaTargets=visibleCtas.map(a=>({href:a.getAttribute('href')||'',text:(a.textContent||'').trim().slice(0,120)}));
+                  const regsPromise=('serviceWorker' in navigator)?navigator.serviceWorker.getRegistrations().then(rs=>rs.map(r=>({active:r.active?.scriptURL||null,waiting:r.waiting?.scriptURL||null,installing:r.installing?.scriptURL||null,scope:r.scope}))):Promise.resolve([]);
+                  return regsPromise.then(registrations=>({
+                    title:document.title,
+                    bodyTextLength:(document.body?.innerText||'').trim().length,
+                    lang:document.documentElement.lang||'',
+                    dirAttribute:document.documentElement.getAttribute('dir')||'',
+                    computedDirection:getComputedStyle(document.documentElement).direction,
+                    formCount:forms.length,
+                    visibleFormCount:forms.filter(visible).length,
+                    controlCount:controls.length,
+                    visibleControlCount:controls.filter(visible).length,
+                    visibleEnabledControlCount:controls.filter(el=>visible(el)&&!el.disabled).length,
+                    visibleNavigationCount:navs.filter(visible).length,
+                    heroShellVisible:!!heroShell&&visible(heroShell),
+                    heroTitleVisible:!!heroTitle&&visible(heroTitle),
+                    heroShellBox:heroShell?(()=>{const r=heroShell.getBoundingClientRect();return {width:r.width,height:r.height};})():null,
+                    visibleHeroCtaCount:visibleCtas.length,
+                    ctaTargets,
+                    serviceWorkers:registrations
+                  }));
+                });
+
+                const exp=expectation(route);
+                const classifiedErrors=consoleErrors.map(x=>({...x,classification:classifyConsole(x.text,blocked)}));
+                const classifiedWarnings=consoleWarnings.map(x=>({...x,classification:classifyConsole(x.text,blocked)}));
+                consoleRows.push(...classifiedErrors,...classifiedWarnings);
+                serviceWorkerRows.push({route,viewport:vp.name,registrations:metrics.serviceWorkers});
+                mixedContent.push(...mixed.map(x=>({route,viewport:vp.name,...x})));
+
+                let ctaTargetPass=true;
+                if(route==='/'){
+                  ctaTargetPass=metrics.ctaTargets.length>0&&metrics.ctaTargets.some(t=>{
+                    if(!t.href) return false;
+                    if(t.href.startsWith('#')) return true;
+                    try{return new URL(t.href,origin).protocol==='https:';}catch{return false;}
+                  });
+                }
+                const adminPass=route!=='/admin.html'||(metrics.formCount>0&&metrics.visibleFormCount>0&&metrics.visibleEnabledControlCount>0);
+                const formsPass=metrics.formCount===0||(metrics.visibleFormCount>0&&metrics.visibleEnabledControlCount>0);
+                const localePass=!!exp&&metrics.lang.toLowerCase().startsWith(exp.lang)&&metrics.computedDirection===exp.dir;
+                const heroPass=route!=='/'||(metrics.heroShellVisible&&metrics.heroTitleVisible&&metrics.visibleHeroCtaCount>0&&metrics.heroShellBox?.width>0&&metrics.heroShellBox?.height>0&&ctaTargetPass);
+                const hardConsoleFailure=classifiedErrors.some(x=>x.classification.startsWith('A')||x.classification.startsWith('E'));
+                const checks={
+                  navigation:status!==null&&status>=200&&status<300&&!navError,
+                  meaningfulBody:metrics.bodyTextLength>0,
+                  noPageError:pageErrors.length===0,
+                  noFailedLocalAsset:failedLocal.length===0&&httpLocalErrors.length===0,
+                  visibleNavigationBootstrap:metrics.visibleNavigationCount>0,
+                  localeDirection:localePass,
+                  forms:formsPass,
+                  hero:heroPass,
+                  admin:adminPass,
+                  noMixedContent:mixed.length===0,
+                  noUnknownConsoleError:!hardConsoleFailure,
+                  readOnlyBoundary:true
+                };
+                const pass=Object.values(checks).every(Boolean);
+                results.push({route,viewport:vp,status,navError,metrics,checks,pageErrors,classifiedErrors,classifiedWarnings,failedLocal,httpLocalErrors,blockedRequests:blocked,mixedContent:mixed,pass});
+                await context.close();
+              }
+            }
+
+            const reducedMotion=[];
+            for(const vp of viewports){
+              const context=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce',serviceWorkers:'block'});
+              const page=await context.newPage();
+              const errors=[],blocked=[];
+              page.on('pageerror',e=>errors.push(String(e)));
+              await page.route('**/*',async r=>{
+                if(!['GET','HEAD','OPTIONS'].includes(r.request().method().toUpperCase())){
+                  blocked.push({url:r.request().url(),method:r.request().method()});
+                  await r.abort('blockedbyclient');
+                }else await r.continue();
+              });
+              const resp=await page.goto(origin,{waitUntil:'networkidle',timeout:30000});
+              await page.waitForTimeout(300);
+              const hero=await page.evaluate(()=>{
+                const visible=el=>{const r=el.getBoundingClientRect();const s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';};
+                const shell=document.querySelector('.hero-shell'),title=document.querySelector('.hero-title'),ctas=[...document.querySelectorAll('.hero-cta')].filter(visible);
+                return {shellVisible:!!shell&&visible(shell),titleVisible:!!title&&visible(title),ctaVisible:ctas.length>0};
+              });
+              reducedMotion.push({viewport:vp,status:resp?.status()??null,errors,blockedRequests:blocked,hero,pass:(resp?.status()??500)<300&&errors.length===0&&hero.shellVisible&&hero.titleVisible&&hero.ctaVisible});
+              await context.close();
+            }
+            fs.writeFileSync(out+'/live-browser-smoke.json',JSON.stringify({
+              pass:results.every(x=>x.pass)&&reducedMotion.every(x=>x.pass),
+              caseCount:results.length,
+              pageErrorCount:results.reduce((n,x)=>n+x.pageErrors.length,0),
+              localResourceFailureCount:results.reduce((n,x)=>n+x.failedLocal.length+x.httpLocalErrors.length,0),
+              reducedMotion,
+              results
+            },null,2)+'\n');
+            fs.writeFileSync(out+'/live-console-classification.json',JSON.stringify({
+              errors:consoleRows.filter(x=>x.type==='error'),
+              warnings:consoleRows.filter(x=>x.type==='warning'),
+              blockingErrors:consoleRows.filter(x=>x.type==='error'&&(x.classification.startsWith('A')||x.classification.startsWith('E')))
+            },null,2)+'\n');
+            fs.writeFileSync(out+'/live-backend-boundary.json',JSON.stringify({
+              allowedMethods:['GET','HEAD','OPTIONS'],
+              blockedRequestCount:blockedAll.length,
+              blockedRequests:blockedAll,
+              mutationDispatched:false
+            },null,2)+'\n');
+            fs.writeFileSync(out+'/live-service-worker.json',JSON.stringify({registrations:serviceWorkerRows},null,2)+'\n');
+            fs.writeFileSync(out+'/live-mixed-content.json',JSON.stringify({count:mixedContent.length,items:mixedContent},null,2)+'\n');
+
+            const pass=results.every(x=>x.pass)&&reducedMotion.every(x=>x.pass);
+            console.log(JSON.stringify({pass,cases:results.length,reducedMotion:reducedMotion.map(x=>({viewport:x.viewport.name,pass:x.pass})),blockedRequests:blockedAll.length,consoleErrors:consoleRows.filter(x=>x.type==='error').length,blockingConsoleErrors:consoleRows.filter(x=>x.type==='error'&&(x.classification.startsWith('A')||x.classification.startsWith('E'))).length},null,2));
+            if(!pass) process.exit(1);
+          }finally{
+            await browser.close();
+          }
+          NODE
+
+      - name: Live browser matrix, locales, Hero, forms, Admin and network boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "${RUNNER_TEMP}/live-browser.mjs"
+
+      - name: Terminal authority check and release summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/phase3b-live"
+          MAIN="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/main | awk '{print $1}')"
+          FINAL="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/basair/phase-3b-5-hero-delight-animate-exact-concat | awk '{print $1}')"
+          GH="$(git ls-remote https://github.com/${GITHUB_REPOSITORY}.git refs/heads/gh-pages | awk '{print $1}')"
+          test "${MAIN}" = "${EXPECTED_MAIN}"
+          test "${FINAL}" = "${EXPECTED_MAIN}"
+          test "${GH}" = "${EXPECTED_GH}"
+
+          node - "${OUT}" <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const out=process.argv[2],read=n=>JSON.parse(fs.readFileSync(path.join(out,n),'utf8'));
+          const stat=read('live-static-identity.json');
+          const routes=read('live-route-status.json');
+          const graph=read('live-resource-graph.json');
+          const browser=read('live-browser-smoke.json');
+          const consoles=read('live-console-classification.json');
+          const cache=read('live-cache-headers.json');
+          const backend=read('live-backend-boundary.json');
+          const sw=read('live-service-worker.json');
+          const mixed=read('live-mixed-content.json');
+          const exact=stat.exact&&stat.matched===25&&stat.mismatched===0&&stat.missing===0;
+          const oldGone=graph.oldAssets.every(x=>x.notLive);
+          const all=exact&&oldGone&&routes.pass&&graph.pass&&browser.pass&&consoles.blockingErrors.length===0&&mixed.count===0&&!backend.mutationDispatched;
+          const summary={
+            classification:all?'A — LIVE RELEASE VERIFIED':'E — BLOCKED / UNKNOWN',
+            readyForFinalClosureReview:all,
+            authorities:{main:process.env.EXPECTED_MAIN,final:process.env.EXPECTED_MAIN,gh_pages:process.env.EXPECTED_GH,gh_pages_tree:process.env.EXPECTED_GH_TREE},
+            pagesRun:{id:Number(process.env.EXPECTED_PAGES_RUN),status:'completed',conclusion:'success'},
+            staticIdentity:{matched:stat.matched,mismatched:stat.mismatched,missing:stat.missing,manifest:process.env.EXPECTED_MANIFEST,propagationAttempts:stat.propagationAttempts},
+            retiredAssets:{allGone:oldGone,rows:graph.oldAssets},
+            newAssets:{allMatch:graph.newAssets.every(x=>x.match),rows:graph.newAssets},
+            routes:{pass:routes.pass,count:routes.routes.length},
+            browser:{pass:browser.pass,cases:browser.caseCount,pageErrors:browser.pageErrorCount,localResourceFailures:browser.localResourceFailureCount,reducedMotion:browser.reducedMotion},
+            console:{blockingErrors:consoles.blockingErrors.length,totalErrors:consoles.errors.length,totalWarnings:consoles.warnings.length},
+            backend:{mutationDispatched:backend.mutationDispatched,blockedRequests:backend.blockedRequestCount},
+            serviceWorker:sw,
+            mixedContent:mixed,
+            cacheHeaders:cache,
+            noProductionMutation:true,
+            noFirebaseMutation:true,
+            doNotStartNextDevelopmentPhase:true
+          };
+          fs.writeFileSync(path.join(out,'live-release-summary.json'),JSON.stringify(summary,null,2)+'\n');
+          console.log(JSON.stringify(summary,null,2));
+          if(!all) process.exit(1);
+          NODE
+
+      - name: Upload live verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-3b-post-release-live-verification
+          path: ${{ runner.temp }}/phase3b-live/
+          if-no-files-found: error
+          retention-days: 90
+          include-hidden-files: true
