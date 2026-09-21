@@ -364,6 +364,7 @@ jobs:
             const firestoreWasBlocked=blocked.some(b=>b.url.includes('firestore.googleapis.com'));
             if(t.includes('err_blocked_by_client')) return 'B — expected blocked analytics/backend-read artifact';
             if(t.includes('firestore')&&firestoreWasBlocked) return 'B — expected blocked analytics/backend-read artifact';
+            if(t.includes('content overrides unavailable')&&firestoreWasBlocked) return 'B — expected blocked analytics/backend-read artifact';
             if((t.includes('google.com/g/collect')||t.includes('google-analytics')||t.includes('googletagmanager'))&&(t.includes('refused')||t.includes('cannot load')||t.includes('blocked')||t.includes('content security policy'))) return 'B — expected blocked analytics/backend-read artifact';
             if(t.includes('frame-ancestors')&&t.includes('ignored')) return 'C — browser/CSP diagnostic';
             if(t.includes('content security policy')&&t.includes('meta')&&t.includes('ignored')) return 'C — browser/CSP diagnostic';
