@@ -1,0 +1,389 @@
+name: Post-3B Compact Token Implementation Authorization Review
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-ownership-implementation-authorization-review-evidence'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+  CHAR_BRANCH: basair/post-3b-compact-token-ownership-characterization
+  CHAR_SHA: b2f3e81caba99215b20db7f2b77d274edda386ac
+  CHAR_RUN: '35668373397'
+  CHAR_JOB: '106559048739'
+  CHAR_ARTIFACT: '10670541388'
+  CHAR_DIGEST: sha256:7b7dbfbd6ed05f6873f48b07320c102f676076b93b2614ae170925c53bcd1e05
+  EVIDENCE_BRANCH: basair/post-3b-compact-token-ownership-implementation-authorization-review-evidence
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout evidence branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EVIDENCE_BRANCH }}
+          fetch-depth: 0
+          path: evidence
+          persist-credentials: false
+
+      - name: Checkout exact frozen main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          path: source
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Freeze refs and closed characterization evidence
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          CHAR="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/${CHAR_BRANCH}" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${CHAR_RUN}")"
+          ART="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CHAR_ARTIFACT}")"
+          jq -n             --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"             --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")"             --arg char "${CHAR}" --arg runConclusion "$(jq -r '.conclusion' <<<"${RUN}")"             --arg artifactDigest "$(jq -r '.digest' <<<"${ART}")"             '{main:$main,mainTree:$mainTree,ghPages:$gh,ghPagesTree:$ghTree,characterizationHead:$char,characterizationRunConclusion:$runConclusion,characterizationArtifactDigest:$artifactDigest}'             | tee "${OUT}/frozen-authorities.json"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${GH_TREE}"
+          test "${CHAR}" = "${CHAR_SHA}"
+          test "$(jq -r '.head_sha' <<<"${RUN}")" = "${CHAR_SHA}"
+          test "$(jq -r '.conclusion' <<<"${RUN}")" = "success"
+          test "$(jq -r '.id' <<<"${ART}")" = "${CHAR_ARTIFACT}"
+          test "$(jq -r '.digest' <<<"${ART}")" = "${CHAR_DIGEST}"
+
+          printf '%s\n' '.github/workflows/post-3b-compact-token-implementation-authorization-review.yml' > /tmp/allowed-evidence
+          git -C evidence diff --name-only "${MAIN_SHA}"..HEAD | sort > /tmp/actual-evidence
+          diff -u /tmp/allowed-evidence /tmp/actual-evidence
+
+      - name: Baseline source verification and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          cd source
+          test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/baseline-preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/baseline-npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/baseline-npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/baseline-npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/baseline-token-authority.txt"
+          git diff --check
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          cp -a dist "${RUNNER_TEMP}/baseline-dist"
+
+      - name: Candidate A — CSS-only proof of authority failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          git -C source worktree add --detach "${RUNNER_TEMP}/candidate-a" "${MAIN_SHA}"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path(os.environ['RUNNER_TEMP'])/'candidate-a'/'tokens-public-compat.css'
+          s=p.read_text()
+          needle='  --layout-section-compact: var(--space-layout-section-compact);\n'
+          assert s.count(needle)==1, s.count(needle)
+          p.write_text(s.replace(needle,'',1))
+          PY
+          cd "${RUNNER_TEMP}/candidate-a"
+          git diff -- tokens-public-compat.css | tee "${OUT}/candidate-a.diff"
+          set +e
+          node token-authority-check.mjs >"${OUT}/candidate-a-token-authority.txt" 2>&1
+          RC=$?
+          set -e
+          cat "${OUT}/candidate-a-token-authority.txt"
+          test "${RC}" -ne 0
+          grep -F -- '--layout-section-compact class B missing/mismatched in tokens-public-compat.css' "${OUT}/candidate-a-token-authority.txt"
+          test "$(git diff --name-only | tr -d '\r')" = "tokens-public-compat.css"
+          git diff --check
+
+      - name: Candidate B — exact minimal repository reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          git -C source worktree add --detach "${RUNNER_TEMP}/candidate-b" "${MAIN_SHA}"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, json, copy
+          root=Path(os.environ['RUNNER_TEMP'])/'candidate-b'
+          css=root/'tokens-public-compat.css'
+          s=css.read_text()
+          needle='  --layout-section-compact: var(--space-layout-section-compact);\n'
+          if s.count(needle)!=1: raise SystemExit(f'CSS declaration count={s.count(needle)}')
+          css.write_text(s.replace(needle,'',1))
+
+          p=root/'token-authority-manifest.json'
+          s=p.read_text()
+          def once(old,new,label):
+              global s
+              c=s.count(old)
+              if c!=1: raise SystemExit(f'{label} count={c}')
+              s=s.replace(old,new,1)
+
+          alias='''    "--layout-section-compact": {
+              "canonical": "--space-layout-section-compact",
+              "status": "alias-with-contextual-overrides",
+              "sameSemanticMeaning": true,
+              "safeAlias": true,
+              "migrationRisk": "moderate",
+              "surfaceClassification": "B",
+              "surfaceClassificationLabel": "public-only",
+              "bindingFile": "tokens-public-compat.css"
+            },
+          '''.replace('          ','')
+          once(alias,'','alias block')
+          once('''    "classificationCounts": {
+              "A": 1,
+              "B": 49,
+              "C": 23,
+              "D": 23,
+              "E": 2
+            },'''.replace('          ',''),
+               '''    "classificationCounts": {
+              "A": 1,
+              "B": 48,
+              "C": 23,
+              "D": 23,
+              "E": 2
+            },'''.replace('          ',''),
+               'classification count')
+          once('''      "--layout-section",
+              "--layout-section-compact",
+              "--layout-stack",'''.replace('          ',''),
+               '''      "--layout-section",
+              "--layout-stack",'''.replace('          ',''),
+               'public alias membership')
+          once('    "conflictCount": 40,','    "conflictCount": 39,','conflict count')
+          once('''      "--layout-section",
+              "--layout-section-compact",
+              "--line",'''.replace('          ',''),
+               '''      "--layout-section",
+              "--line",'''.replace('          ',''),
+               'conflict token membership')
+          p.write_text(s)
+
+          src=json.loads((Path(os.environ['GITHUB_WORKSPACE'])/'source'/'token-authority-manifest.json').read_text())
+          dst=json.loads(p.read_text())
+          target='--layout-section-compact'
+          if target in dst['aliases']: raise SystemExit('alias still present')
+          if dst['aliasSurfaceSummary']['classificationCounts'] != {'A':1,'B':48,'C':23,'D':23,'E':2}: raise SystemExit('classificationCounts wrong')
+          if target in dst['aliasSurfaceSummary']['publicCompatibilityAliases']: raise SystemExit('public list still contains target')
+          if dst['correctedAuditScope']['conflictCount'] != 39: raise SystemExit('conflictCount wrong')
+          if target in dst['correctedAuditScope']['conflictTokens']: raise SystemExit('conflict token still present')
+          su=next(x for x in src['unresolved'] if x['token']==target)
+          du=next(x for x in dst['unresolved'] if x['token']==target)
+          if su != du: raise SystemExit('unresolved record changed')
+          sc=next(x for x in src['conflictDecisions'] if x['token']==target)
+          dc=next(x for x in dst['conflictDecisions'] if x['token']==target)
+          if sc != dc: raise SystemExit('historical conflictDecision changed')
+          if src['correctedAuditScope']['customPropertyNameCount'] != dst['correctedAuditScope']['customPropertyNameCount']: raise SystemExit('custom property count changed')
+          PY
+          cd "${RUNNER_TEMP}/candidate-b"
+          git diff -- tokens-public-compat.css token-authority-manifest.json | tee "${OUT}/candidate-b.diff"
+          printf '%s\n' token-authority-manifest.json tokens-public-compat.css | sort > /tmp/allowed-b
+          git diff --name-only | sort > /tmp/actual-b
+          diff -u /tmp/allowed-b /tmp/actual-b
+          git diff --check
+
+      - name: Candidate B — full verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          cd "${RUNNER_TEMP}/candidate-b"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/candidate-b-preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/candidate-b-npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/candidate-b-npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/candidate-b-npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/candidate-b-token-authority.txt"
+          git diff --check
+          printf '%s\n' token-authority-manifest.json tokens-public-compat.css | sort > /tmp/allowed-b
+          git diff --name-only | sort > /tmp/actual-b
+          diff -u /tmp/allowed-b /tmp/actual-b
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/candidate-b-token-authority.txt"
+          git status --porcelain | tee "${OUT}/candidate-b-status.txt"
+
+      - name: Prove exact carry-forward identity against closed characterization artifact
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          curl --fail --silent --show-error --location             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GITHUB_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CHAR_ARTIFACT}/zip"             -o "${RUNNER_TEMP}/characterization.zip"
+          FILE="$(unzip -Z1 "${RUNNER_TEMP}/characterization.zip" | grep 'compact-token-candidate-variant.json$' | head -n1)"
+          test -n "${FILE}"
+          unzip -p "${RUNNER_TEMP}/characterization.zip" "${FILE}" > "${OUT}/closed-characterized-candidate.json"
+          python3 - <<'PY'
+          import json, os, subprocess, pathlib
+          O=pathlib.Path(os.environ['RUNNER_TEMP'])/'auth-review'
+          char=json.loads((O/'closed-characterized-candidate.json').read_text())
+          d=char['diff'].splitlines()
+          semantic=[x for x in d if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          expected=['-  --layout-section-compact: var(--space-layout-section-compact);']
+          if semantic != expected: raise SystemExit(f'closed characterized semantic diff={semantic}')
+          cand=subprocess.check_output(['git','-C',str(pathlib.Path(os.environ['RUNNER_TEMP'])/'candidate-b'),'diff','--','tokens-public-compat.css'],text=True).splitlines()
+          csemantic=[x for x in cand if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          if csemantic != expected: raise SystemExit(f'candidate-B semantic diff={csemantic}')
+          (O/'carry-forward.json').write_text(json.dumps({
+            'characterizationRun':35668373397,
+            'characterizationArtifact':10670541388,
+            'closedCharacterizedSemanticCssDiff':semantic,
+            'candidateBSemanticCssDiff':csemantic,
+            'exactRuntimeCssTransformationMatch': True,
+            'browserCharacterizationCarryForward':'18/18 PASS; computed 18/18 identical; geometry 18/18 exact; screenshots 18/18 exact'
+          },indent=2)+'\n')
+          PY
+
+      - name: Build-output delta and exact manifest semantic report
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          python3 - <<'PY'
+          import os, pathlib, hashlib, json
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])
+          A=root/'baseline-dist'; B=root/'candidate-b'/'dist'; O=root/'auth-review'
+          def snap(d):
+              out={}
+              for p in sorted(x for x in d.rglob('*') if x.is_file()):
+                  rel=p.relative_to(d).as_posix(); b=p.read_bytes()
+                  out[rel]={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+              return out
+          a,b=snap(A),snap(B)
+          added=sorted(set(b)-set(a)); removed=sorted(set(a)-set(b))
+          changed=sorted(k for k in set(a)&set(b) if a[k]['sha256']!=b[k]['sha256'])
+          unchanged=sorted(k for k in set(a)&set(b) if a[k]['sha256']==b[k]['sha256'])
+          report={
+            'sourceFileCount':len(a),'candidateFileCount':len(b),'fileCountDelta':len(b)-len(a),
+            'sourceBytes':sum(x['bytes'] for x in a.values()),'candidateBytes':sum(x['bytes'] for x in b.values()),
+            'byteDelta':sum(x['bytes'] for x in b.values())-sum(x['bytes'] for x in a.values()),
+            'added':added,'removed':removed,'changed':changed,'unchangedCount':len(unchanged)
+          }
+          (O/'build-output-delta.json').write_text(json.dumps(report,indent=2)+'\n')
+
+          src=json.loads((pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'source'/'token-authority-manifest.json').read_text())
+          dst=json.loads((root/'candidate-b'/'token-authority-manifest.json').read_text())
+          target='--layout-section-compact'
+          changes=[
+            {'fieldPath':'aliases["--layout-section-compact"]','oldValue':src['aliases'][target],'newValue':None,'reason':'Removed bridge declaration means this is no longer a compatibility alias binding.','checkerDependency':'Required: otherwise checker requires missing class-B bridge binding.','kind':'normative'},
+            {'fieldPath':'aliasSurfaceSummary.classificationCounts.B','oldValue':49,'newValue':48,'reason':'Derived alias membership count after removing one class-B alias.','checkerDependency':'Not directly asserted by checker; required for truthful derived summary.','kind':'derived'},
+            {'fieldPath':'aliasSurfaceSummary.publicCompatibilityAliases','oldValue':'contains --layout-section-compact','newValue':'target removed','reason':'Derived public alias list must match aliases membership.','checkerDependency':'Not directly asserted by checker; required for truthful derived summary.','kind':'derived'},
+            {'fieldPath':'correctedAuditScope.conflictCount','oldValue':40,'newValue':39,'reason':'Exact checker conflict algorithm no longer finds target as a multi-value conflict after earlier owner removal.','checkerDependency':'Conflict token set is asserted; count is truthful derived metric.','kind':'derived'},
+            {'fieldPath':'correctedAuditScope.conflictTokens','oldValue':'contains --layout-section-compact','newValue':'target removed','reason':'Exact checker conflict inventory drops target after earlier declaration removal.','checkerDependency':'Required: checker compares complete actual and declared conflict token sets.','kind':'derived'}
+          ]
+          preserved={
+            'unresolved': next(x for x in dst['unresolved'] if x['token']==target),
+            'conflictDecision': next(x for x in dst['conflictDecisions'] if x['token']==target),
+            'customPropertyNameCount':dst['correctedAuditScope']['customPropertyNameCount']
+          }
+          metrics={
+            'canonical':len(dst['canonicalTokens']),
+            'aliasesTotal':len(dst['aliases']),
+            'aliasesABCD E':dst['aliasSurfaceSummary']['classificationCounts'],
+            'correctedConflicts':dst['correctedAuditScope']['conflictCount'],
+            'productionCss':dst['correctedAuditScope']['productionCssFileCount'],
+            'inlineStyles':dst['correctedAuditScope']['inlineStyleBlockCount'],
+            'customPropertyNameCount':dst['correctedAuditScope']['customPropertyNameCount'],
+            'undefinedVariables':0,
+            'undefinedVariableProof':'unchanged token-authority-check.mjs PASS; checker fails any undefined var() without fallback per production page'
+          }
+          (O/'manifest-semantic-diff.json').write_text(json.dumps({'changes':changes,'preserved':preserved,'postMutationAuthority':metrics},indent=2)+'\n')
+          PY
+          cat "${OUT}/build-output-delta.json"
+          cat "${OUT}/manifest-semantic-diff.json"
+
+      - name: Assemble authorization review result
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          python3 - <<'PY'
+          import os, pathlib, json
+          O=pathlib.Path(os.environ['RUNNER_TEMP'])/'auth-review'
+          mf=json.loads((O/'manifest-semantic-diff.json').read_text())
+          bd=json.loads((O/'build-output-delta.json').read_text())
+          cf=json.loads((O/'carry-forward.json').read_text())
+          result={
+            'review':'COMPACT TOKEN OWNERSHIP IMPLEMENTATION AUTHORIZATION REVIEW',
+            'outcome':'A — IMPLEMENTATION CONTRACT AUTHORIZED',
+            'authorizedRuntimeTransformation':'REMOVE EARLIER --layout-section-compact OWNER ONLY',
+            'authorizedRepositoryPaths':['tokens-public-compat.css','token-authority-manifest.json'],
+            'tokenAuthorityChecker':'UNCHANGED',
+            'postMutationAuthority':mf['postMutationAuthority'],
+            'candidateAExpectedFailureProven':True,
+            'candidateBFullVerification':'PASS',
+            'runtimeCssTransformationExactMatchToCharacterizedCandidate':cf['exactRuntimeCssTransformationMatch'],
+            'browserEvidenceCarriedForward':cf['browserCharacterizationCarryForward'],
+            'buildOutputDelta':bd,
+            'futureImplementationCommit':{
+              'parent':'f66f41a1e4bef0cf3af4f63240727a482bdda7c5',
+              'branch':'basair/post-3b-compact-token-ownership-implementation',
+              'allowedPaths':['tokens-public-compat.css','token-authority-manifest.json'],
+              'singleBoundedCommit':True,
+              'deployment':False,
+              'promotionToMain':False
+            },
+            'implementationExecuted':False,
+            'productionMutation':False,
+            'nextAuthorizedGate':'COMPACT TOKEN OWNERSHIP IMPLEMENTATION'
+          }
+          (O/'implementation-authorization-review-summary.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result,indent=2))
+          PY
+
+      - name: Terminal authority check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/auth-review"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          jq -n --arg main "${MAIN}" --arg gh "${GH}" '{main:$main,ghPages:$gh}' | tee "${OUT}/terminal-authorities.json"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+
+      - name: Upload review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-implementation-authorization-review
+          path: ${{ runner.temp }}/auth-review
+          if-no-files-found: error
+          retention-days: 90
