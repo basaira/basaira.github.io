@@ -1070,16 +1070,6 @@
       "surfaceClassificationLabel": "public-only",
       "bindingFile": "tokens-public-compat.css"
     },
-    "--layout-section-compact": {
-      "canonical": "--space-layout-section-compact",
-      "status": "alias-with-contextual-overrides",
-      "sameSemanticMeaning": true,
-      "safeAlias": true,
-      "migrationRisk": "moderate",
-      "surfaceClassification": "B",
-      "surfaceClassificationLabel": "public-only",
-      "bindingFile": "tokens-public-compat.css"
-    },
     "--layout-cluster": {
       "canonical": "--space-layout-cluster",
       "status": "alias",
@@ -1603,7 +1593,7 @@
   "aliasSurfaceSummary": {
     "classificationCounts": {
       "A": 1,
-      "B": 49,
+      "B": 48,
       "C": 23,
       "D": 23,
       "E": 2
@@ -1638,7 +1628,6 @@
       "--layout-gutter",
       "--layout-reading",
       "--layout-section",
-      "--layout-section-compact",
       "--layout-stack",
       "--layout-wide",
       "--leading-arabic",
@@ -1738,7 +1727,7 @@
     "productionCssFileCount": 51,
     "inlineStyleBlockCount": 1,
     "customPropertyNameCount": 369,
-    "conflictCount": 40,
+    "conflictCount": 39,
     "conflictTokens": [
       "--acq-layout-gutter",
       "--acq-layout-section",
@@ -1766,7 +1755,6 @@
       "--home-journey-section",
       "--layout-gutter",
       "--layout-section",
-      "--layout-section-compact",
       "--line",
       "--mobile-drawer-hidden-x",
       "--muted",

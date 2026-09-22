@@ -40,7 +40,6 @@
   --layout-form: var(--layout-assessment);
   --layout-reading: var(--measure-reading-default);
   --layout-section: var(--space-section);
-  --layout-section-compact: var(--space-layout-section-compact);
   --layout-cluster: var(--space-layout-cluster);
   --layout-stack: var(--space-layout-stack);
   --motion-feedback: var(--duration-feedback);
