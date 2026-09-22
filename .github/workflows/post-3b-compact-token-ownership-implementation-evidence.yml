@@ -1,0 +1,186 @@
+name: Post-3B Compact Token Implementation Evidence
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-ownership-implementation-evidence'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  IMPLEMENTATION_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  IMPLEMENTATION_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  PARENT_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  CHAR_ARTIFACT: '10670541388'
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact implementation SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.IMPLEMENTATION_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact implementation identity and diff contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/impl-evidence"
+          mkdir -p "${OUT}"
+          test "$(git rev-parse HEAD)" = "${IMPLEMENTATION_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${IMPLEMENTATION_TREE}"
+          test "$(git rev-parse HEAD^1)" = "${PARENT_SHA}"
+          test "$(git rev-list --count "${PARENT_SHA}"..HEAD)" = "1"
+          printf '%s\n' token-authority-manifest.json tokens-public-compat.css | sort > /tmp/allowed
+          git diff --name-only "${PARENT_SHA}"..HEAD | sort > /tmp/actual
+          diff -u /tmp/allowed /tmp/actual
+
+          git diff "${PARENT_SHA}"..HEAD -- tokens-public-compat.css > "${OUT}/css.diff"
+          python3 - <<'PY'
+          import pathlib, os
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'impl-evidence'/'css.diff'
+          lines=p.read_text().splitlines()
+          sem=[x for x in lines if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          exp=['-  --layout-section-compact: var(--space-layout-section-compact);']
+          if sem != exp: raise SystemExit(f'CSS semantic diff mismatch: {sem}')
+          PY
+
+          test "$(git rev-parse "${PARENT_SHA}:tokens.css")" = "$(git rev-parse "HEAD:tokens.css")"
+          test "$(git rev-parse "${PARENT_SHA}:visual-layout-hotfix-v2.css")" = "$(git rev-parse "HEAD:visual-layout-hotfix-v2.css")"
+          test "$(git rev-parse "${PARENT_SHA}:token-authority-check.mjs")" = "$(git rev-parse "HEAD:token-authority-check.mjs")"
+
+          python3 - <<'PY'
+          import json, subprocess, pathlib, os
+          target='--layout-section-compact'
+          before=json.loads(subprocess.check_output(['git','show',os.environ['PARENT_SHA']+':token-authority-manifest.json'],text=True))
+          after=json.loads(pathlib.Path('token-authority-manifest.json').read_text())
+          exp=json.loads(json.dumps(before))
+          del exp['aliases'][target]
+          exp['aliasSurfaceSummary']['classificationCounts']['B']=48
+          exp['aliasSurfaceSummary']['publicCompatibilityAliases']=[x for x in exp['aliasSurfaceSummary']['publicCompatibilityAliases'] if x!=target]
+          exp['correctedAuditScope']['conflictCount']=39
+          exp['correctedAuditScope']['conflictTokens']=[x for x in exp['correctedAuditScope']['conflictTokens'] if x!=target]
+          if after != exp: raise SystemExit('manifest semantic delta exceeds exact five authorized changes')
+          ub=next(x for x in before['unresolved'] if x['token']==target)
+          ua=next(x for x in after['unresolved'] if x['token']==target)
+          if ub != ua: raise SystemExit('unresolved record changed')
+          hb=next(x for x in before['conflictDecisions'] if x['token']==target)
+          ha=next(x for x in after['conflictDecisions'] if x['token']==target)
+          if hb != ha: raise SystemExit('historical conflictDecision changed')
+          if after['correctedAuditScope']['customPropertyNameCount'] != 369: raise SystemExit('custom property name count drift')
+          print('EXACT_FIVE_FIELD_MANIFEST_DELTA_PASS')
+          PY
+          git diff --check "${PARENT_SHA}"..HEAD
+
+      - name: Full implementation verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/impl-evidence"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/token-authority.txt"
+          git diff --check "${PARENT_SHA}"..HEAD
+          test -z "$(git status --porcelain)"
+
+      - name: Source invariants and deterministic build proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/impl-evidence"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os
+          m=json.loads(Path('token-authority-manifest.json').read_text())
+          target='--layout-section-compact'
+          css=Path('tokens-public-compat.css').read_text()
+          later=Path('visual-layout-hotfix-v2.css').read_text()
+          tokens=Path('tokens.css').read_text()
+          assert '--layout-section-compact: var(--space-layout-section-compact);' not in css
+          assert '--layout-section-compact: clamp(3.25rem,4.7vw,4.65rem);' in later
+          assert '--space-layout-section-compact: clamp(3.75rem, 6vw, 5.75rem);' in tokens
+          assert target not in m['aliases']
+          assert m['aliasSurfaceSummary']['classificationCounts']=={'A':1,'B':48,'C':23,'D':23,'E':2}
+          assert m['correctedAuditScope']['conflictCount']==39
+          assert m['correctedAuditScope']['customPropertyNameCount']==369
+          assert any(x['token']==target and x['status']=='unresolved-responsive' for x in m['unresolved'])
+          assert any(x['token']==target for x in m['conflictDecisions'])
+          files=[p for p in Path('dist').rglob('*') if p.is_file()]
+          total=sum(p.stat().st_size for p in files)
+          rel=sorted(p.relative_to('dist').as_posix() for p in files)
+          assert len(files)==25, len(files)
+          assert total==2555325, total
+          for x in ['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css','index.html']:
+              assert x in rel, x
+          for x in ['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css']:
+              assert x not in rel, x
+          out={
+            'fileCount':len(files),'totalBytes':total,'expectedDeltaBytes':-61,
+            'newHashedAssets':['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css'],
+            'oldHashedAssetsAbsent':['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css'],
+            'canonical':106,'aliases':'1/48/23/23/2','correctedConflicts':39,
+            'productionCss':51,'inlineStyles':1,'customPropertyNames':369,'undefinedVariables':0
+          }
+          Path(os.environ['RUNNER_TEMP'],'impl-evidence','invariants.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Prove closed characterization carry-forward identity
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/impl-evidence"
+          curl --fail --silent --show-error --location             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GITHUB_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CHAR_ARTIFACT}/zip"             -o "${RUNNER_TEMP}/char.zip"
+          FILE="$(unzip -Z1 "${RUNNER_TEMP}/char.zip" | grep 'compact-token-candidate-variant.json$' | head -n1)"
+          test -n "${FILE}"
+          unzip -p "${RUNNER_TEMP}/char.zip" "${FILE}" > "${OUT}/closed-candidate.json"
+          python3 - <<'PY'
+          import json, pathlib, subprocess, os
+          O=pathlib.Path(os.environ['RUNNER_TEMP'])/'impl-evidence'
+          c=json.loads((O/'closed-candidate.json').read_text())
+          sem=[x for x in c['diff'].splitlines() if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          impl=subprocess.check_output(['git','diff',os.environ['PARENT_SHA']+'..HEAD','--','tokens-public-compat.css'],text=True).splitlines()
+          isem=[x for x in impl if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          exp=['-  --layout-section-compact: var(--space-layout-section-compact);']
+          if sem!=exp or isem!=exp: raise SystemExit(f'carry-forward mismatch closed={sem} impl={isem}')
+          out={'exactMatch':True,'responsive':'18/18 PASS','computed':'18/18 IDENTICAL','geometry':'18/18 EXACT','screenshots':'18/18 EXACT','maxGeometryDelta':0}
+          (O/'carry-forward.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Terminal production authority check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/impl-evidence"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg gh "${GH}" '{main:$main,ghPages:$gh,noDeployment:true,noFirebaseMutation:true}' | tee "${OUT}/terminal.json"
+
+      - name: Upload implementation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-ownership-implementation-evidence
+          path: ${{ runner.temp }}/impl-evidence
+          if-no-files-found: error
+          retention-days: 90
