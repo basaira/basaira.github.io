@@ -151,46 +151,40 @@ jobs:
               if c!=1: raise SystemExit(f'{label} count={c}')
               s=s.replace(old,new,1)
 
-          alias='''    "--layout-section-compact": {
-              "canonical": "--space-layout-section-compact",
-              "status": "alias-with-contextual-overrides",
-              "sameSemanticMeaning": true,
-              "safeAlias": true,
-              "migrationRisk": "moderate",
-              "surfaceClassification": "B",
-              "surfaceClassificationLabel": "public-only",
-              "bindingFile": "tokens-public-compat.css"
-            },
-          '''.replace('          ','')
-          once(alias,'','alias block')
-          once('''    "classificationCounts": {
-              "A": 1,
-              "B": 49,
-              "C": 23,
-              "D": 23,
-              "E": 2
-            },'''.replace('          ',''),
-               '''    "classificationCounts": {
-              "A": 1,
-              "B": 48,
-              "C": 23,
-              "D": 23,
-              "E": 2
-            },'''.replace('          ',''),
-               'classification count')
-          once('''      "--layout-section",
-              "--layout-section-compact",
-              "--layout-stack",'''.replace('          ',''),
-               '''      "--layout-section",
-              "--layout-stack",'''.replace('          ',''),
-               'public alias membership')
+          key='    "--layout-section-compact": {\n'
+          start=s.find(key)
+          if start < 0 or s.find(key,start+1) >= 0: raise SystemExit('alias block anchor not unique')
+          end=s.find('    },\n',start)
+          if end < 0: raise SystemExit('alias block close not found')
+          end += len('    },\n')
+          s=s[:start]+s[end:]
+
+          cs=s.find('    "classificationCounts": {\n')
+          ce=s.find('    },\n',cs)+len('    },\n')
+          if cs < 0 or ce <= cs: raise SystemExit('classificationCounts section not found')
+          segment=s[cs:ce]
+          if segment.count('      "B": 49,\n')!=1: raise SystemExit('B classification count anchor invalid')
+          segment=segment.replace('      "B": 49,\n','      "B": 48,\n',1)
+          s=s[:cs]+segment+s[ce:]
+
+          ps=s.find('    "publicCompatibilityAliases": [\n')
+          pe=s.find('    ],\n',ps)+len('    ],\n')
+          if ps < 0 or pe <= ps: raise SystemExit('publicCompatibilityAliases section not found')
+          segment=s[ps:pe]
+          line='      "--layout-section-compact",\n'
+          if segment.count(line)!=1: raise SystemExit('public alias membership anchor invalid')
+          segment=segment.replace(line,'',1)
+          s=s[:ps]+segment+s[pe:]
+
           once('    "conflictCount": 40,','    "conflictCount": 39,','conflict count')
-          once('''      "--layout-section",
-              "--layout-section-compact",
-              "--line",'''.replace('          ',''),
-               '''      "--layout-section",
-              "--line",'''.replace('          ',''),
-               'conflict token membership')
+
+          ks=s.find('    "conflictTokens": [\n')
+          ke=s.find('    ],\n',ks)+len('    ],\n')
+          if ks < 0 or ke <= ks: raise SystemExit('conflictTokens section not found')
+          segment=s[ks:ke]
+          if segment.count(line)!=1: raise SystemExit('conflict token membership anchor invalid')
+          segment=segment.replace(line,'',1)
+          s=s[:ks]+segment+s[ke:]
           p.write_text(s)
 
           src=json.loads((Path(os.environ['GITHUB_WORKSPACE'])/'source'/'token-authority-manifest.json').read_text())
