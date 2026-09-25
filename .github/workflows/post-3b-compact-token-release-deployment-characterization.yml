@@ -407,7 +407,7 @@ jobs:
           done
           curl -fsS http://127.0.0.1:4173/ >/dev/null
 
-          cat > "${RUNNER_TEMP}/release-smoke.mjs" <<'JS'
+          cat > ".release-smoke.mjs" <<'JS'
           import fs from 'node:fs';
           import path from 'node:path';
           import { chromium } from 'playwright';
@@ -627,7 +627,9 @@ jobs:
           console.log(JSON.stringify({browserSmoke:'24/24 PASS',consoleCounts:counts,blockedRequests:blockedRequests.length,readOnlyPosts:readOnlyPosts.length,arabicToggle},null,2));
           JS
 
-          OUT="${OUT}" node "${RUNNER_TEMP}/release-smoke.mjs"
+          OUT="${OUT}" node ".release-smoke.mjs"
+          rm -f ".release-smoke.mjs"
+          test -z "$(git status --porcelain)"
 
       - name: Deployment plan and Pages platform characterization
         shell: bash
