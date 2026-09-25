@@ -1,0 +1,220 @@
+name: Post-3B Compact Token Promotion Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-promotion-characterization'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: f66f41a1e4bef0cf3af4f63240727a482bdda7c5
+  MAIN_TREE: 26f1b18a0696b7f78963011a5d6b23474d70d9e6
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  IMPL_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+  EVIDENCE_BRANCH: basair/post-3b-compact-token-promotion-characterization
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact implementation with full history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.IMPL_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority preflight
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          IMPL_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${IMPL}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")" = "${IMPL_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${GH_TREE}"
+          jq -n             --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"             --arg impl "${IMPL}" --arg implTree "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")"             --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")"             '{main:$main,mainTree:$mainTree,implementation:$impl,implementationTree:$implTree,ghPages:$gh,ghPagesTree:$ghTree}'             | tee "${OUT}/frozen-refs.json"
+
+      - name: Topology and exact diff characterization
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          test "$(git rev-parse HEAD)" = "${IMPL_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${IMPL_TREE}"
+          test "$(git rev-parse HEAD^1)" = "${MAIN_SHA}"
+          test "$(git rev-list --count "${MAIN_SHA}".."${IMPL_SHA}")" = "1"
+          test "$(git merge-base "${MAIN_SHA}" "${IMPL_SHA}")" = "${MAIN_SHA}"
+          git merge-base --is-ancestor "${MAIN_SHA}" "${IMPL_SHA}"
+
+          printf '%s\n' token-authority-manifest.json tokens-public-compat.css | sort > /tmp/allowed
+          git diff --name-only "${MAIN_SHA}".."${IMPL_SHA}" | sort > /tmp/actual
+          diff -u /tmp/allowed /tmp/actual
+
+          git diff "${MAIN_SHA}".."${IMPL_SHA}" -- tokens-public-compat.css > "${OUT}/css.diff"
+          python3 - <<'PY'
+          import os, pathlib, subprocess, json
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'promotion-characterization'
+          lines=(out/'css.diff').read_text().splitlines()
+          sem=[x for x in lines if (x.startswith('+') or x.startswith('-')) and not x.startswith('+++') and not x.startswith('---')]
+          exp=['-  --layout-section-compact: var(--space-layout-section-compact);']
+          if sem != exp: raise SystemExit(f'CSS semantic diff mismatch: {sem}')
+
+          target='--layout-section-compact'
+          before=json.loads(subprocess.check_output(['git','show',os.environ['MAIN_SHA']+':token-authority-manifest.json'],text=True))
+          after=json.loads(pathlib.Path('token-authority-manifest.json').read_text())
+          expected=json.loads(json.dumps(before))
+          del expected['aliases'][target]
+          expected['aliasSurfaceSummary']['classificationCounts']['B']=48
+          expected['aliasSurfaceSummary']['publicCompatibilityAliases']=[x for x in expected['aliasSurfaceSummary']['publicCompatibilityAliases'] if x!=target]
+          expected['correctedAuditScope']['conflictCount']=39
+          expected['correctedAuditScope']['conflictTokens']=[x for x in expected['correctedAuditScope']['conflictTokens'] if x!=target]
+          if after != expected: raise SystemExit('manifest delta exceeds exact authorized five changes')
+          if next(x for x in before['unresolved'] if x['token']==target) != next(x for x in after['unresolved'] if x['token']==target):
+              raise SystemExit('unresolved changed')
+          if next(x for x in before['conflictDecisions'] if x['token']==target) != next(x for x in after['conflictDecisions'] if x['token']==target):
+              raise SystemExit('historical conflictDecision changed')
+          print('EXACT_IMPLEMENTATION_DIFF_PASS')
+          PY
+
+          test "$(git rev-parse "${MAIN_SHA}:tokens.css")" = "$(git rev-parse "${IMPL_SHA}:tokens.css")"
+          test "$(git rev-parse "${MAIN_SHA}:visual-layout-hotfix-v2.css")" = "$(git rev-parse "${IMPL_SHA}:visual-layout-hotfix-v2.css")"
+          test "$(git rev-parse "${MAIN_SHA}:token-authority-check.mjs")" = "$(git rev-parse "${IMPL_SHA}:token-authority-check.mjs")"
+
+      - name: Exact implementation full verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/implementation-preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/implementation-npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/implementation-npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/implementation-npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/implementation-token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/implementation-token-authority.txt"
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+      - name: Build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os
+          files=[p for p in Path('dist').rglob('*') if p.is_file()]
+          rel=sorted(p.relative_to('dist').as_posix() for p in files)
+          total=sum(p.stat().st_size for p in files)
+          assert len(files)==25, len(files)
+          assert total==2555325, total
+          for x in ['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css','index.html']:
+              assert x in rel, x
+          for x in ['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css']:
+              assert x not in rel, x
+          d={'files':len(files),'bytes':total,'newAssets':['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css'],'retiredAssetsAbsent':['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css']}
+          Path(os.environ['RUNNER_TEMP'],'promotion-characterization','build-identity.json').write_text(json.dumps(d,indent=2)+'\n')
+          print(json.dumps(d,indent=2))
+          PY
+
+      - name: Main-push Actions side-effect audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          MAIN_WF="$(git ls-tree -r --name-only "${MAIN_SHA}" | grep '^.github/workflows/' || true)"
+          IMPL_WF="$(git ls-tree -r --name-only "${IMPL_SHA}" | grep '^.github/workflows/' || true)"
+          test -z "${MAIN_WF}"
+          test -z "${IMPL_WF}"
+          jq -n             --arg mainWorkflows "${MAIN_WF}"             --arg implementationWorkflows "${IMPL_WF}"             '{mainWorkflowPaths:$mainWorkflows,implementationWorkflowPaths:$implementationWorkflows,mainPushRepositoryActionsTriggered:false,workflowCanWriteRefs:false,workflowCanDeployPages:false,workflowCanDeployFirebase:false,reason:"No .github/workflows paths exist in exact current main or exact implementation commit."}'             | tee "${OUT}/actions-side-effect-audit.json"
+
+      - name: Actual ff-only simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          git worktree add --detach "${RUNNER_TEMP}/simulated-main" "${MAIN_SHA}"
+          cd "${RUNNER_TEMP}/simulated-main"
+          BEFORE_HEAD="$(git rev-parse HEAD)"
+          BEFORE_TREE="$(git rev-parse HEAD^{tree})"
+          test "${BEFORE_HEAD}" = "${MAIN_SHA}"
+          test "${BEFORE_TREE}" = "${MAIN_TREE}"
+          git merge --ff-only "${IMPL_SHA}" 2>&1 | tee "${OUT}/ff-only.txt"
+          AFTER_HEAD="$(git rev-parse HEAD)"
+          AFTER_TREE="$(git rev-parse HEAD^{tree})"
+          test "${AFTER_HEAD}" = "${IMPL_SHA}"
+          test "${AFTER_TREE}" = "${IMPL_TREE}"
+          test "$(git rev-list --count "${MAIN_SHA}"..HEAD)" = "1"
+          test "$(git rev-parse HEAD^1)" = "${MAIN_SHA}"
+          test -z "$(git status --porcelain)"
+          jq -n             --arg beforeHead "${BEFORE_HEAD}" --arg beforeTree "${BEFORE_TREE}"             --arg afterHead "${AFTER_HEAD}" --arg afterTree "${AFTER_TREE}"             '{command:"git merge --ff-only 006ba05c7361451865660450695c48428a3ed8d0",exit:0,beforeHead:$beforeHead,beforeTree:$beforeTree,afterHead:$afterHead,afterTree:$afterTree,noMergeCommit:true,noSyntheticCommit:true,workingTreeClean:true}'             | tee "${OUT}/ff-only-simulation.json"
+
+      - name: Post-simulation full verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          cd "${RUNNER_TEMP}/simulated-main"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/post-sim-preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/post-sim-npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/post-sim-npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/post-sim-npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/post-sim-token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/post-sim-token-authority.txt"
+          git diff --check
+          test -z "$(git status --porcelain)"
+          test "$(git rev-parse HEAD)" = "${IMPL_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${IMPL_TREE}"
+
+      - name: Characterization classification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          jq -n             --arg classification "A — CLEAN FAST-FORWARD PROMOTION"             --arg main "${MAIN_SHA}"             --arg target "${IMPL_SHA}"             --arg tree "${IMPL_TREE}"             '{classification:$classification,currentMain:$main,promotionTarget:$target,targetTree:$tree,promotionMethod:"ORDINARY NON-FORCE FAST-FORWARD",futureMutation:{ref:"refs/heads/main",from:$main,to:$target,force:false},deploymentAuthorized:false,firebaseAuthorized:false,nextPossibleGate:"COMPACT TOKEN OWNERSHIP PROMOTION IMPLEMENTATION",doNotPromote:true}'             | tee "${OUT}/classification.json"
+
+      - name: Terminal ref check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-characterization"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}"             '{main:$main,implementation:$impl,ghPages:$gh,noProductionMutation:true,noDeployment:true,noFirebaseMutation:true}'             | tee "${OUT}/terminal-refs.json"
+
+      - name: Upload characterization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-promotion-characterization
+          path: ${{ runner.temp }}/promotion-characterization
+          if-no-files-found: error
+          retention-days: 90
