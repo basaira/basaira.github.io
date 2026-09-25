@@ -1,0 +1,686 @@
+name: Post-3B Compact Token Release Deployment Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-release-deployment-characterization'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+  EXPECTED_FILES: '25'
+  EXPECTED_BYTES: '2555325'
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout exact promoted main with full history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority and Pages preflight
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          IMPL_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${IMPL}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${GH_TREE}"
+
+          # Direct Pages configuration probe. This may be unreadable with the read-only
+          # workflow token; unreadable is recorded rather than invented.
+          PAGE_BODY="${OUT}/pages-api-body.json"
+          PAGE_CODE="$(curl -sS -L -o "${PAGE_BODY}" -w '%{http_code}'             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GITHUB_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages" || true)"
+          PAGE_READABLE=false
+          PAGE_BRANCH=""
+          PAGE_PATH=""
+          PAGE_CNAME=""
+          if [ "${PAGE_CODE}" = "200" ]; then
+            PAGE_READABLE=true
+            PAGE_BRANCH="$(jq -r '.source.branch // ""' "${PAGE_BODY}")"
+            PAGE_PATH="$(jq -r '.source.path // ""' "${PAGE_BODY}")"
+            PAGE_CNAME="$(jq -r '.cname // ""' "${PAGE_BODY}")"
+            test "${PAGE_BRANCH}" = "gh-pages"
+            test "${PAGE_PATH}" = "/"
+            test -z "${PAGE_CNAME}"
+          fi
+
+          jq -n             --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"             --arg impl "${IMPL}" --arg implTree "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")"             --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")"             --argjson pagesReadable "${PAGE_READABLE}" --arg pagesHttp "${PAGE_CODE}"             --arg pagesBranch "${PAGE_BRANCH}" --arg pagesPath "${PAGE_PATH}" --arg cname "${PAGE_CNAME}"             '{main:$main,mainTree:$mainTree,implementation:$impl,implementationTree:$implTree,mainImplementationIdentical:($main==$impl),ghPages:$gh,ghPagesTree:$ghTree,pagesApi:{readable:$pagesReadable,httpStatus:$pagesHttp,branch:$pagesBranch,path:$pagesPath,cname:$cname},productionMutation:false}'             | tee "${OUT}/release-source-authority.json"
+
+      - name: Fresh exact-source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/source-preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/source-npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/source-npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/source-npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/source-token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/source-token-authority.txt"
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+      - name: Build release independently twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          A="${RUNNER_TEMP}/release-build-a"
+          B="${RUNNER_TEMP}/release-build-b"
+          git worktree add --detach "${A}" "${MAIN_SHA}"
+          git worktree add --detach "${B}" "${MAIN_SHA}"
+
+          (cd "${A}" && npm ci >/dev/null && npm run build >/dev/null && test -z "$(git status --porcelain)")
+          (cd "${B}" && npm ci >/dev/null && npm run build >/dev/null && test -z "$(git status --porcelain)")
+
+          BUILD_A="${A}/dist" BUILD_B="${B}/dist" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          a=Path(os.environ['BUILD_A'])
+          b=Path(os.environ['BUILD_B'])
+          out=Path(os.environ['OUT'])
+
+          def inventory(root):
+              rows=[]
+              for p in sorted(x for x in root.rglob('*') if x.is_file()):
+                  data=p.read_bytes()
+                  rows.append({
+                      'path':p.relative_to(root).as_posix(),
+                      'bytes':len(data),
+                      'sha256':hashlib.sha256(data).hexdigest()
+                  })
+              canonical=''.join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in rows).encode()
+              return {
+                  'fileCount':len(rows),
+                  'totalBytes':sum(r['bytes'] for r in rows),
+                  'manifestSha256':hashlib.sha256(canonical).hexdigest(),
+                  'manifestCanonicalFormat':'sha256<TAB>bytes<TAB>relative-path<LF>, paths sorted',
+                  'files':rows
+              }
+
+          ia=inventory(a)
+          ib=inventory(b)
+          if ia['fileCount'] != 25 or ia['totalBytes'] != 2555325:
+              raise SystemExit(f"unexpected build identity {ia['fileCount']} files {ia['totalBytes']} bytes")
+          paths={r['path'] for r in ia['files']}
+          for x in ['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css']:
+              if x not in paths: raise SystemExit(f'missing required asset {x}')
+          for x in ['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css']:
+              if x in paths: raise SystemExit(f'retired asset present {x}')
+          reproducible=(ia==ib)
+          if not reproducible:
+              raise SystemExit('NON-DETERMINISTIC RELEASE BUILD')
+          (out/'release-build-snapshot.json').write_text(json.dumps(ia,indent=2)+'\n')
+          (out/'release-reproducibility.json').write_text(json.dumps({
+              'source':os.environ.get('MAIN_SHA','006ba05c7361451865660450695c48428a3ed8d0'),
+              'buildA':{'fileCount':ia['fileCount'],'totalBytes':ia['totalBytes'],'manifestSha256':ia['manifestSha256']},
+              'buildB':{'fileCount':ib['fileCount'],'totalBytes':ib['totalBytes'],'manifestSha256':ib['manifestSha256']},
+              'fileListIdentical':True,'perFileSha256Identical':True,'totalBytesIdentical':True,'snapshotManifestIdentical':True,'reproducible':True
+          },indent=2)+'\n')
+          print(json.dumps({'fileCount':ia['fileCount'],'totalBytes':ia['totalBytes'],'manifestSha256':ia['manifestSha256'],'reproducible':True},indent=2))
+          PY
+
+      - name: Inventory current gh-pages and exact snapshot delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          A="${RUNNER_TEMP}/release-build-a/dist"
+          OLD="${RUNNER_TEMP}/current-gh-pages"
+          git fetch --no-tags origin gh-pages
+          git worktree add --detach "${OLD}" "${GH_SHA}"
+
+          NEW_ROOT="${A}" OLD_ROOT="${OLD}" OUT="${OUT}" GH_SHA="${GH_SHA}" python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          new=Path(os.environ['NEW_ROOT'])
+          old=Path(os.environ['OLD_ROOT'])
+          out=Path(os.environ['OUT'])
+          gh=os.environ['GH_SHA']
+
+          ls=subprocess.check_output(['git','ls-tree','-r','-l',gh],text=True)
+          current=[]
+          for line in ls.splitlines():
+              meta,path=line.split('\t',1)
+              mode,typ,blob,size=meta.split()
+              if typ!='blob': continue
+              current.append({'path':path,'blobSha':blob,'bytes':int(size)})
+          current.sort(key=lambda x:x['path'])
+          current_json={
+              'head':gh,
+              'tree':'7788867bf3aa1e0c716cb3c6255431274710706c',
+              'fileCount':len(current),
+              'totalBytes':sum(x['bytes'] for x in current),
+              'files':current
+          }
+          if current_json['fileCount'] != 25 or current_json['totalBytes'] != 2555386:
+              raise SystemExit(f"unexpected current gh-pages snapshot {current_json['fileCount']} files {current_json['totalBytes']} bytes")
+          (out/'current-gh-pages-snapshot.json').write_text(json.dumps(current_json,indent=2)+'\n')
+
+          def digest_map(root):
+              d={}
+              for p in root.rglob('*'):
+                  if p.is_file() and '.git' not in p.parts:
+                      data=p.read_bytes()
+                      d[p.relative_to(root).as_posix()]={'sha256':hashlib.sha256(data).hexdigest(),'bytes':len(data)}
+              return d
+          o=digest_map(old); n=digest_map(new)
+          add=[]; modify=[]; delete=[]; preserve=[]
+          for p in sorted(set(o)|set(n)):
+              if p not in o: add.append(p)
+              elif p not in n: delete.append(p)
+              elif o[p]['sha256']!=n[p]['sha256']: modify.append(p)
+              else: preserve.append(p)
+          delta={'ADD':add,'MODIFY':modify,'DELETE':delete,'PRESERVE':preserve,'counts':{'ADD':len(add),'MODIFY':len(modify),'DELETE':len(delete),'PRESERVE':len(preserve)}}
+          if len(delete)>0:
+              method='A — CLEAN SNAPSHOT REPLACEMENT'
+              overlayValid=False
+          else:
+              method='B — SAFE OVERLAY'
+              overlayValid=True
+          delta['deploymentMethodDecision']=method
+          delta['overlayValidWithoutExplicitDeletion']=overlayValid
+          (out/'release-delta.json').write_text(json.dumps(delta,indent=2)+'\n')
+          print(json.dumps(delta,indent=2))
+          PY
+
+      - name: Entrypoints, local references, sentinels, cache and HTTPS audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          ROOT="${RUNNER_TEMP}/release-build-a/dist"
+          OLD="${RUNNER_TEMP}/current-gh-pages"
+          ROOT="${ROOT}" OLD="${OLD}" OUT="${OUT}" python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          from urllib.parse import urlsplit, unquote
+          import json, os, re
+
+          root=Path(os.environ['ROOT'])
+          old=Path(os.environ['OLD'])
+          out=Path(os.environ['OUT'])
+
+          entrypoints={
+            '/':'index.html',
+            '/en/':'en/index.html',
+            '/en/quran-kids/':'en/quran-kids/index.html',
+            '/en/quran-adults/':'en/quran-adults/index.html',
+            '/en/arabic/':'en/arabic/index.html',
+            '/ru/':'ru/index.html',
+            '/ru/quran/':'ru/quran/index.html',
+            '/ru/arabic/':'ru/arabic/index.html',
+            '/uz/':'uz/index.html',
+            '/uz/quran/':'uz/quran/index.html',
+            '/uz/arabic/':'uz/arabic/index.html',
+            '/admin.html':'admin.html'
+          }
+          missing=[r for r,p in entrypoints.items() if not (root/p).is_file()]
+          if missing: raise SystemExit(f'missing entrypoints: {missing}')
+
+          class RefParser(HTMLParser):
+              def __init__(self): super().__init__(); self.refs=[]
+              def handle_starttag(self,tag,attrs):
+                  a=dict(attrs)
+                  def add(attr,val,kind):
+                      if val: self.refs.append((tag,attr,val,kind))
+                  if tag=='script': add('src',a.get('src'),'script')
+                  if tag=='img': add('src',a.get('src'),'image')
+                  if tag=='source':
+                      add('src',a.get('src'),'source')
+                      if a.get('srcset'):
+                          for piece in a['srcset'].split(','):
+                              add('srcset',piece.strip().split()[0],'source-srcset')
+                  if tag=='video': add('poster',a.get('poster'),'video-poster')
+                  if tag=='link':
+                      rel=(a.get('rel') or '').lower()
+                      if any(x in rel for x in ['stylesheet','icon','preload','modulepreload']):
+                          add('href',a.get('href'),f'link:{rel}')
+          def local_target(html_path,raw):
+              if not raw or raw.startswith(('#','data:','mailto:','tel:','javascript:')): return None
+              u=urlsplit(raw)
+              if u.scheme or u.netloc: return None
+              p=unquote(u.path)
+              if not p: return None
+              if p.startswith('/'):
+                  rel=p.lstrip('/')
+              else:
+                  rel=(Path(html_path).parent/p).as_posix()
+              # normalize dot segments without escaping root
+              parts=[]
+              for x in Path(rel).parts:
+                  if x in ('','.'): continue
+                  if x=='..':
+                      if parts: parts.pop()
+                      else: return '__ESCAPES_ROOT__'
+                  else: parts.append(x)
+              return '/'.join(parts)
+
+          graph=[]
+          missing_refs=[]
+          old_refs=[]
+          bad_repo_prefix=[]
+          external_https=[]
+          mixed=[]
+          for html in sorted(root.rglob('*.html')):
+              rel=html.relative_to(root).as_posix()
+              parser=RefParser(); parser.feed(html.read_text(errors='replace'))
+              for tag,attr,raw,kind in parser.refs:
+                  u=urlsplit(raw)
+                  if u.scheme in ('http','https'):
+                      (mixed if u.scheme=='http' else external_https).append({'html':rel,'kind':kind,'url':raw})
+                      continue
+                  target=local_target(rel,raw)
+                  if target is None: continue
+                  exists=target!='__ESCAPES_ROOT__' and (root/target).is_file()
+                  item={'html':rel,'tag':tag,'attribute':attr,'kind':kind,'raw':raw,'resolved':target,'exists':exists}
+                  graph.append(item)
+                  if not exists: missing_refs.append(item)
+                  if 'main-7lqh8VQc.js' in raw or 'main-DWDLbThX.css' in raw: old_refs.append(item)
+                  if '/basaira.github.io/' in raw: bad_repo_prefix.append(item)
+
+          # CSS url() references.
+          for css in sorted(root.rglob('*.css')):
+              rel=css.relative_to(root).as_posix()
+              txt=css.read_text(errors='replace')
+              for raw in re.findall(r'url\((?:["\']?)([^)"\']+)',txt):
+                  raw=raw.strip()
+                  if raw.startswith('data:'): continue
+                  u=urlsplit(raw)
+                  if u.scheme in ('http','https'):
+                      (mixed if u.scheme=='http' else external_https).append({'css':rel,'kind':'css-url','url':raw})
+                      continue
+                  target=local_target(rel,raw)
+                  if target is None: continue
+                  exists=target!='__ESCAPES_ROOT__' and (root/target).is_file()
+                  item={'css':rel,'kind':'css-url','raw':raw,'resolved':target,'exists':exists}
+                  graph.append(item)
+                  if not exists: missing_refs.append(item)
+
+          if missing_refs: raise SystemExit(f'missing local references: {missing_refs[:10]}')
+          if old_refs: raise SystemExit(f'old hashed asset still referenced: {old_refs}')
+          if bad_repo_prefix: raise SystemExit(f'accidental repo-prefix refs: {bad_repo_prefix}')
+          if mixed: raise SystemExit(f'mixed-content http resource references: {mixed}')
+
+          all_text='\n'.join(p.read_text(errors='replace') for p in root.rglob('*') if p.is_file() and p.suffix.lower() in {'.html','.js','.css'})
+          compact=re.sub(r'\s+','',all_text)
+          earlier='--layout-section-compact:var(--space-layout-section-compact);' in compact
+          later='--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);' in compact
+          canonical='--space-layout-section-compact:clamp(3.75rem,6vw,5.75rem);' in compact
+          if earlier or not later or not canonical:
+              raise SystemExit(f'compact-token dist sentinel failed earlier={earlier} later={later} canonical={canonical}')
+
+          def sw_scan(base):
+              text_files=[p for p in base.rglob('*') if p.is_file() and p.suffix.lower() in {'.html','.js','.css'}]
+              names=[p.relative_to(base).as_posix() for p in base.rglob('*') if p.is_file() and re.search(r'(^|/)(sw|service-worker)(\.|-)',p.relative_to(base).as_posix(),re.I)]
+              hits=[]
+              for p in text_files:
+                  t=p.read_text(errors='replace')
+                  for pat in ['navigator.serviceWorker','serviceWorker.register','caches.open','CacheStorage']:
+                      if pat in t: hits.append({'path':p.relative_to(base).as_posix(),'pattern':pat})
+              return {'serviceWorkerLikeFiles':names,'registrationOrCacheReferences':hits}
+          sw_new=sw_scan(root); sw_old=sw_scan(old)
+          cache_safe=not sw_new['serviceWorkerLikeFiles'] and not sw_new['registrationOrCacheReferences'] and not sw_old['serviceWorkerLikeFiles'] and not sw_old['registrationOrCacheReferences']
+          if not cache_safe: raise SystemExit(f'service-worker/cache behavior requires characterization: new={sw_new} old={sw_old}')
+
+          (out/'release-local-reference-graph.json').write_text(json.dumps({
+              'entrypoints':entrypoints,'entrypointCount':len(entrypoints),'allEntrypointsPresent':True,
+              'referenceCount':len(graph),'references':graph,'missingReferences':[],
+              'oldHashedAssetReferences':[],'repoPrefixAssumptions':[],'externalHttpsReferences':external_https,
+              'mixedContentHttpReferences':[]
+          },indent=2)+'\n')
+          (out/'release-service-worker-cache.json').write_text(json.dumps({
+              'proposed':sw_new,'currentGhPages':sw_old,'retiredAssetCacheRisk':False,'cleanReplacementSafeFromApplicationCachePerspective':True
+          },indent=2)+'\n')
+          (out/'release-https-mixed-content.json').write_text(json.dumps({
+              'mixedContentHttpResourceReferences':[],'externalHttpsReferenceCount':len(external_https),
+              'httpsSanityPass':True
+          },indent=2)+'\n')
+          (out/'release-static-sentinel.json').write_text(json.dumps({
+              'earlierBridgeDeclarationAbsent':not earlier,'laterOwnerPresent':later,'canonicalPresent':canonical
+          },indent=2)+'\n')
+          print(json.dumps({'entrypoints':12,'references':len(graph),'compactSentinel':True,'serviceWorkerOrCache':False,'mixedContent':False},indent=2))
+          PY
+
+      - name: Install browser for read-only smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          test -z "$(git status --porcelain)"
+
+      - name: Run 24-case browser smoke and runtime sentinels
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          ROOT="${RUNNER_TEMP}/release-build-a/dist"
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory "${ROOT}" >"${RUNNER_TEMP}/release-http.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ >/dev/null
+
+          cat > "${RUNNER_TEMP}/release-smoke.mjs" <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium } from 'playwright';
+
+          const OUT=process.env.OUT;
+          const base='http://127.0.0.1:4173';
+          const routes=[
+            {route:'/',lang:'en',dir:'ltr'},
+            {route:'/en/',lang:'en',dir:'ltr'},
+            {route:'/en/quran-kids/',lang:'en',dir:'ltr'},
+            {route:'/en/quran-adults/',lang:'en',dir:'ltr'},
+            {route:'/en/arabic/',lang:'en',dir:'ltr'},
+            {route:'/ru/',lang:'ru',dir:'ltr'},
+            {route:'/ru/quran/',lang:'ru',dir:'ltr'},
+            {route:'/ru/arabic/',lang:'ru',dir:'ltr'},
+            {route:'/uz/',lang:'uz',dir:'ltr'},
+            {route:'/uz/quran/',lang:'uz',dir:'ltr'},
+            {route:'/uz/arabic/',lang:'uz',dir:'ltr'},
+            {route:'/admin.html',lang:'ar',dir:'rtl'}
+          ];
+          const viewports=[
+            {name:'desktop',width:1440,height:1000},
+            {name:'mobile',width:390,height:844}
+          ];
+
+          const cases=[];
+          const consoleEvents=[];
+          const networkEvents=[];
+          const blockedRequests=[];
+          const readOnlyPosts=[];
+          let hardFailure=false;
+
+          function isLocal(url){
+            try { const u=new URL(url); return u.hostname==='127.0.0.1' && u.port==='4173'; } catch { return false; }
+          }
+          function isReadOnlyPost(url){
+            return /google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(url) ||
+                   /firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);
+          }
+          function isTelemetryPost(url){
+            return /google-analytics\.com\/.*collect/i.test(url) || /googletagmanager\.com/i.test(url);
+          }
+          function isKnownMutating(url){
+            return /google\.firestore\.v1\.Firestore\/(Write|Commit)/i.test(url) ||
+                   /firestore\.googleapis\.com\/.*:(commit|write)(\?|$)/i.test(url) ||
+                   /identitytoolkit\.googleapis\.com\/.*accounts:(signUp|signInWithPassword|update|delete|sendOobCode|sendVerificationCode)/i.test(url);
+          }
+
+          const browser=await chromium.launch({headless:true});
+          for (const vp of viewports){
+            for (const spec of routes){
+              const context=await browser.newContext({viewport:{width:vp.width,height:vp.height}});
+              const page=await context.newPage();
+              const localFailures=[];
+              const pageErrors=[];
+              const unknownConsole=[];
+              const caseBlocked=[];
+              const caseReadOnly=[];
+
+              await context.route('**/*', async route => {
+                const req=route.request();
+                const method=req.method().toUpperCase();
+                const url=req.url();
+                if (['GET','HEAD','OPTIONS'].includes(method)) return route.continue();
+                if (method==='POST' && isReadOnlyPost(url)){
+                  const e={case:`${spec.route}|${vp.name}`,method,url,classification:'B — ALLOWED READ-ONLY POST'};
+                  readOnlyPosts.push(e); caseReadOnly.push(e);
+                  return route.continue();
+                }
+                if (method==='POST' && isTelemetryPost(url)){
+                  const e={case:`${spec.route}|${vp.name}`,method,url,classification:'B — BLOCKED TELEMETRY POST'};
+                  blockedRequests.push(e); caseBlocked.push(e);
+                  return route.abort('blockedbyclient');
+                }
+                const classification=isKnownMutating(url)?'A — BLOCKED MUTATING PROTOCOL':'E — UNKNOWN NON-SAFE REQUEST';
+                const e={case:`${spec.route}|${vp.name}`,method,url,classification};
+                blockedRequests.push(e); caseBlocked.push(e);
+                if (classification.startsWith('A') || classification.startsWith('E')) hardFailure=true;
+                return route.abort('blockedbyclient');
+              });
+
+              page.on('pageerror',err=>{
+                const e={case:`${spec.route}|${vp.name}`,type:'pageerror',message:String(err),classification:'A — PRODUCT RUNTIME REGRESSION'};
+                pageErrors.push(e); consoleEvents.push(e); hardFailure=true;
+              });
+              page.on('console',msg=>{
+                if(msg.type()!=='error') return;
+                const loc=msg.location();
+                const text=msg.text();
+                let cls='E — UNKNOWN';
+                if(loc?.url && !isLocal(loc.url) && /Failed to load resource|ERR_|network|offline/i.test(text)) cls='B — EXPECTED EXTERNAL/READ ARTIFACT';
+                else if(/FirebaseError.*(network|offline|permission|unavailable)/i.test(text)) cls='D — TEST ENVIRONMENT ARTIFACT';
+                else if(/blockedbyclient/i.test(text) && caseBlocked.length) cls='B — EXPECTED BLOCKED EXTERNAL/READ ARTIFACT';
+                const e={case:`${spec.route}|${vp.name}`,type:'console.error',message:text,location:loc,classification:cls};
+                consoleEvents.push(e);
+                if(cls.startsWith('E')||cls.startsWith('A')){unknownConsole.push(e);hardFailure=true;}
+              });
+              page.on('requestfailed',req=>{
+                const e={case:`${spec.route}|${vp.name}`,url:req.url(),method:req.method(),failure:req.failure(),classification:isLocal(req.url())?'A — PRODUCT RUNTIME REGRESSION':'B — EXPECTED EXTERNAL/READ ARTIFACT'};
+                networkEvents.push(e);
+                if(isLocal(req.url())){localFailures.push(e);hardFailure=true;}
+              });
+              page.on('response',res=>{
+                if(isLocal(res.url()) && res.status()>=400){
+                  const e={case:`${spec.route}|${vp.name}`,url:res.url(),status:res.status(),classification:'A — PRODUCT RUNTIME REGRESSION'};
+                  networkEvents.push(e); localFailures.push(e); hardFailure=true;
+                }
+              });
+
+              let navStatus=null, navOk=false, navError=null;
+              try{
+                const res=await page.goto(base+spec.route,{waitUntil:'domcontentloaded',timeout:30000});
+                navStatus=res?.status() ?? null;
+                navOk=!!res && res.ok();
+                await page.waitForTimeout(1000);
+              }catch(e){navError=String(e);hardFailure=true;}
+
+              const dom=await page.evaluate(()=>{
+                const body=(document.body?.innerText||'').trim();
+                const visible=[...document.querySelectorAll('body *')].filter(el=>{
+                  const s=getComputedStyle(el),r=el.getBoundingClientRect();
+                  return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0;
+                }).length;
+                return {
+                  title:document.title,
+                  bodyTextLength:body.length,
+                  visibleElementCount:visible,
+                  lang:document.documentElement.lang,
+                  dirAttribute:document.documentElement.getAttribute('dir')||'',
+                  computedDirection:getComputedStyle(document.documentElement).direction,
+                  compactToken:getComputedStyle(document.documentElement).getPropertyValue('--layout-section-compact').trim(),
+                  canonicalCompact:getComputedStyle(document.documentElement).getPropertyValue('--space-layout-section-compact').trim()
+                };
+              });
+
+              const langOk=(dom.lang||'').toLowerCase().startsWith(spec.lang);
+              const dirOk=dom.computedDirection===spec.dir && (dom.dirAttribute==='' || dom.dirAttribute===spec.dir);
+              const meaningful=dom.bodyTextLength>40 && dom.visibleElementCount>0 && dom.title.length>0;
+              const tokenOk=spec.route==='/' ? dom.compactToken.replace(/\s+/g,'')==='clamp(3.25rem,4.7vw,4.65rem)' : true;
+              const canonicalOk=spec.route==='/' ? dom.canonicalCompact.replace(/\s+/g,'')==='clamp(3.75rem,6vw,5.75rem)' : true;
+
+              let swRegistrations=-1, cacheKeys=[];
+              try{
+                swRegistrations=await page.evaluate(async()=>('serviceWorker'in navigator)?(await navigator.serviceWorker.getRegistrations()).length:0);
+                cacheKeys=await page.evaluate(async()=>('caches'in window)?await caches.keys():[]);
+              }catch{}
+              if(swRegistrations>0 || cacheKeys.length>0) hardFailure=true;
+
+              const passed=navOk && navStatus===200 && meaningful && langOk && dirOk && localFailures.length===0 && pageErrors.length===0 && unknownConsole.length===0 && tokenOk && canonicalOk && swRegistrations===0 && cacheKeys.length===0;
+              if(!passed) hardFailure=true;
+              cases.push({
+                route:spec.route,viewport:vp,navStatus,navOk,navError,meaningful,langOk,dirOk,
+                localFailureCount:localFailures.length,pageErrorCount:pageErrors.length,unknownConsoleCount:unknownConsole.length,
+                blockedRequestCount:caseBlocked.length,readOnlyPostCount:caseReadOnly.length,
+                serviceWorkerRegistrations:swRegistrations,cacheKeys,tokenOk,canonicalOk,dom,passed
+              });
+              await context.close();
+            }
+          }
+
+          // Safe ephemeral homepage Arabic direction toggle if a discoverable control exists.
+          const toggleContext=await browser.newContext({viewport:{width:390,height:844}});
+          const togglePage=await toggleContext.newPage();
+          let arabicToggle={activatable:false,attempted:false,passed:null,selector:null,before:null,after:null,ephemeralContext:true};
+          try{
+            await togglePage.goto(base+'/',{waitUntil:'domcontentloaded',timeout:30000});
+            await togglePage.waitForTimeout(500);
+            const candidate=await togglePage.evaluate(()=>{
+              const els=[...document.querySelectorAll('select,button,[role="button"],a')];
+              for(const el of els){
+                if(el.tagName==='SELECT' && [...el.options].some(o=>(o.value||'').toLowerCase()==='ar')) return {kind:'select',selector:el.id?('#'+CSS.escape(el.id)):null};
+                const dl=(el.getAttribute('data-lang')||el.getAttribute('data-language')||'').toLowerCase();
+                const txt=(el.textContent||'').trim();
+                if(dl==='ar'||/^(العربية|عربي)$/.test(txt)) return {kind:'click',selector:el.id?('#'+CSS.escape(el.id)):null,text:txt,dataLang:dl};
+              }
+              return null;
+            });
+            if(candidate){
+              arabicToggle.activatable=true; arabicToggle.attempted=true;
+              arabicToggle.before=await togglePage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
+              if(candidate.kind==='select' && candidate.selector) await togglePage.selectOption(candidate.selector,'ar');
+              else if(candidate.selector) await togglePage.click(candidate.selector);
+              else {
+                const locator=togglePage.locator('[data-lang="ar"],[data-language="ar"],button,a').filter({hasText:/العربية|عربي/}).first();
+                if(await locator.count()) await locator.click();
+              }
+              await togglePage.waitForTimeout(500);
+              arabicToggle.after=await togglePage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
+              arabicToggle.passed=(arabicToggle.after.lang||'').toLowerCase().startsWith('ar') && arabicToggle.after.computed==='rtl';
+              if(!arabicToggle.passed) hardFailure=true;
+            }
+          }catch(e){arabicToggle.error=String(e);hardFailure=true;}
+          await toggleContext.close();
+
+          await browser.close();
+
+          const passCount=cases.filter(x=>x.passed).length;
+          const smoke={totalCases:cases.length,passCount,failCount:cases.length-passCount,cases,arabicDirectionToggle:arabicToggle};
+          fs.writeFileSync(path.join(OUT,'release-browser-smoke.json'),JSON.stringify(smoke,null,2)+'\n');
+
+          const counts={A:0,B:0,C:0,D:0,E:0};
+          for(const e of consoleEvents){
+            const k=e.classification[0]; if(counts[k]!==undefined) counts[k]++;
+          }
+          fs.writeFileSync(path.join(OUT,'release-console-classification.json'),JSON.stringify({counts,events:consoleEvents,blockingClasses:['A','E'],blockingPresent:counts.A>0||counts.E>0},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'release-network-boundary.json'),JSON.stringify({
+            policy:{safeMethods:['GET','HEAD','OPTIONS'],allowedReadOnlyPosts:['Firestore Listen','Firestore runQuery','Firestore batchGet'],blockedMutationFamilies:['Firestore Write/Commit','Auth mutation','unknown non-safe request'],formSubmissionPerformed:false,adminAuthenticationPerformed:false},
+            blockedRequests,readOnlyPosts,networkEvents,
+            mutatingDispatchCount:0,
+            blockingUnknownOrProductMutationAttempt:blockedRequests.some(e=>e.classification.startsWith('A')||e.classification.startsWith('E'))
+          },null,2)+'\n');
+
+          if(cases.length!==24 || passCount!==24 || hardFailure){
+            console.error(JSON.stringify({total:cases.length,pass:passCount,hardFailure,counts,blockedRequests},null,2));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({browserSmoke:'24/24 PASS',consoleCounts:counts,blockedRequests:blockedRequests.length,readOnlyPosts:readOnlyPosts.length,arabicToggle},null,2));
+          JS
+
+          OUT="${OUT}" node "${RUNNER_TEMP}/release-smoke.mjs"
+
+      - name: Deployment plan and Pages platform characterization
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          # Public Actions history establishes the platform behavior for current gh-pages.
+          RUNS="${OUT}/gh-pages-pages-runs.json"
+          curl --fail --silent --show-error --location             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GITHUB_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=gh-pages&per_page=20" > "${RUNS}"
+          PAGE_RUN="$(jq -r '[.workflow_runs[] | select(.name=="pages build and deployment" and .head_sha=="7aa30485b1c03763a8f3e0618c81f49724a8e95b")][0].id // empty' "${RUNS}")"
+          test -n "${PAGE_RUN}"
+          JOBS="${OUT}/gh-pages-pages-jobs.json"
+          curl --fail --silent --show-error --location             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GITHUB_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${PAGE_RUN}/jobs?per_page=100" > "${JOBS}"
+          jq -e '[.jobs[].name] | (index("build")!=null and index("report-build-status")!=null and index("deploy")!=null)' "${JOBS}" >/dev/null
+          jq -e '[.jobs[] | select(.name=="build" or .name=="report-build-status" or .name=="deploy") | .conclusion] | all(.=="success")' "${JOBS}" >/dev/null
+
+          MANIFEST="$(jq -r '.manifestSha256' "${OUT}/release-build-snapshot.json")"
+          ADD="$(jq -r '.counts.ADD' "${OUT}/release-delta.json")"
+          MOD="$(jq -r '.counts.MODIFY' "${OUT}/release-delta.json")"
+          DEL="$(jq -r '.counts.DELETE' "${OUT}/release-delta.json")"
+          PRE="$(jq -r '.counts.PRESERVE' "${OUT}/release-delta.json")"
+          test "${DEL}" -gt 0
+          jq -n             --arg currentGh "${GH_SHA}" --arg futureParent "${GH_SHA}" --arg source "${MAIN_SHA}"             --arg manifest "${MANIFEST}" --arg pagesRun "${PAGE_RUN}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",overlayDeploymentValid:false,reason:"DELETE count > 0; retired Vite hashed assets must disappear.",futureCommit:{parents:1,parent:$futureParent,message:"Deploy compact token ownership release 006ba05c",cleanSnapshotManifestSha256:$manifest,appendOnlyHistory:true,force:false,rebase:false,reset:false},raceContract:{requiredMain:$source,requiredGhPages:$currentGh,requiredSnapshotManifest:$manifest,stopIfAnyMoves:true},pagesPlatform:{establishedByCurrentGhPagesDynamicRun:true,currentRunId:($pagesRun|tonumber),expectedJobs:["build","report-build-status","deploy"],manualDispatchRequired:false},firebaseMutationAuthorized:false,backendMutationAuthorized:false,deltaCounts:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve}}'             | tee "${OUT}/release-deployment-plan.json"
+
+      - name: Assemble release characterization summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          MANIFEST="$(jq -r '.manifestSha256' "${OUT}/release-build-snapshot.json")"
+          FILES="$(jq -r '.fileCount' "${OUT}/release-build-snapshot.json")"
+          BYTES="$(jq -r '.totalBytes' "${OUT}/release-build-snapshot.json")"
+          ADD="$(jq -r '.counts.ADD' "${OUT}/release-delta.json")"
+          MOD="$(jq -r '.counts.MODIFY' "${OUT}/release-delta.json")"
+          DEL="$(jq -r '.counts.DELETE' "${OUT}/release-delta.json")"
+          PRE="$(jq -r '.counts.PRESERVE' "${OUT}/release-delta.json")"
+          PASS="$(jq -r '.passCount' "${OUT}/release-browser-smoke.json")"
+          BLOCKING="$(jq -r '.blockingPresent' "${OUT}/release-console-classification.json")"
+          test "${PASS}" = "24"
+          test "${BLOCKING}" = "false"
+          jq -n             --arg classification "A — CLEAN SNAPSHOT DEPLOYMENT READY"             --arg source "${MAIN_SHA}" --arg sourceTree "${MAIN_TREE}" --arg currentGh "${GH_SHA}"             --arg manifest "${MANIFEST}" --argjson files "${FILES}" --argjson bytes "${BYTES}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{classification:$classification,source:$source,sourceTree:$sourceTree,currentGhPages:$currentGh,proposedSnapshot:{fileCount:$files,totalBytes:$bytes,manifestSha256:$manifest},delta:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve},browserSmoke:"24/24 PASS",deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",noGhPagesMutation:true,noPagesSettingsMutation:true,noFirebaseMutation:true,nextPossibleGate:"COMPACT TOKEN OWNERSHIP RELEASE / DEPLOYMENT IMPLEMENTATION",doNotDeploy:true}'             | tee "${OUT}/release-characterization-summary.json"
+
+      - name: Terminal production ref check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/release-characterization"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg gh "${GH}"             '{main:$main,ghPages:$gh,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}'             | tee "${OUT}/terminal-refs.json"
+
+      - name: Upload release characterization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-release-deployment-characterization
+          path: ${{ runner.temp }}/release-characterization
+          if-no-files-found: error
+          retention-days: 90
