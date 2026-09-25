@@ -448,7 +448,16 @@ jobs:
                    /firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);
           }
           function isTelemetryPost(url){
-            return /google-analytics\.com\/.*collect/i.test(url) || /googletagmanager\.com/i.test(url);
+            try {
+              const u=new URL(url);
+              const gaCollect=(u.pathname==='/g/collect') && (
+                u.hostname==='google-analytics.com' ||
+                u.hostname==='www.google-analytics.com' ||
+                u.hostname.endsWith('.google-analytics.com') ||
+                u.hostname==='www.google.com'
+              );
+              return gaCollect || u.hostname==='www.googletagmanager.com';
+            } catch { return false; }
           }
           function isKnownMutating(url){
             return /google\.firestore\.v1\.Firestore\/(Write|Commit)/i.test(url) ||
@@ -570,6 +579,25 @@ jobs:
 
           // Safe ephemeral homepage Arabic direction toggle if a discoverable control exists.
           const toggleContext=await browser.newContext({viewport:{width:390,height:844}});
+          await toggleContext.route('**/*', async route => {
+            const req=route.request();
+            const method=req.method().toUpperCase();
+            const url=req.url();
+            const caseName='homepage-arabic-toggle';
+            if (['GET','HEAD','OPTIONS'].includes(method)) return route.continue();
+            if (method==='POST' && isReadOnlyPost(url)){
+              readOnlyPosts.push({case:caseName,method,url,classification:'B — ALLOWED READ-ONLY POST'});
+              return route.continue();
+            }
+            if (method==='POST' && isTelemetryPost(url)){
+              blockedRequests.push({case:caseName,method,url,classification:'B — BLOCKED TELEMETRY POST'});
+              return route.abort('blockedbyclient');
+            }
+            const classification=isKnownMutating(url)?'A — BLOCKED MUTATING PROTOCOL':'E — UNKNOWN NON-SAFE REQUEST';
+            blockedRequests.push({case:caseName,method,url,classification});
+            if (classification.startsWith('A') || classification.startsWith('E')) hardFailure=true;
+            return route.abort('blockedbyclient');
+          });
           const togglePage=await toggleContext.newPage();
           let arabicToggle={activatable:false,attempted:false,passed:null,selector:null,before:null,after:null,ephemeralContext:true};
           try{
@@ -588,11 +616,18 @@ jobs:
             if(candidate){
               arabicToggle.activatable=true; arabicToggle.attempted=true;
               arabicToggle.before=await togglePage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
-              if(candidate.kind==='select' && candidate.selector) await togglePage.selectOption(candidate.selector,'ar');
-              else if(candidate.selector) await togglePage.click(candidate.selector);
-              else {
-                const locator=togglePage.locator('[data-lang="ar"],[data-language="ar"],button,a').filter({hasText:/العربية|عربي/}).first();
-                if(await locator.count()) await locator.click();
+              if(candidate.kind==='select' && candidate.selector) {
+                await togglePage.selectOption(candidate.selector,'ar');
+              } else {
+                const clicked=await togglePage.evaluate(()=>{
+                  const direct=document.querySelector('[data-lang="ar"],[data-language="ar"]');
+                  if(direct){ direct.click(); return true; }
+                  const candidates=[...document.querySelectorAll('button,[role="button"],a')];
+                  const el=candidates.find(x=>/العربية|عربي/.test((x.textContent||'').trim()));
+                  if(el){ el.click(); return true; }
+                  return false;
+                });
+                if(!clicked) throw new Error('Arabic language control discovered but could not be activated programmatically');
               }
               await togglePage.waitForTimeout(500);
               arabicToggle.after=await togglePage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
