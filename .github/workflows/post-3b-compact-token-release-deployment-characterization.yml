@@ -335,9 +335,9 @@ jobs:
 
           all_text='\n'.join(p.read_text(errors='replace') for p in root.rglob('*') if p.is_file() and p.suffix.lower() in {'.html','.js','.css'})
           compact=re.sub(r'\s+','',all_text)
-          earlier='--layout-section-compact:var(--space-layout-section-compact);' in compact
-          later='--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);' in compact
-          canonical='--space-layout-section-compact:clamp(3.75rem,6vw,5.75rem);' in compact
+          earlier=bool(re.search(r'--layout-section-compact:var\\(--space-layout-section-compact\\)(?:;|})',compact))
+          later=bool(re.search(r'--layout-section-compact:clamp\\(3\\.25rem,4\\.7vw,4\\.65rem\\)(?:;|})',compact))
+          canonical=bool(re.search(r'--space-layout-section-compact:clamp\\(3\\.75rem,6vw,5\\.75rem\\)(?:;|})',compact))
           if earlier or not later or not canonical:
               raise SystemExit(f'compact-token dist sentinel failed earlier={earlier} later={later} canonical={canonical}')
 
