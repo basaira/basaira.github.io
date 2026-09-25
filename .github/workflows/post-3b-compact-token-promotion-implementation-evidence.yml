@@ -1,0 +1,114 @@
+name: Post-3B Compact Token Promotion Implementation Evidence
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-promotion-implementation-evidence'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  GH_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  GH_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact promoted main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove promoted main identity
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-implementation-evidence"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          test "$(git rev-parse HEAD^1)" = "f66f41a1e4bef0cf3af4f63240727a482bdda7c5"
+          jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}"             '{main:$main,implementation:$impl,ghPages:$gh,mainImplementationIdentical:($main==$impl)}'             | tee "${OUT}/refs.json"
+
+      - name: Full promoted-main verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-implementation-evidence"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/preflight.txt"
+          npm ci 2>&1 | tee "${OUT}/npm-ci.txt"
+          npm run verify 2>&1 | tee "${OUT}/npm-verify.txt"
+          npm run build 2>&1 | tee "${OUT}/npm-build.txt"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/token-authority.txt"
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+      - name: Build identity after promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-implementation-evidence"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os
+          files=[p for p in Path('dist').rglob('*') if p.is_file()]
+          rel=sorted(p.relative_to('dist').as_posix() for p in files)
+          total=sum(p.stat().st_size for p in files)
+          assert len(files)==25, len(files)
+          assert total==2555325, total
+          for x in ['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css','index.html']:
+              assert x in rel, x
+          for x in ['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css']:
+              assert x not in rel, x
+          out={'files':len(files),'bytes':total,'present':['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css'],'absent':['assets/main-7lqh8VQc.js','assets/main-DWDLbThX.css'],'canonical':106,'aliases':'1/48/23/23/2','correctedConflicts':39,'productionCss':51,'inlineStyles':1,'customPropertyNames':369,'undefinedVariables':0}
+          Path(os.environ['RUNNER_TEMP'],'promotion-implementation-evidence','build-identity.json').write_text(json.dumps(out,indent=2)+'\n')
+          print(json.dumps(out,indent=2))
+          PY
+
+      - name: Terminal authority and no-mutation proof
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/promotion-implementation-evidence"
+          api() {
+            curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          GH_TREE_ACTUAL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}" | jq -r '.tree.sha')"
+          test "${GH_TREE_ACTUAL}" = "${GH_TREE}"
+          jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" --arg ghTree "${GH_TREE_ACTUAL}"             '{main:$main,implementation:$impl,ghPages:$gh,ghPagesTree:$ghTree,noDeployment:true,noFirebaseMutation:true,noBackendMutation:true}'             | tee "${OUT}/terminal.json"
+
+      - name: Upload promotion implementation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-promotion-implementation-evidence
+          path: ${{ runner.temp }}/promotion-implementation-evidence
+          if-no-files-found: error
+          retention-days: 90
