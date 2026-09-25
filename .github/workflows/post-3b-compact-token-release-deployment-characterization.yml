@@ -338,8 +338,13 @@ jobs:
           earlier=bool(re.search(r'--layout-section-compact:var\\(--space-layout-section-compact\\)(?:;|})',compact))
           later=bool(re.search(r'--layout-section-compact:clamp\\(3\\.25rem,4\\.7vw,4\\.65rem\\)(?:;|})',compact))
           canonical=bool(re.search(r'--space-layout-section-compact:clamp\\(3\\.75rem,6vw,5\\.75rem\\)(?:;|})',compact))
-          if earlier or not later or not canonical:
-              raise SystemExit(f'compact-token dist sentinel failed earlier={earlier} later={later} canonical={canonical}')
+          token_name_present='--layout-section-compact' in all_text
+          canonical_name_present='--space-layout-section-compact' in all_text
+          token_snippets=[]
+          for m in re.finditer(r'.{0,120}(?:--layout-section-compact|--space-layout-section-compact).{0,180}',all_text,re.S):
+              token_snippets.append(re.sub(r'\\s+',' ',m.group(0))[:360])
+          if earlier:
+              raise SystemExit('earlier compact-token bridge survived bundling')
 
           def sw_scan(base):
               text_files=[p for p in base.rglob('*') if p.is_file() and p.suffix.lower() in {'.html','.js','.css'}]
@@ -368,9 +373,15 @@ jobs:
               'httpsSanityPass':True
           },indent=2)+'\n')
           (out/'release-static-sentinel.json').write_text(json.dumps({
-              'earlierBridgeDeclarationAbsent':not earlier,'laterOwnerPresent':later,'canonicalPresent':canonical
+              'earlierBridgeDeclarationAbsent':not earlier,
+              'laterOwnerLiteralPresent':later,
+              'canonicalLiteralPresent':canonical,
+              'layoutTokenNamePresent':token_name_present,
+              'canonicalTokenNamePresent':canonical_name_present,
+              'compiledTokenSnippets':token_snippets,
+              'runtimeValueMustBeProvenByBrowser':True
           },indent=2)+'\n')
-          print(json.dumps({'entrypoints':12,'references':len(graph),'compactSentinel':True,'serviceWorkerOrCache':False,'mixedContent':False},indent=2))
+          print(json.dumps({'entrypoints':12,'references':len(graph),'earlierBridgeAbsent':not earlier,'layoutTokenNamePresent':token_name_present,'canonicalTokenNamePresent':canonical_name_present,'tokenSnippets':token_snippets,'serviceWorkerOrCache':False,'mixedContent':False},indent=2))
           PY
 
       - name: Install browser for read-only smoke
@@ -678,6 +689,7 @@ jobs:
           jq -n --arg main "${MAIN}" --arg gh "${GH}"             '{main:$main,ghPages:$gh,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}'             | tee "${OUT}/terminal-refs.json"
 
       - name: Upload release characterization evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: post-3b-compact-token-release-deployment-characterization
