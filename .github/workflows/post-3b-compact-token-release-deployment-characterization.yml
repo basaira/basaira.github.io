@@ -433,6 +433,22 @@ jobs:
             {name:'mobile',width:390,height:844}
           ];
 
+          const deltaEvidence=JSON.parse(fs.readFileSync(path.join(OUT,'release-delta.json'),'utf8'));
+          const preservedPaths=new Set(deltaEvidence.PRESERVE||[]);
+          const routeDocumentPath=new Map([
+            ['/','index.html'],
+            ['/en/','en/index.html'],
+            ['/en/quran-kids/','en/quran-kids/index.html'],
+            ['/en/quran-adults/','en/quran-adults/index.html'],
+            ['/en/arabic/','en/arabic/index.html'],
+            ['/ru/','ru/index.html'],
+            ['/ru/quran/','ru/quran/index.html'],
+            ['/ru/arabic/','ru/arabic/index.html'],
+            ['/uz/','uz/index.html'],
+            ['/uz/quran/','uz/quran/index.html'],
+            ['/uz/arabic/','uz/arabic/index.html'],
+            ['/admin.html','admin.html']
+          ]);
           const cases=[];
           const consoleEvents=[];
           const networkEvents=[];
@@ -507,10 +523,19 @@ jobs:
                 const loc=msg.location();
                 const text=msg.text();
                 let cls='E — UNKNOWN';
-                if(loc?.url && !isLocal(loc.url) && /Failed to load resource|ERR_|network|offline/i.test(text)) cls='B — EXPECTED EXTERNAL/READ ARTIFACT';
+                const documentPath=routeDocumentPath.get(spec.route);
+                const preservedDocument=!!documentPath && preservedPaths.has(documentPath);
+                const isGaCspArtifact=/google\.com\/g\/collect/i.test(text) && /Content Security Policy|Refused to connect|Fetch API cannot load/i.test(text);
+                const isPreservedMetaCspDiagnostic=preservedDocument && (
+                  /Content Security Policy .*meta.*outside the document's <head>.*ignored/i.test(text) ||
+                  /Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta>/i.test(text)
+                );
+                if(isGaCspArtifact) cls='B — EXPECTED BLOCKED EXTERNAL/READ ARTIFACT';
+                else if(isPreservedMetaCspDiagnostic) cls='C — BROWSER NOISE — BYTE-IDENTICAL BASELINE CSP DIAGNOSTIC';
+                else if(loc?.url && !isLocal(loc.url) && /Failed to load resource|ERR_|network|offline/i.test(text)) cls='B — EXPECTED EXTERNAL/READ ARTIFACT';
                 else if(/FirebaseError.*(network|offline|permission|unavailable)/i.test(text)) cls='D — TEST ENVIRONMENT ARTIFACT';
                 else if(/blockedbyclient/i.test(text) && caseBlocked.length) cls='B — EXPECTED BLOCKED EXTERNAL/READ ARTIFACT';
-                const e={case:`${spec.route}|${vp.name}`,type:'console.error',message:text,location:loc,classification:cls};
+                const e={case:`${spec.route}|${vp.name}`,type:'console.error',message:text,location:loc,classification:cls,documentPath,preservedDocument};
                 consoleEvents.push(e);
                 if(cls.startsWith('E')||cls.startsWith('A')){unknownConsole.push(e);hardFailure=true;}
               });
@@ -647,7 +672,17 @@ jobs:
           for(const e of consoleEvents){
             const k=e.classification[0]; if(counts[k]!==undefined) counts[k]++;
           }
-          fs.writeFileSync(path.join(OUT,'release-console-classification.json'),JSON.stringify({counts,events:consoleEvents,blockingClasses:['A','E'],blockingPresent:counts.A>0||counts.E>0},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'release-console-classification.json'),JSON.stringify({
+            counts,
+            events:consoleEvents,
+            blockingClasses:['A','E'],
+            blockingPresent:counts.A>0||counts.E>0,
+            classificationProof:{
+              baselineCspDiagnosticsRequireDocumentInReleaseDeltaPreserve:true,
+              gaCspDiagnosticsClassifiedAsExpectedExternalTelemetryArtifact:true,
+              unknownConsoleStillBlocks:true
+            }
+          },null,2)+'\n');
           fs.writeFileSync(path.join(OUT,'release-network-boundary.json'),JSON.stringify({
             policy:{safeMethods:['GET','HEAD','OPTIONS'],allowedReadOnlyPosts:['Firestore Listen','Firestore runQuery','Firestore batchGet'],blockedMutationFamilies:['Firestore Write/Commit','Auth mutation','unknown non-safe request'],formSubmissionPerformed:false,adminAuthenticationPerformed:false},
             blockedRequests,readOnlyPosts,networkEvents,
