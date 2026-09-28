@@ -1,0 +1,351 @@
+name: Post-3B Compact Token Release Deployment Implementation
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-release-deployment-implementation-evidence'
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  GH_OLD_SHA: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  GH_OLD_TREE: 7788867bf3aa1e0c716cb3c6255431274710706c
+  SNAPSHOT_MANIFEST: dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact promoted source
+        uses: actions/checkout@v4
+        with:
+          ref: 006ba05c7361451865660450695c48428a3ed8d0
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Execute exact clean snapshot deployment contract
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/deployment-evidence"
+          DEPLOY="${RUNNER_TEMP}/gh-pages-deploy"
+          mkdir -p "${OUT}"
+
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+
+          # 1-2. Fresh refs + Pages boundary.
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GHOLD="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GHOLD}")"
+          PAGES="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
+
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GHOLD}" = "${GH_OLD_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${GH_OLD_TREE}"
+          test "$(jq -r '.source.branch // ""' <<<"${PAGES}")" = "gh-pages"
+          test "$(jq -r '.source.path // ""' <<<"${PAGES}")" = "/"
+          test -z "$(jq -r '.cname // ""' <<<"${PAGES}")"
+
+          jq -n \
+            --arg main "${MAIN}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" \
+            --arg implementation "${IMPL}" \
+            --arg ghPages "${GHOLD}" \
+            --arg ghPagesTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")" \
+            --arg pagesBranch "$(jq -r '.source.branch' <<<"${PAGES}")" \
+            --arg pagesPath "$(jq -r '.source.path' <<<"${PAGES}")" \
+            --arg cname "$(jq -r '.cname // ""' <<<"${PAGES}")" \
+            '{main:$main,mainTree:$mainTree,implementation:$implementation,ghPages:$ghPages,ghPagesTree:$ghPagesTree,pages:{sourceMode:"Deploy from a branch",branch:$pagesBranch,path:$pagesPath,cname:$cname},authorized:true}' \
+            | tee "${OUT}/deployment-preflight.json"
+
+          # 3. Fresh source verification.
+          test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/source-preflight.log"
+          npm ci 2>&1 | tee "${OUT}/source-npm-ci.log"
+          npm run verify 2>&1 | tee "${OUT}/source-npm-verify.log"
+          npm run build 2>&1 | tee "${OUT}/source-npm-build.log"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/source-token-authority.log"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/source-token-authority.log"
+          git diff --check
+          test -z "$(git status --porcelain)"
+          jq -n '{sourceVerification:"PASS",sourceHead:"006ba05c7361451865660450695c48428a3ed8d0",sourceTree:"2c0350c3bb50988842481a7bb28aa81c5d8e50ad",canonical:106,aliases:{A:1,B:48,C:23,D:23,E:2},correctedConflicts:39,productionCss:51,inlineStyles:1,customPropertyNames:369,undefinedVariables:0,gitDiffCheck:"PASS",workingTreeClean:true}' \
+            | tee "${OUT}/deployment-source-verification.json"
+
+          # 4-5. Fresh authorized dist snapshot.
+          ROOT="${GITHUB_WORKSPACE}/dist" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"]); out=Path(os.environ["OUT"])
+          rows=[]
+          for p in sorted(x for x in root.rglob("*") if x.is_file()):
+              b=p.read_bytes()
+              rows.append({"path":p.relative_to(root).as_posix(),"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()})
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in rows).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          paths={r["path"] for r in rows}
+          required={"assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css","index.html","en/index.html","en/quran-kids/index.html","en/quran-adults/index.html","en/arabic/index.html","ru/index.html","ru/quran/index.html","ru/arabic/index.html","uz/index.html","uz/quran/index.html","uz/arabic/index.html","admin.html"}
+          retired={"assets/main-7lqh8VQc.js","assets/main-DWDLbThX.css"}
+          if len(rows)!=25: raise SystemExit(f"file count mismatch {len(rows)}")
+          if sum(r["bytes"] for r in rows)!=2555325: raise SystemExit("byte count mismatch")
+          if manifest!="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023": raise SystemExit(f"manifest mismatch {manifest}")
+          if not required<=paths: raise SystemExit(f"missing required paths {sorted(required-paths)}")
+          if paths & retired: raise SystemExit(f"retired assets present {sorted(paths&retired)}")
+          if paths & {".nojekyll","CNAME","404.html"}: raise SystemExit("unauthorized deployment metadata present")
+          if any(p.endswith(".map") for p in paths): raise SystemExit("unauthorized source map present")
+          data={"fileCount":25,"totalBytes":2555325,"manifestSha256":manifest,"manifestCanonicalFormat":"sha256<TAB>bytes<TAB>relative-path<LF>, paths sorted","files":rows}
+          (out/"deployment-snapshot.json").write_text(json.dumps(data,indent=2)+"\n")
+          print(json.dumps({k:v for k,v in data.items() if k!="files"},indent=2))
+          PY
+
+          # 6. Exact old -> new delta.
+          git fetch --no-tags origin main gh-pages
+          test "$(git rev-parse origin/main)" = "${MAIN_SHA}"
+          test "$(git rev-parse origin/gh-pages)" = "${GH_OLD_SHA}"
+          git worktree add --detach "${DEPLOY}" "${GH_OLD_SHA}"
+          OLD="${DEPLOY}" NEW="${GITHUB_WORKSPACE}/dist" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          old=Path(os.environ["OLD"]); new=Path(os.environ["NEW"]); out=Path(os.environ["OUT"])
+          def m(root):
+              z={}
+              for p in root.rglob("*"):
+                  if not p.is_file(): continue
+                  rel=p.relative_to(root).as_posix()
+                  if rel==".git": continue
+                  b=p.read_bytes(); z[rel]=(hashlib.sha256(b).hexdigest(),len(b))
+              return z
+          o,n=m(old),m(new)
+          add=[]; mod=[]; delete=[]; preserve=[]
+          for p in sorted(set(o)|set(n)):
+              if p not in o: add.append(p)
+              elif p not in n: delete.append(p)
+              elif o[p][0]!=n[p][0]: mod.append(p)
+              else: preserve.append(p)
+          exp_add=["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"]
+          exp_mod=["index.html"]
+          exp_del=["assets/main-7lqh8VQc.js","assets/main-DWDLbThX.css"]
+          exp_pre=["admin.html","assets/acquisition-DLDphUzd.js","assets/acquisition-eZqd7U8u.css","assets/admin-Bj9qN61i.js","assets/admin-KP_-cv_r.css","assets/favicon-DfKPSPE3.png","assets/firebase-config-CpQW8loC.js","assets/firebase-config-cd9f7NCj.css","assets/form-overdrive-v1-BQykBMqs.js","assets/form-overdrive-v1-DfG2nD1T.css","assets/harden-v1-C0OIc6O-.js","assets/logo-BggTe4H_.png","en/arabic/index.html","en/index.html","en/quran-adults/index.html","en/quran-kids/index.html","ru/arabic/index.html","ru/index.html","ru/quran/index.html","uz/arabic/index.html","uz/index.html","uz/quran/index.html"]
+          if add!=exp_add: raise SystemExit(f"ADD mismatch {add}")
+          if mod!=exp_mod: raise SystemExit(f"MODIFY mismatch {mod}")
+          if delete!=exp_del: raise SystemExit(f"DELETE mismatch {delete}")
+          if preserve!=exp_pre: raise SystemExit(f"PRESERVE mismatch {preserve}")
+          data={"ADD":add,"MODIFY":mod,"DELETE":delete,"PRESERVE":preserve,"counts":{"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22}}
+          (out/"deployment-delta.json").write_text(json.dumps(data,indent=2)+"\n")
+          print(json.dumps(data,indent=2))
+          PY
+
+          # 7-8. CLEAN SNAPSHOT REPLACEMENT and pre-commit audit.
+          test "$(git -C "${DEPLOY}" rev-parse HEAD)" = "${GH_OLD_SHA}"
+          find "${DEPLOY}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -a "${GITHUB_WORKSPACE}/dist/." "${DEPLOY}/"
+
+          ROOT="${DEPLOY}" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"]); out=Path(os.environ["OUT"])
+          rows=[]
+          for p in sorted(x for x in root.rglob("*") if x.is_file()):
+              rel=p.relative_to(root).as_posix()
+              if rel==".git": continue
+              b=p.read_bytes(); rows.append({"path":rel,"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()})
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in rows).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          if len(rows)!=25 or sum(r["bytes"] for r in rows)!=2555325: raise SystemExit("clean snapshot count/bytes mismatch")
+          if manifest!="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023": raise SystemExit(f"clean snapshot manifest mismatch {manifest}")
+          (out/"clean-snapshot-precommit.json").write_text(json.dumps({"fileCount":25,"totalBytes":2555325,"manifestSha256":manifest,"extraPaths":False},indent=2)+"\n")
+          PY
+          git -C "${DEPLOY}" add -A
+          git -C "${DEPLOY}" diff --cached --check
+          git -C "${DEPLOY}" diff --cached --name-status | tee "${OUT}/staged-diff-name-status.txt"
+          python3 - "${OUT}/staged-diff-name-status.txt" <<'PY'
+          import sys
+          rows=[x.rstrip("\n").split("\t") for x in open(sys.argv[1],encoding="utf-8") if x.strip()]
+          a=sorted(r[1] for r in rows if r[0]=="A"); m=sorted(r[1] for r in rows if r[0]=="M"); d=sorted(r[1] for r in rows if r[0]=="D")
+          if a!=["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"]: raise SystemExit(f"staged ADD mismatch {a}")
+          if m!=["index.html"]: raise SystemExit(f"staged MODIFY mismatch {m}")
+          if d!=["assets/main-7lqh8VQc.js","assets/main-DWDLbThX.css"]: raise SystemExit(f"staged DELETE mismatch {d}")
+          if len(rows)!=5: raise SystemExit(f"unexpected staged changed path count {len(rows)}")
+          PY
+
+          # 9-10. Exactly one deployment commit and post-commit tree proof.
+          git -C "${DEPLOY}" config user.name "github-actions[bot]"
+          git -C "${DEPLOY}" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "${DEPLOY}" commit -m "Deploy compact token ownership release 006ba05c"
+          DEPLOYMENT_SHA="$(git -C "${DEPLOY}" rev-parse HEAD)"
+          DEPLOYMENT_TREE="$(git -C "${DEPLOY}" rev-parse HEAD^{tree})"
+          PARENT="$(git -C "${DEPLOY}" show -s --format='%P' HEAD)"
+          PARENT_COUNT="$(wc -w <<<"${PARENT}" | tr -d ' ')"
+          test "${PARENT}" = "${GH_OLD_SHA}"
+          test "${PARENT_COUNT}" = "1"
+
+          REPO="${DEPLOY}" REF="${DEPLOYMENT_SHA}" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          repo=os.environ["REPO"]; ref=os.environ["REF"]; out=Path(os.environ["OUT"])
+          ls=subprocess.check_output(["git","-C",repo,"ls-tree","-r","-l",ref],text=True)
+          files=[]
+          for line in ls.splitlines():
+              meta,path=line.split("\t",1); mode,typ,blob,size=meta.split()
+              if typ!="blob": continue
+              b=subprocess.check_output(["git","-C",repo,"show",f"{ref}:{path}"])
+              files.append({"path":path,"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest(),"gitBlobSha":blob})
+          files.sort(key=lambda x:x["path"])
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in files).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          if len(files)!=25 or sum(r["bytes"] for r in files)!=2555325: raise SystemExit("commit snapshot count/bytes mismatch")
+          if manifest!="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023": raise SystemExit(f"commit manifest mismatch {manifest}")
+          data={"deploymentSha":ref,"deploymentTree":subprocess.check_output(["git","-C",repo,"rev-parse",f"{ref}^{{tree}}"],text=True).strip(),"parent":"7aa30485b1c03763a8f3e0618c81f49724a8e95b","parentCount":1,"message":"Deploy compact token ownership release 006ba05c","fileCount":25,"totalBytes":2555325,"manifestSha256":manifest,"delta":{"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22}}
+          (out/"deployment-commit.json").write_text(json.dumps(data,indent=2)+"\n")
+          print(json.dumps(data,indent=2))
+          PY
+
+          # 11. Immediate pre-push race check.
+          git fetch --no-tags origin main gh-pages
+          REMOTE_MAIN="$(git rev-parse origin/main)"
+          REMOTE_GH="$(git rev-parse origin/gh-pages)"
+          LOCAL_PARENT="$(git -C "${DEPLOY}" show -s --format='%P' "${DEPLOYMENT_SHA}")"
+          test "${REMOTE_MAIN}" = "${MAIN_SHA}"
+          test "${REMOTE_GH}" = "${GH_OLD_SHA}"
+          test "${LOCAL_PARENT}" = "${REMOTE_GH}"
+          jq -n \
+            --arg main "${REMOTE_MAIN}" --arg ghPages "${REMOTE_GH}" \
+            --arg localParent "${LOCAL_PARENT}" --arg deploymentSha "${DEPLOYMENT_SHA}" \
+            --arg deploymentTree "${DEPLOYMENT_TREE}" --arg manifest "${SNAPSHOT_MANIFEST}" \
+            '{remoteMain:$main,remoteGhPages:$ghPages,localDeploymentParent:$localParent,deploymentSha:$deploymentSha,deploymentTree:$deploymentTree,requiredManifest:$manifest,raceCheck:"PASS"}' \
+            | tee "${OUT}/deployment-prepush-race-check.json"
+
+          # 12. The only authorized production mutation: ordinary non-force gh-pages update.
+          git -C "${DEPLOY}" push origin "${DEPLOYMENT_SHA}:refs/heads/gh-pages" 2>&1 | tee "${OUT}/push.log"
+          jq -n \
+            --arg ref "refs/heads/gh-pages" --arg from "${GH_OLD_SHA}" --arg to "${DEPLOYMENT_SHA}" \
+            '{ref:$ref,from:$from,to:$to,force:false,appendOnly:true,pushResult:"SUCCESS"}' \
+            | tee "${OUT}/deployment-push-result.json"
+
+          # 14-15. Immediate post-push refs and remote snapshot identity.
+          git fetch --no-tags origin main gh-pages
+          REMOTE_MAIN="$(git rev-parse origin/main)"
+          REMOTE_GH="$(git rev-parse origin/gh-pages)"
+          REMOTE_TREE="$(git rev-parse origin/gh-pages^{tree})"
+          REMOTE_PARENT="$(git -C "${DEPLOY}" show -s --format='%P' origin/gh-pages)"
+          test "${REMOTE_MAIN}" = "${MAIN_SHA}"
+          test "${REMOTE_GH}" = "${DEPLOYMENT_SHA}"
+          test "${REMOTE_TREE}" = "${DEPLOYMENT_TREE}"
+          test "${REMOTE_PARENT}" = "${GH_OLD_SHA}"
+          jq -n --arg main "${REMOTE_MAIN}" --arg ghPages "${REMOTE_GH}" --arg tree "${REMOTE_TREE}" --arg parent "${REMOTE_PARENT}" \
+            '{main:$main,ghPages:$ghPages,ghPagesTree:$tree,ghPagesParent:$parent,ghPagesParentCount:1,mainUnchanged:true}' \
+            | tee "${OUT}/post-push-refs.json"
+
+          REPO="${DEPLOY}" REF="origin/gh-pages" OUT="${OUT}" python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          repo=os.environ["REPO"]; ref=os.environ["REF"]; out=Path(os.environ["OUT"])
+          ls=subprocess.check_output(["git","-C",repo,"ls-tree","-r","-l",ref],text=True)
+          files=[]
+          for line in ls.splitlines():
+              meta,path=line.split("\t",1); mode,typ,blob,size=meta.split()
+              if typ!="blob": continue
+              b=subprocess.check_output(["git","-C",repo,"show",f"{ref}:{path}"])
+              files.append({"path":path,"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest(),"gitBlobSha":blob})
+          files.sort(key=lambda x:x["path"])
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in files).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          paths={r["path"] for r in files}
+          required={"assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css","index.html","en/index.html","en/quran-kids/index.html","en/quran-adults/index.html","en/arabic/index.html","ru/index.html","ru/quran/index.html","ru/arabic/index.html","uz/index.html","uz/quran/index.html","uz/arabic/index.html","admin.html"}
+          retired={"assets/main-7lqh8VQc.js","assets/main-DWDLbThX.css"}
+          if len(files)!=25 or sum(r["bytes"] for r in files)!=2555325: raise SystemExit("remote snapshot count/bytes mismatch")
+          if manifest!="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023": raise SystemExit(f"remote manifest mismatch {manifest}")
+          if not required<=paths: raise SystemExit("remote required path missing")
+          if paths & retired: raise SystemExit("retired asset remains remotely")
+          if any(p.startswith(".github/") for p in paths): raise SystemExit("evidence file leaked into gh-pages")
+          data={"fileCount":25,"totalBytes":2555325,"manifestSha256":manifest,"newAssetsPresent":True,"oldAssetsAbsent":True,"entrypointsPresent":12,"evidenceFilesAbsent":True,"files":files}
+          (out/"deployment-remote-snapshot.json").write_text(json.dumps(data,indent=2)+"\n")
+          print(json.dumps({k:v for k,v in data.items() if k!="files"},indent=2))
+          PY
+
+          # 16. Wait for native GitHub Pages run for this exact deployment SHA.
+          RUN_ID=""
+          for i in $(seq 1 36); do
+            RUNS="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?branch=gh-pages&per_page=30")"
+            RUN_ID="$(jq -r --arg sha "${DEPLOYMENT_SHA}" '[.workflow_runs[] | select(.name=="pages build and deployment" and .head_branch=="gh-pages" and .head_sha==$sha)][0].id // empty' <<<"${RUNS}")"
+            if [ -n "${RUN_ID}" ]; then break; fi
+            sleep 5
+          done
+          test -n "${RUN_ID}"
+
+          FINAL=""
+          for i in $(seq 1 48); do
+            RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
+            if [ "$(jq -r '.status' <<<"${RUN}")" = "completed" ]; then FINAL="${RUN}"; break; fi
+            sleep 5
+          done
+          test -n "${FINAL}"
+          test "$(jq -r '.conclusion' <<<"${FINAL}")" = "success"
+          test "$(jq -r '.head_sha' <<<"${FINAL}")" = "${DEPLOYMENT_SHA}"
+          jq '{id:.id,name:.name,headBranch:.head_branch,headSha:.head_sha,status:.status,conclusion:.conclusion,createdAt:.created_at,updatedAt:.updated_at}' <<<"${FINAL}" \
+            | tee "${OUT}/deployment-pages-run.json"
+
+          JOBS="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100")"
+          for NAME in build report-build-status deploy; do
+            test "$(jq -r --arg n "${NAME}" '[.jobs[] | select(.name==$n)][0].conclusion // empty' <<<"${JOBS}")" = "success"
+          done
+          jq '{jobs:[.jobs[] | select(.name=="build" or .name=="report-build-status" or .name=="deploy") | {id,name,status,conclusion}]}' <<<"${JOBS}" \
+            | tee "${OUT}/deployment-pages-jobs.json"
+          BUILD_JOB_ID="$(jq -r '[.jobs[] | select(.name=="build")][0].id' <<<"${JOBS}")"
+          REPORT_JOB_ID="$(jq -r '[.jobs[] | select(.name=="report-build-status")][0].id' <<<"${JOBS}")"
+          DEPLOY_JOB_ID="$(jq -r '[.jobs[] | select(.name=="deploy")][0].id' <<<"${JOBS}")"
+
+          # 17-22. Boundary + terminal authority checks.
+          MAIN2="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL2="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH2="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN2_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN2}")"
+          GH2_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH2}")"
+          PAGES2="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
+          test "${MAIN2}" = "${MAIN_SHA}"
+          test "${IMPL2}" = "${IMPL_SHA}"
+          test "${GH2}" = "${DEPLOYMENT_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN2_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH2_GIT}")" = "${DEPLOYMENT_TREE}"
+          test "$(jq -r '.source.branch // ""' <<<"${PAGES2}")" = "gh-pages"
+          test "$(jq -r '.source.path // ""' <<<"${PAGES2}")" = "/"
+          test -z "$(jq -r '.cname // ""' <<<"${PAGES2}")"
+
+          jq -n '{noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true,mainMutation:false,firebaseDeployExecuted:false,firestoreRulesDeployExecuted:false,firestoreWriteExecuted:false,authWriteExecuted:false}' \
+            | tee "${OUT}/deployment-boundaries.json"
+          jq -n --arg main "${MAIN2}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN2_GIT}")" --arg implementation "${IMPL2}" --arg ghPages "${GH2}" --arg ghPagesTree "$(jq -r '.tree.sha' <<<"${GH2_GIT}")" \
+            '{main:$main,mainTree:$mainTree,implementation:$implementation,ghPages:$ghPages,ghPagesTree:$ghPagesTree,noOtherProductionRefMoved:true}' \
+            | tee "${OUT}/deployment-terminal-refs.json"
+          jq -n \
+            --arg source "${MAIN_SHA}" --arg sourceTree "${MAIN_TREE}" \
+            --arg deploymentSha "${DEPLOYMENT_SHA}" --arg deploymentTree "${DEPLOYMENT_TREE}" \
+            --arg parent "${GH_OLD_SHA}" --arg manifest "${SNAPSHOT_MANIFEST}" \
+            --arg pagesRun "${RUN_ID}" --arg buildJob "${BUILD_JOB_ID}" --arg reportJob "${REPORT_JOB_ID}" --arg deployJob "${DEPLOY_JOB_ID}" \
+            '{status:"READY FOR FINAL CLOSURE REVIEW",source:$source,sourceTree:$sourceTree,deploymentSha:$deploymentSha,deploymentTree:$deploymentTree,deploymentParent:$parent,deploymentParentCount:1,remoteSnapshot:{files:25,bytes:2555325,manifestSha256:$manifest},delta:{ADD:2,MODIFY:1,DELETE:2,PRESERVE:22},deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",ghPagesUpdate:"ORDINARY NON-FORCE APPEND-ONLY",pagesPlatform:"SUCCESS",pagesRunId:($pagesRun|tonumber),jobs:{build:{id:($buildJob|tonumber),conclusion:"SUCCESS"},reportBuildStatus:{id:($reportJob|tonumber),conclusion:"SUCCESS"},deploy:{id:($deployJob|tonumber),conclusion:"SUCCESS"}},mainUnchanged:true,pagesSettingsMutation:"NONE",firebaseMutation:"NONE",backendMutation:"NONE",nextPossibleGate:"COMPACT TOKEN OWNERSHIP POST-RELEASE LIVE VERIFICATION",liveVerificationComplete:false,closureReviewRequired:true}' \
+            | tee "${OUT}/deployment-implementation-summary.json"
+
+      - name: Upload deployment implementation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-release-deployment-implementation
+          path: ${{ runner.temp }}/deployment-evidence
+          if-no-files-found: error
+          retention-days: 90
