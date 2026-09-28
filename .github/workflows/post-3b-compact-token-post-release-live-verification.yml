@@ -1,0 +1,616 @@
+name: Post-3B Compact Token Post-Release Live Verification
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-compact-token-post-release-live-verification'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  DEPLOY_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  DEPLOY_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  DEPLOY_PARENT: 7aa30485b1c03763a8f3e0618c81f49724a8e95b
+  SNAPSHOT_MANIFEST: dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023
+  PAGES_RUN_ID: '36488505974'
+  BUILD_JOB_ID: '109151160829'
+  REPORT_JOB_ID: '109151277900'
+  DEPLOY_JOB_ID: '109151278063'
+
+jobs:
+  verify-live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority preflight and Pages platform proof
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${DEPLOY_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${DEPLOY_TREE}"
+          test "$(jq -r '.parents | length' <<<"${GH_GIT}")" = "1"
+          test "$(jq -r '.parents[0].sha' <<<"${GH_GIT}")" = "${DEPLOY_PARENT}"
+
+          jq -n \
+            --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" \
+            --arg impl "${IMPL}" --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")" \
+            '{main:$main,mainTree:$mainTree,implementation:$impl,ghPages:$gh,ghPagesTree:$ghTree,noProductionRefMutation:true}' \
+            | tee "${OUT}/live-authority-preflight.json"
+
+          RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${PAGES_RUN_ID}")"
+          test "$(jq -r '.name' <<<"${RUN}")" = "pages build and deployment"
+          test "$(jq -r '.head_branch' <<<"${RUN}")" = "gh-pages"
+          test "$(jq -r '.head_sha' <<<"${RUN}")" = "${DEPLOY_SHA}"
+          test "$(jq -r '.status' <<<"${RUN}")" = "completed"
+          test "$(jq -r '.conclusion' <<<"${RUN}")" = "success"
+
+          JOBS="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${PAGES_RUN_ID}/jobs?per_page=100")"
+          for NAME in build report-build-status deploy; do
+            test "$(jq -r --arg n "${NAME}" '[.jobs[] | select(.name==$n)][0].conclusion // empty' <<<"${JOBS}")" = "success"
+          done
+          test "$(jq -r '[.jobs[] | select(.name=="build")][0].id' <<<"${JOBS}")" = "${BUILD_JOB_ID}"
+          test "$(jq -r '[.jobs[] | select(.name=="report-build-status")][0].id' <<<"${JOBS}")" = "${REPORT_JOB_ID}"
+          test "$(jq -r '[.jobs[] | select(.name=="deploy")][0].id' <<<"${JOBS}")" = "${DEPLOY_JOB_ID}"
+
+          jq -n \
+            --arg run "${PAGES_RUN_ID}" --arg sha "${DEPLOY_SHA}" \
+            --arg build "${BUILD_JOB_ID}" --arg report "${REPORT_JOB_ID}" --arg deploy "${DEPLOY_JOB_ID}" \
+            '{runId:($run|tonumber),name:"pages build and deployment",headBranch:"gh-pages",headSha:$sha,status:"completed",conclusion:"success",jobs:{build:{id:($build|tonumber),conclusion:"success"},reportBuildStatus:{id:($report|tonumber),conclusion:"success"},deploy:{id:($deploy|tonumber),conclusion:"success"}}}' \
+            | tee "${OUT}/live-pages-platform-proof.json"
+
+      - name: Determine exact live origin from Pages configuration
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          PAGES="$(curl --fail --silent --show-error --location \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
+          test "$(jq -r '.source.branch // ""' <<<"${PAGES}")" = "gh-pages"
+          test "$(jq -r '.source.path // ""' <<<"${PAGES}")" = "/"
+          test -z "$(jq -r '.cname // ""' <<<"${PAGES}")"
+          LIVE_ORIGIN="$(jq -r '.html_url' <<<"${PAGES}")"
+          test -n "${LIVE_ORIGIN}"
+          case "${LIVE_ORIGIN}" in https://*) ;; *) echo "Live origin is not HTTPS: ${LIVE_ORIGIN}" >&2; exit 1;; esac
+          LIVE_ORIGIN="${LIVE_ORIGIN%/}"
+          echo "LIVE_ORIGIN=${LIVE_ORIGIN}" >> "${GITHUB_ENV}"
+          jq -n \
+            --arg origin "${LIVE_ORIGIN}" \
+            --arg branch "$(jq -r '.source.branch' <<<"${PAGES}")" \
+            --arg path "$(jq -r '.source.path' <<<"${PAGES}")" \
+            --arg cname "$(jq -r '.cname // ""' <<<"${PAGES}")" \
+            '{liveOrigin:$origin,https:true,pagesSource:{branch:$branch,path:$path},customDomain:$cname,pagesSettingsMutation:false}' \
+            | tee "${OUT}/live-origin.json"
+
+      - name: Fetch exact deployed tree and live 25-path snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          DEPLOYED="${RUNNER_TEMP}/deployed-gh-pages"
+          git fetch --no-tags origin gh-pages
+          test "$(git rev-parse origin/gh-pages)" = "${DEPLOY_SHA}"
+          git worktree add --detach "${DEPLOYED}" "${DEPLOY_SHA}"
+          test "$(git -C "${DEPLOYED}" rev-parse HEAD^{tree})" = "${DEPLOY_TREE}"
+
+          DEPLOYED="${DEPLOYED}" OUT="${OUT}" LIVE_ORIGIN="${LIVE_ORIGIN}" python3 - <<'PY'
+          import hashlib, json, os, subprocess, urllib.request, urllib.error
+          from pathlib import Path
+          from urllib.parse import quote
+
+          root=Path(os.environ["DEPLOYED"])
+          out=Path(os.environ["OUT"])
+          origin=os.environ["LIVE_ORIGIN"].rstrip("/")
+
+          deployed=[]
+          for p in sorted(x for x in root.rglob("*") if x.is_file()):
+              rel=p.relative_to(root).as_posix()
+              if rel==".git": continue
+              b=p.read_bytes()
+              deployed.append({"path":rel,"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()})
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in deployed).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          if len(deployed)!=25 or sum(x["bytes"] for x in deployed)!=2555325:
+              raise SystemExit("deployed local snapshot count/bytes mismatch")
+          if manifest!="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023":
+              raise SystemExit(f"deployed local manifest mismatch {manifest}")
+
+          def fetch(url):
+              req=urllib.request.Request(url,headers={"User-Agent":"BASAIR-live-verification/1.0","Accept-Encoding":"identity"})
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as r:
+                      body=r.read()
+                      return {
+                          "url":url,"status":r.status,"contentType":r.headers.get("Content-Type",""),
+                          "contentLengthHeader":r.headers.get("Content-Length"),
+                          "cacheControl":r.headers.get("Cache-Control"),
+                          "etag":r.headers.get("ETag"),
+                          "lastModified":r.headers.get("Last-Modified"),
+                          "age":r.headers.get("Age"),
+                          "server":r.headers.get("Server"),
+                          "body":body
+                      }
+              except urllib.error.HTTPError as e:
+                  body=e.read()
+                  return {"url":url,"status":e.code,"contentType":e.headers.get("Content-Type",""),"body":body}
+
+          live_rows=[]
+          mismatches=[]
+          for d in deployed:
+              url=origin+"/"+quote(d["path"],safe="/")
+              r=fetch(url)
+              live_hash=hashlib.sha256(r["body"]).hexdigest()
+              same=(r["status"]==200 and live_hash==d["sha256"])
+              row={
+                  "path":d["path"],"url":url,"status":r["status"],"contentType":r.get("contentType",""),
+                  "contentLengthHeader":r.get("contentLengthHeader"),"cacheControl":r.get("cacheControl"),
+                  "etag":r.get("etag"),"lastModified":r.get("lastModified"),"age":r.get("age"),"server":r.get("server"),
+                  "liveBytes":len(r["body"]),"liveSha256":live_hash,
+                  "deployedBytes":d["bytes"],"deployedSha256":d["sha256"],"byteIdentity":same
+              }
+              live_rows.append(row)
+              if not same: mismatches.append(row)
+
+          critical={"index.html","assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"}
+          critical_mismatch=[x for x in mismatches if x["path"] in critical]
+          if critical_mismatch:
+              raise SystemExit("critical live byte mismatch: "+json.dumps(critical_mismatch))
+          if mismatches:
+              raise SystemExit("live deployed path mismatch: "+json.dumps(mismatches[:5]))
+
+          snapshot={"deployedFileCount":25,"deployedBytes":2555325,"manifestSha256":manifest,"liveFetchedCount":len(live_rows),"allLiveByteIdentical":True,"paths":live_rows}
+          (out/"live-snapshot-fetches.json").write_text(json.dumps(snapshot,indent=2)+"\n")
+
+          home=next(x for x in live_rows if x["path"]=="index.html")
+          js=next(x for x in live_rows if x["path"]=="assets/main-DDXdaUdM.js")
+          css=next(x for x in live_rows if x["path"]=="assets/main-NHlCiF5H.css")
+          release_identity={
+              "liveOrigin":origin,
+              "homepage":{"status":home["status"],"sha256":home["liveSha256"],"deployedSha256":home["deployedSha256"],"byteIdentity":home["byteIdentity"]},
+              "mainJs":{"status":js["status"],"sha256":js["liveSha256"],"deployedSha256":js["deployedSha256"],"byteIdentity":js["byteIdentity"]},
+              "mainCss":{"status":css["status"],"sha256":css["liveSha256"],"deployedSha256":css["deployedSha256"],"byteIdentity":css["byteIdentity"]},
+              "liveSnapshotByteIdentity":True
+          }
+          (out/"live-release-identity.json").write_text(json.dumps(release_identity,indent=2)+"\n")
+          print(json.dumps({"liveOrigin":origin,"pathsFetched":len(live_rows),"allLiveByteIdentical":True,"manifest":manifest},indent=2))
+          PY
+
+      - name: Homepage release references and retired asset negative proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          python3 - "${LIVE_ORIGIN}" "${OUT}" <<'PY'
+          import hashlib, json, sys, urllib.request, urllib.error
+          origin=sys.argv[1].rstrip("/"); out=sys.argv[2]
+          def get(url):
+              req=urllib.request.Request(url,headers={"User-Agent":"BASAIR-live-verification/1.0","Accept-Encoding":"identity","Cache-Control":"no-cache"})
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as r: return r.status,r.read(),dict(r.headers)
+              except urllib.error.HTTPError as e: return e.code,e.read(),dict(e.headers)
+          st,body,h=get(origin+"/?basair_live_verify=006ba05c")
+          txt=body.decode("utf-8","replace")
+          if st!=200: raise SystemExit(f"homepage cache-bust status {st}")
+          if "assets/main-DDXdaUdM.js" not in txt or "assets/main-NHlCiF5H.css" not in txt:
+              raise SystemExit("homepage does not reference both current assets")
+          old=["assets/main-7lqh8VQc.js","assets/main-DWDLbThX.css"]
+          active=[x for x in old if x in txt]
+          if active: raise SystemExit(f"homepage actively references retired assets {active}")
+          stale=[]
+          for p in old:
+              s,b,hh=get(origin+"/"+p+"?basair_live_verify=006ba05c")
+              stale.append({"path":p,"url":origin+"/"+p,"status":s,"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest(),"classification":"historical CDN cache artifact" if s==200 else "absent/not-served"})
+          data={"homepageStatus":st,"currentAssetReferences":["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"],"activeRetiredAssetReferences":[],"retiredDirectFetches":stale}
+          open(out+"/live-old-asset-negative-proof.json","w").write(json.dumps(data,indent=2)+"\n")
+          print(json.dumps(data,indent=2))
+          PY
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          test -z "$(git status --porcelain)"
+
+      - name: Run 24-case LIVE browser, locale, token, graph, safety and cache verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          cat > ".live-verify.mjs" <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium } from 'playwright';
+
+          const OUT=process.env.OUT;
+          const ORIGIN=process.env.LIVE_ORIGIN.replace(/\/$/,'');
+          const routes=[
+            {route:'/',lang:'en',dir:'ltr'},
+            {route:'/en/',lang:'en',dir:'ltr'},
+            {route:'/en/quran-kids/',lang:'en',dir:'ltr'},
+            {route:'/en/quran-adults/',lang:'en',dir:'ltr'},
+            {route:'/en/arabic/',lang:'en',dir:'ltr'},
+            {route:'/ru/',lang:'ru',dir:'ltr'},
+            {route:'/ru/quran/',lang:'ru',dir:'ltr'},
+            {route:'/ru/arabic/',lang:'ru',dir:'ltr'},
+            {route:'/uz/',lang:'uz',dir:'ltr'},
+            {route:'/uz/quran/',lang:'uz',dir:'ltr'},
+            {route:'/uz/arabic/',lang:'uz',dir:'ltr'},
+            {route:'/admin.html',lang:'ar',dir:'rtl'}
+          ];
+          const viewports=[{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}];
+          const routeFile=new Map([
+            ['/','index.html'],['/en/','en/index.html'],['/en/quran-kids/','en/quran-kids/index.html'],
+            ['/en/quran-adults/','en/quran-adults/index.html'],['/en/arabic/','en/arabic/index.html'],
+            ['/ru/','ru/index.html'],['/ru/quran/','ru/quran/index.html'],['/ru/arabic/','ru/arabic/index.html'],
+            ['/uz/','uz/index.html'],['/uz/quran/','uz/quran/index.html'],['/uz/arabic/','uz/arabic/index.html'],
+            ['/admin.html','admin.html']
+          ]);
+          const preserved=new Set([
+            'admin.html','en/arabic/index.html','en/index.html','en/quran-adults/index.html','en/quran-kids/index.html',
+            'ru/arabic/index.html','ru/index.html','ru/quran/index.html','uz/arabic/index.html','uz/index.html','uz/quran/index.html'
+          ]);
+
+          const cases=[], consoleEvents=[], networkEvents=[], graph=[];
+          const blockedTelemetry=[], blockedMutations=[], unknownUnsafe=[], allowedReadOnly=[];
+          let hardFailure=false;
+
+          function urlObj(url){try{return new URL(url);}catch{return null;}}
+          function isLocal(url){const u=urlObj(url); return !!u && u.origin===ORIGIN;}
+          function isReadOnlyPost(url){
+            return /google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(url) ||
+                   /firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);
+          }
+          function isTelemetryPost(url){
+            const u=urlObj(url); if(!u) return false;
+            const ga=(u.pathname==='/g/collect') && (u.hostname==='google-analytics.com'||u.hostname==='www.google-analytics.com'||u.hostname.endsWith('.google-analytics.com')||u.hostname==='www.google.com');
+            return ga || u.hostname==='www.googletagmanager.com';
+          }
+          function isKnownMutating(url){
+            return /google\.firestore\.v1\.Firestore\/(Write|Commit)/i.test(url) ||
+                   /firestore\.googleapis\.com\/.*:(commit|write)(\?|$)/i.test(url) ||
+                   /identitytoolkit\.googleapis\.com\/.*accounts:(signUp|signInWithPassword|update|delete|sendOobCode|sendVerificationCode)/i.test(url);
+          }
+
+          const browser=await chromium.launch({headless:true});
+          for(const vp of viewports){
+            for(const spec of routes){
+              const context=await browser.newContext({viewport:{width:vp.width,height:vp.height},ignoreHTTPSErrors:false});
+              const page=await context.newPage();
+              const caseName=spec.route+'|'+vp.name;
+              const localFailures=[], pageErrors=[], unknownConsole=[];
+
+              await context.route('**/*', async route => {
+                const req=route.request(), method=req.method().toUpperCase(), url=req.url();
+                if(['GET','HEAD','OPTIONS'].includes(method)) return route.continue();
+                if(method==='POST' && isReadOnlyPost(url)){
+                  const e={case:caseName,method,url,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT',kind:'allowed-read-only-post'};
+                  allowedReadOnly.push(e); return route.continue();
+                }
+                if(method==='POST' && isTelemetryPost(url)){
+                  const e={case:caseName,method,url,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT',kind:'blocked-telemetry-post'};
+                  blockedTelemetry.push(e); return route.abort('blockedbyclient');
+                }
+                const cls=isKnownMutating(url)?'A — PRODUCT RUNTIME REGRESSION':'E — UNKNOWN';
+                const e={case:caseName,method,url,classification:cls,kind:'blocked-before-dispatch'};
+                if(cls.startsWith('A')) blockedMutations.push(e); else unknownUnsafe.push(e);
+                hardFailure=true;
+                return route.abort('blockedbyclient');
+              });
+
+              page.on('pageerror',err=>{
+                const e={case:caseName,type:'pageerror',message:String(err),classification:'A — PRODUCT RUNTIME REGRESSION'};
+                pageErrors.push(e); consoleEvents.push(e); hardFailure=true;
+              });
+              page.on('console',msg=>{
+                if(!['error','warning'].includes(msg.type())) return;
+                const text=msg.text(), loc=msg.location();
+                let cls='E — UNKNOWN';
+                const docPath=routeFile.get(spec.route);
+                const baselineCsp=preserved.has(docPath) && (
+                  /Content Security Policy .*meta.*outside the document's <head>.*ignored/i.test(text) ||
+                  /Content Security Policy directive 'frame-ancestors' is ignored when delivered via a <meta>/i.test(text)
+                );
+                const gaCsp=/google\.com\/g\/collect/i.test(text) && /Content Security Policy|Refused to connect|Fetch API cannot load/i.test(text);
+                if(gaCsp) cls='B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT';
+                else if(baselineCsp) cls='C — KNOWN NON-BLOCKING BASELINE BROWSER DIAGNOSTIC';
+                else if(loc?.url && !isLocal(loc.url) && /Failed to load resource|ERR_|network|offline/i.test(text)) cls='B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT';
+                else if(/FirebaseError.*(network|offline|permission|unavailable)/i.test(text)) cls='D — TEST ENVIRONMENT ARTIFACT';
+                else if(/blockedbyclient/i.test(text)) cls='B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT';
+                const e={case:caseName,type:'console.'+msg.type(),message:text,location:loc,classification:cls,documentPath:docPath,preservedBaselineDocument:preserved.has(docPath)};
+                consoleEvents.push(e);
+                if(cls.startsWith('E')||cls.startsWith('A')){unknownConsole.push(e);hardFailure=true;}
+              });
+              page.on('requestfailed',req=>{
+                const e={case:caseName,url:req.url(),method:req.method(),failure:req.failure(),classification:isLocal(req.url())?'A — PRODUCT RUNTIME REGRESSION':'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT'};
+                networkEvents.push(e);
+                if(isLocal(req.url())){localFailures.push(e);hardFailure=true;}
+              });
+              page.on('response',res=>{
+                if(isLocal(res.url()) && res.status()>=400){
+                  const e={case:caseName,url:res.url(),status:res.status(),classification:'A — PRODUCT RUNTIME REGRESSION'};
+                  networkEvents.push(e); localFailures.push(e); hardFailure=true;
+                }
+              });
+
+              let navStatus=null,navOk=false,navError=null;
+              try{
+                const res=await page.goto(ORIGIN+spec.route,{waitUntil:'domcontentloaded',timeout:30000});
+                navStatus=res?.status()??null; navOk=!!res&&res.ok();
+                await page.waitForTimeout(1100);
+              }catch(e){navError=String(e);hardFailure=true;}
+
+              const dom=await page.evaluate(()=>{
+                const body=(document.body?.innerText||'').trim();
+                const vis=[...document.querySelectorAll('body *')].filter(el=>{
+                  const s=getComputedStyle(el),r=el.getBoundingClientRect();
+                  return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0;
+                }).length;
+                return {title:document.title,bodyTextLength:body.length,visibleElementCount:vis,lang:document.documentElement.lang,dirAttribute:document.documentElement.getAttribute('dir')||'',computedDirection:getComputedStyle(document.documentElement).direction};
+              });
+              const langOk=(dom.lang||'').toLowerCase().startsWith(spec.lang);
+              const dirOk=dom.computedDirection===spec.dir && (dom.dirAttribute===''||dom.dirAttribute===spec.dir);
+              const meaningful=dom.bodyTextLength>40&&dom.visibleElementCount>0&&dom.title.length>0;
+              const sw=await page.evaluate(async()=>('serviceWorker'in navigator)?(await navigator.serviceWorker.getRegistrations()).length:0).catch(()=>-1);
+              const cacheKeys=await page.evaluate(async()=>('caches'in window)?await caches.keys():[]).catch(()=>[]);
+              if(sw>0||cacheKeys.length>0) hardFailure=true;
+
+              const refs=await page.evaluate(()=>{
+                const rows=[];
+                const add=(kind,raw)=>{if(!raw)return; try{rows.push({kind,raw,resolved:new URL(raw,document.baseURI).href});}catch{}};
+                document.querySelectorAll('script[src]').forEach(x=>add('script',x.getAttribute('src')));
+                document.querySelectorAll('link[href]').forEach(x=>{
+                  const rel=(x.getAttribute('rel')||'').toLowerCase();
+                  if(/stylesheet|icon|preload|modulepreload/.test(rel)) add('link:'+rel,x.getAttribute('href'));
+                });
+                document.querySelectorAll('img[src]').forEach(x=>add('image',x.getAttribute('src')));
+                document.querySelectorAll('source[src]').forEach(x=>add('source',x.getAttribute('src')));
+                document.querySelectorAll('video[poster]').forEach(x=>add('video-poster',x.getAttribute('poster')));
+                return rows;
+              });
+              for(const ref of refs){
+                const local=isLocal(ref.resolved);
+                const retired=/main-7lqh8VQc\.js|main-DWDLbThX\.css/.test(ref.raw);
+                const badBase=/\/basaira\.github\.io\//.test(ref.raw);
+                const row={documentRoute:spec.route,viewport:vp.name,...ref,local,retired,badRepoPrefix:badBase};
+                graph.push(row);
+                if(retired||badBase) hardFailure=true;
+              }
+
+              const passed=navOk&&navStatus===200&&meaningful&&langOk&&dirOk&&localFailures.length===0&&pageErrors.length===0&&unknownConsole.length===0&&sw===0&&cacheKeys.length===0;
+              if(!passed) hardFailure=true;
+              cases.push({route:spec.route,viewport:vp,navStatus,navOk,navError,meaningful,langOk,dirOk,localFailureCount:localFailures.length,pageErrorCount:pageErrors.length,unknownConsoleCount:unknownConsole.length,serviceWorkerRegistrations:sw,cacheKeys,dom,passed});
+              await context.close();
+            }
+          }
+
+          // Critical live homepage token sentinel + CSS ownership.
+          const sentCtx=await browser.newContext({viewport:{width:1440,height:1000}});
+          const sentPage=await sentCtx.newPage();
+          await sentCtx.route('**/*',async route=>{
+            const req=route.request(),m=req.method().toUpperCase(),u=req.url();
+            if(['GET','HEAD','OPTIONS'].includes(m)) return route.continue();
+            if(m==='POST'&&isReadOnlyPost(u)){allowedReadOnly.push({case:'token-sentinel',method:m,url:u,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT'});return route.continue();}
+            if(m==='POST'&&isTelemetryPost(u)){blockedTelemetry.push({case:'token-sentinel',method:m,url:u,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT'});return route.abort('blockedbyclient');}
+            const cls=isKnownMutating(u)?'A — PRODUCT RUNTIME REGRESSION':'E — UNKNOWN'; hardFailure=true;
+            (cls.startsWith('A')?blockedMutations:unknownUnsafe).push({case:'token-sentinel',method:m,url:u,classification:cls});
+            return route.abort('blockedbyclient');
+          });
+          await sentPage.goto(ORIGIN+'/?basair_live_token=006ba05c',{waitUntil:'domcontentloaded',timeout:30000});
+          await sentPage.waitForTimeout(800);
+          const token=await sentPage.evaluate(()=>({
+            compact:getComputedStyle(document.documentElement).getPropertyValue('--layout-section-compact').trim(),
+            canonical:getComputedStyle(document.documentElement).getPropertyValue('--space-layout-section-compact').trim(),
+            sheets:[...document.styleSheets].map(s=>s.href).filter(Boolean)
+          }));
+          const compactNorm=token.compact.replace(/\s+/g,'');
+          const canonicalNorm=token.canonical.replace(/\s+/g,'');
+          const tokenOk=compactNorm==='clamp(3.25rem,4.7vw,4.65rem)';
+          const canonicalOk=canonicalNorm==='clamp(3.75rem,6vw,5.75rem)';
+          if(!tokenOk||!canonicalOk) hardFailure=true;
+          let cssText='';
+          for(const href of token.sheets){
+            if(href.startsWith(ORIGIN)){
+              try{cssText+='\n'+await (await sentPage.request.get(href,{headers:{'Cache-Control':'no-cache'}})).text();}catch{}
+            }
+          }
+          const compactCss=cssText.replace(/\s+/g,'');
+          const oldBridge=/--layout-section-compact:var\(--space-layout-section-compact\)(?:;|})/.test(compactCss);
+          const laterOwner=/--layout-section-compact:clamp\(3\.25rem,4\.7vw,4\.65rem\)(?:;|})/.test(compactCss);
+          if(oldBridge||!laterOwner) hardFailure=true;
+          const sentSw=await sentPage.evaluate(async()=>('serviceWorker'in navigator)?(await navigator.serviceWorker.getRegistrations()).length:0);
+          const sentCache=await sentPage.evaluate(async()=>('caches'in window)?await caches.keys():[]);
+          if(sentSw!==0||sentCache.length!==0) hardFailure=true;
+          await sentCtx.close();
+
+          // Ephemeral Arabic toggle.
+          const arCtx=await browser.newContext({viewport:{width:390,height:844}});
+          await arCtx.route('**/*',async route=>{
+            const req=route.request(),m=req.method().toUpperCase(),u=req.url();
+            if(['GET','HEAD','OPTIONS'].includes(m)) return route.continue();
+            if(m==='POST'&&isReadOnlyPost(u)){allowedReadOnly.push({case:'homepage-arabic-toggle',method:m,url:u,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT'});return route.continue();}
+            if(m==='POST'&&isTelemetryPost(u)){blockedTelemetry.push({case:'homepage-arabic-toggle',method:m,url:u,classification:'B — EXPECTED EXTERNAL / READ-ONLY ARTIFACT'});return route.abort('blockedbyclient');}
+            const cls=isKnownMutating(u)?'A — PRODUCT RUNTIME REGRESSION':'E — UNKNOWN'; hardFailure=true;
+            (cls.startsWith('A')?blockedMutations:unknownUnsafe).push({case:'homepage-arabic-toggle',method:m,url:u,classification:cls});
+            return route.abort('blockedbyclient');
+          });
+          const arPage=await arCtx.newPage();
+          let arabicToggle={activatable:false,attempted:false,passed:null,before:null,after:null,ephemeralContext:true};
+          try{
+            await arPage.goto(ORIGIN+'/',{waitUntil:'domcontentloaded',timeout:30000});
+            await arPage.waitForTimeout(500);
+            const has=await arPage.evaluate(()=>!!document.querySelector('[data-lang="ar"],[data-language="ar"]')||[...document.querySelectorAll('button,a,[role="button"],option')].some(x=>/^(العربية|عربي)$/.test((x.textContent||'').trim())||(x.value||'').toLowerCase()==='ar'));
+            if(has){
+              arabicToggle.activatable=true;arabicToggle.attempted=true;
+              arabicToggle.before=await arPage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
+              const clicked=await arPage.evaluate(()=>{
+                const direct=document.querySelector('[data-lang="ar"],[data-language="ar"]');
+                if(direct){direct.click();return true;}
+                const sel=[...document.querySelectorAll('select')].find(s=>[...s.options].some(o=>(o.value||'').toLowerCase()==='ar'));
+                if(sel){sel.value='ar';sel.dispatchEvent(new Event('change',{bubbles:true}));return true;}
+                const el=[...document.querySelectorAll('button,a,[role="button"]')].find(x=>/^(العربية|عربي)$/.test((x.textContent||'').trim()));
+                if(el){el.click();return true;} return false;
+              });
+              if(!clicked) throw new Error('Arabic control discovered but not activatable');
+              await arPage.waitForTimeout(500);
+              arabicToggle.after=await arPage.evaluate(()=>({lang:document.documentElement.lang,dir:document.documentElement.getAttribute('dir'),computed:getComputedStyle(document.documentElement).direction}));
+              arabicToggle.passed=(arabicToggle.after.lang||'').toLowerCase().startsWith('ar')&&arabicToggle.after.computed==='rtl';
+              if(!arabicToggle.passed) hardFailure=true;
+            }
+          }catch(e){arabicToggle.error=String(e);hardFailure=true;}
+          await arCtx.close();
+          await browser.close();
+
+          // Graph active local reference status, using direct HTTP GET in Node.
+          const uniqueLocal=[...new Set(graph.filter(x=>x.local).map(x=>x.resolved))];
+          const graphStatus=[];
+          for(const url of uniqueLocal){
+            try{
+              const res=await fetch(url,{method:'GET',headers:{'Cache-Control':'no-cache'}});
+              graphStatus.push({url,status:res.status,ok:res.ok});
+              if(!res.ok) hardFailure=true;
+            }catch(e){graphStatus.push({url,status:null,ok:false,error:String(e)});hardFailure=true;}
+          }
+          const graphResult={referenceCount:graph.length,localReferenceCount:graph.filter(x=>x.local).length,uniqueLocalReferences:uniqueLocal.length,missingLocalReferences:graphStatus.filter(x=>!x.ok),activeRetiredReferences:graph.filter(x=>x.retired),repoPrefixAssumptions:graph.filter(x=>x.badRepoPrefix),references:graph,localStatuses:graphStatus};
+          if(graphResult.activeRetiredReferences.length||graphResult.repoPrefixAssumptions.length||graphResult.missingLocalReferences.length) hardFailure=true;
+
+          const counts={A:0,B:0,C:0,D:0,E:0};
+          for(const e of consoleEvents){const k=e.classification[0];if(k in counts)counts[k]++;}
+          if(blockedMutations.length) counts.A+=blockedMutations.length;
+          if(unknownUnsafe.length) counts.E+=unknownUnsafe.length;
+
+          const smoke={totalCases:cases.length,passCount:cases.filter(x=>x.passed).length,failCount:cases.filter(x=>!x.passed).length,cases,adminReadOnly:{route:'/admin.html',noSignIn:true,noCredentialSubmit:true,noMutation:true},arabicDirectionToggle:arabicToggle};
+          const locale={routes:cases.map(x=>({route:x.route,viewport:x.viewport.name,lang:x.dom.lang,dirAttribute:x.dom.dirAttribute,computedDirection:x.dom.computedDirection,langOk:x.langOk,dirOk:x.dirOk})),arabicToggle};
+          const sentinel={liveOrigin:ORIGIN,compactToken:token.compact,canonicalCompactToken:token.canonical,compactTokenPass:tokenOk,canonicalTokenPass:canonicalOk,oldEarlierBridgePresent:oldBridge,laterOwnerPresent:laterOwner,loadedStylesheets:token.sheets,serviceWorkerRegistrations:sentSw,cacheKeys:sentCache};
+          const consoleOut={counts,events:consoleEvents,blockingClasses:['A','E'],blockingPresent:counts.A>0||counts.E>0};
+          const network={policy:{safeMethods:['GET','HEAD','OPTIONS'],allowedReadOnlyPosts:['Firestore Listen','runQuery','batchGet'],blockedBeforeDispatch:['Firestore Commit/Write','Auth mutation','unknown unsafe non-GET','telemetry POST']},allowedReadOnlyRequests:allowedReadOnly,blockedTelemetry,blockedMutatingAttempts:blockedMutations,unknownUnsafeAttempts:unknownUnsafe,networkEvents,mutatingDispatchCount:0,formSubmissionPerformed:false,adminAuthenticationPerformed:false};
+          const cache={serviceWorkerRegistrations:sentSw,cacheKeys:sentCache,expectedRegistrations:0,expectedCacheKeys:0,pass:sentSw===0&&sentCache.length===0};
+          const https={liveOrigin:ORIGIN,https:ORIGIN.startsWith('https://'),mixedContentLocalFailures:networkEvents.filter(x=>/^http:/.test(x.url||'')&&isLocal(x.url)),pass:ORIGIN.startsWith('https://')};
+
+          fs.writeFileSync(path.join(OUT,'live-entrypoint-smoke.json'),JSON.stringify(smoke,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-local-reference-graph.json'),JSON.stringify(graphResult,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-locale-direction.json'),JSON.stringify(locale,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-compact-token-sentinel.json'),JSON.stringify(sentinel,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-console-classification.json'),JSON.stringify(consoleOut,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-network-boundary.json'),JSON.stringify(network,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-service-worker-cache.json'),JSON.stringify(cache,null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'live-https-security.json'),JSON.stringify(https,null,2)+'\n');
+
+          if(cases.length!==24||smoke.passCount!==24||counts.A>0||counts.E>0||network.mutatingDispatchCount!==0||hardFailure){
+            console.error(JSON.stringify({smoke:{total:cases.length,pass:smoke.passCount},counts,blockedMutations,unknownUnsafe,sentinel,graphFailures:graphResult.missingLocalReferences,hardFailure},null,2));
+            process.exit(1);
+          }
+          const remainingDiagnostics=counts.B+counts.C+counts.D;
+          const classification=remainingDiagnostics===0?'A — LIVE RELEASE EXACTLY VERIFIED':'B — LIVE RELEASE VERIFIED WITH NON-BLOCKING EXTERNAL DIAGNOSTICS';
+          const summary={status:'READY FOR FINAL CLOSURE REVIEW',classification,liveOrigin:ORIGIN,liveReleaseIdentity:'VERIFIED',browserMatrix:'24 / 24 PASS',localAssetFailures:0,productRuntimeRegressions:0,unknownBlockingErrors:0,compactTokenLiveValue:token.compact,canonicalCompactToken:token.canonical,activeOldAssetReferences:0,mutatingRequestsDispatched:0,endToEndSliceClosure:'SUPPORTED',nextPossibleGate:'INDEPENDENT END-TO-END SLICE CLOSURE REVIEW',doNotMutateProduction:true};
+          fs.writeFileSync(path.join(OUT,'live-verification-summary.json'),JSON.stringify(summary,null,2)+'\n');
+          console.log(JSON.stringify({browser:'24/24 PASS',counts,network:{allowedReadOnly:allowedReadOnly.length,blockedTelemetry:blockedTelemetry.length,blockedMutations:blockedMutations.length,unknownUnsafe:unknownUnsafe.length,mutatingDispatchCount:0},sentinel,classification,arabicToggle},null,2));
+          JS
+          OUT="${OUT}" LIVE_ORIGIN="${LIVE_ORIGIN}" node ".live-verify.mjs"
+          rm -f ".live-verify.mjs"
+          test -z "$(git status --porcelain)"
+
+      - name: Cache-busting critical live resource identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          DEPLOYED="${RUNNER_TEMP}/deployed-gh-pages"
+          ORIGIN="${LIVE_ORIGIN}"
+          ORIGIN="${ORIGIN%/}"
+          OUT="${OUT}" DEPLOYED="${DEPLOYED}" ORIGIN="${ORIGIN}" python3 - <<'PY'
+          import hashlib,json,os,urllib.request
+          from pathlib import Path
+          out=Path(os.environ["OUT"]); root=Path(os.environ["DEPLOYED"]); origin=os.environ["ORIGIN"]
+          rows=[]
+          for rel,urlpath in [("index.html","/"),("assets/main-DDXdaUdM.js","/assets/main-DDXdaUdM.js"),("assets/main-NHlCiF5H.css","/assets/main-NHlCiF5H.css")]:
+              req=urllib.request.Request(origin+urlpath+"?basair_cache_bust=006ba05c",headers={"User-Agent":"BASAIR-live-verification/1.0","Cache-Control":"no-cache","Accept-Encoding":"identity"})
+              with urllib.request.urlopen(req,timeout=25) as r: body=r.read(); hdr=dict(r.headers); status=r.status
+              deployed=(root/rel).read_bytes()
+              live=hashlib.sha256(body).hexdigest(); dep=hashlib.sha256(deployed).hexdigest()
+              row={"path":rel,"status":status,"liveSha256":live,"deployedSha256":dep,"byteIdentity":live==dep,"cacheControl":hdr.get("Cache-Control"),"etag":hdr.get("ETag"),"lastModified":hdr.get("Last-Modified"),"age":hdr.get("Age"),"server":hdr.get("Server")}
+              if status!=200 or live!=dep: raise SystemExit("cache-bust critical identity failed "+json.dumps(row))
+              rows.append(row)
+          (out/"live-cdn-cache-diagnostics.json").write_text(json.dumps({"criticalCacheBustIdentity":rows,"pass":True},indent=2)+"\n")
+          print(json.dumps(rows,indent=2))
+          PY
+
+      - name: Terminal authority check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/live-evidence"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          PAGES="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${DEPLOY_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${DEPLOY_TREE}"
+          test "$(jq -r '.source.branch // ""' <<<"${PAGES}")" = "gh-pages"
+          test "$(jq -r '.source.path // ""' <<<"${PAGES}")" = "/"
+          test -z "$(jq -r '.cname // ""' <<<"${PAGES}")"
+
+          jq -n \
+            --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" \
+            --arg impl "${IMPL}" --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")" \
+            '{main:$main,mainTree:$mainTree,implementation:$impl,ghPages:$gh,ghPagesTree:$ghTree,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            | tee "${OUT}/live-terminal-refs.json"
+
+      - name: Upload post-release live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-compact-token-post-release-live-verification
+          path: ${{ runner.temp }}/live-evidence
+          if-no-files-found: error
+          retention-days: 90
