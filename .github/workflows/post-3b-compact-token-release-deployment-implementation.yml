@@ -174,7 +174,7 @@ jobs:
           PY
           git -C "${DEPLOY}" add -A
           git -C "${DEPLOY}" diff --cached --check
-          git -C "${DEPLOY}" diff --cached --name-status | tee "${OUT}/staged-diff-name-status.txt"
+          git -C "${DEPLOY}" diff --cached --name-status --no-renames | tee "${OUT}/staged-diff-name-status.txt"
           python3 - "${OUT}/staged-diff-name-status.txt" <<'PY'
           import sys
           rows=[x.rstrip("\n").split("\t") for x in open(sys.argv[1],encoding="utf-8") if x.strip()]
