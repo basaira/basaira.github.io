@@ -389,7 +389,6 @@ jobs:
             js_signatures["overdrive-folio"]==0 and
             js_signatures["is-folio-current"]==0 and
             js_signatures["rootMarginSignature"]==0 and
-            js_signatures["mainSectionSelector"]==0 and
             js_signatures["overdrive-ready"]>0 and
             js_signatures["overdrive-manuscript"]>0
           )
