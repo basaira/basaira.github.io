@@ -668,8 +668,23 @@ jobs:
               };
             });
             data.structuralHash=hash(Buffer.from(data.structural));delete data.structural;
+
+            // Screenshot proof is taken only after normal runtime geometry/DOM was measured.
+            // Normalize unrelated animated/temporal rendering in this disposable page so the
+            // screenshot comparison measures the simulation delta rather than capture timing.
+            await pg.evaluate(async()=>{
+              try{await document.fonts?.ready;}catch{}
+              await Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{
+                const done=()=>resolve(); img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});setTimeout(done,1500);
+              })));
+              for(const v of document.querySelectorAll('video')){try{v.pause();v.currentTime=0;}catch{}}
+              window.scrollTo(0,0);
+            });
+            await pg.addStyleTag({content:`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}`});
+            await pg.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+            await pg.waitForTimeout(80);
             const shot=await pg.screenshot({fullPage:true,animations:'disabled'});
-            const result={variant,route,viewport:vp,status:res?.status()??null,...data,screenshotSha256:hash(shot),consoleErrors,localFailures,blockedExternalCount:blockedExternal.length,_screenshot:shot};
+            const result={variant,route,viewport:vp,status:res?.status()??null,...data,screenshotSha256:hash(shot),screenshotNormalization:'after natural-state measurement: fonts/images settled; videos paused+hidden; animations/transitions/caret disabled; scroll top',consoleErrors,localFailures,blockedExternalCount:blockedExternal.length,_screenshot:shot};
             await ctx.close();return result;
           }
           function pixelDelta(aBuf,bBuf){
