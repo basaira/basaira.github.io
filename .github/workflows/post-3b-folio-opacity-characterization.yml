@@ -1,0 +1,1010 @@
+name: Post-3B Folio Opacity Whole-Source Runtime Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-characterization'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  LIVE_ORIGIN: https://basaira.github.io
+  SNAPSHOT_MANIFEST: dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact frozen current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Authority preflight and closed-slice reconfirmation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+
+          python3 - "${OUT}" <<'PY'
+          import json,sys
+          out=sys.argv[1]
+          m=json.load(open("token-authority-manifest.json"))
+          assert "--layout-section-compact" not in m.get("aliases",{})
+          assert "--layout-section-compact" not in m["correctedAuditScope"]["conflictTokens"]
+          assert m["correctedAuditScope"]["conflictCount"]==39
+          assert "--folio-opacity" in m.get("componentLocalExplicit",[])
+          assert "--folio-opacity" in m["correctedAuditScope"]["conflictTokens"]
+          d={
+            "compactTokenClosureReconfirmed":True,
+            "layoutSectionCompactAliasPresent":False,
+            "layoutSectionCompactConflictPresent":False,
+            "correctedConflicts":39,
+            "folioOpacityComponentLocalExplicit":True,
+            "folioOpacityConflictPresent":True
+          }
+          open(out+"/folio-token-manifest-status.json","w").write(json.dumps(d,indent=2)+"\n")
+          PY
+
+          jq -n \
+            --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree,authorityDrift:false}' \
+            | tee "${OUT}/folio-authority-preflight.json"
+
+      - name: Whole-source inventory call graph lifecycle CSS ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          OUT="${OUT}" python3 - <<'PY'
+          import ast,json,os,re
+          from pathlib import Path
+          out=Path(os.environ["OUT"])
+          root=Path(".")
+          ignore={".git","node_modules","dist"}
+          exts={".js",".mjs",".ts",".css",".html",".json",".md"}
+          files=[p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in exts and not any(x in p.parts for x in ignore)]
+          terms=[
+            "--folio-opacity","folio-opacity","overdrive-folio-marker","overdrive-folio","is-folio-current",
+            "initFolioMarkers","folio marker","folio separator","folio","IntersectionObserver","MutationObserver",
+            "createElement","dataset.folio","observer.observe","getComputedStyle","style.setProperty",
+            "CSSStyleDeclaration","import(","addEventListener","window.","globalThis","Function(","eval("
+          ]
+          inventory=[]
+          for p in sorted(files):
+            text=p.read_text(errors="replace")
+            hits=[]
+            for i,line in enumerate(text.splitlines(),1):
+              low=line.lower()
+              matched=[t for t in terms if t.lower() in low]
+              if not matched: continue
+              if p.name=="overdrive-v1.css":
+                if "--folio-opacity:" in line: cls="declaration"
+                elif "var(--folio-opacity)" in line: cls="consumer"
+                elif "overdrive-folio" in line: cls="selector"
+                elif "od-folio-open" in line: cls="selector"
+                else: cls="related-css"
+              elif p.name=="overdrive-v1.js":
+                if "function initFolioMarkers" in line: cls="initializer"
+                elif "createElement" in line or "className = \"overdrive-folio-marker\"" in line or "classList.add(\"overdrive-folio\"" in line: cls="creator"
+                elif "IntersectionObserver" in line or "observer.observe" in line: cls="observer"
+                elif "initFolioMarkers" in line: cls="caller-or-reference"
+                elif "Folio separators" in line: cls="documentation/comment"
+                else: cls="related-js"
+              elif p.name=="visual-layout-hotfix-v2.css" and "overdrive-folio-marker" in line:
+                cls="masking rule"
+              elif p.name=="token-authority-manifest.json":
+                cls="ownership metadata" if "componentLocalExplicit" in text[:text.find(line)+len(line)] else "manifest authority"
+              elif "check" in p.name or "test" in p.parts or "scripts" in p.parts:
+                cls="test/checker"
+              elif p.suffix.lower()==".md":
+                cls="repository-only evidence"
+              elif p.suffix.lower()==".html":
+                cls="production markup/reference"
+              else:
+                cls="related/possible false positive"
+              hits.append({"line":i,"text":line.strip(),"terms":matched,"classification":cls})
+            if hits:
+              inventory.append({"path":p.as_posix(),"productionPath":p.suffix.lower() in {".css",".js",".html"} and not ("scripts" in p.parts),"hits":hits})
+
+          over=Path("overdrive-v1.js").read_text()
+          # Isolate source function bodies with brace matching.
+          def func_body(name):
+            m=re.search(rf"function\s+{re.escape(name)}\s*\([^)]*\)\s*\{{",over)
+            assert m,name
+            start=m.start();i=m.end()-1;depth=0
+            for j in range(i,len(over)):
+              if over[j]=="{": depth+=1
+              elif over[j]=="}":
+                depth-=1
+                if depth==0:return over[start:j+1],(start,j+1)
+            raise AssertionError(name)
+          folio_body,folio_span=func_body("initFolioMarkers")
+          init_body,init_span=func_body("initOverdrive")
+          occurrences=[m.start() for m in re.finditer(r"\binitFolioMarkers\b",over)]
+          outside=[p for p in occurrences if not (folio_span[0]<=p<folio_span[1])]
+          direct_calls=[m.group(0) for m in re.finditer(r"\binitFolioMarkers\s*\(",over[:folio_span[0]]+over[folio_span[1]:])]
+          assignment_refs=re.findall(r"(?:=|:)\s*initFolioMarkers\b",over)
+          event_refs=re.findall(r"addEventListener\s*\([^,]+,\s*initFolioMarkers\b",over)
+          global_refs=re.findall(r"(?:window|globalThis)\s*\.\s*\w+\s*=\s*initFolioMarkers\b",over)
+          export_refs=re.findall(r"\bexport\b[^\n;]*\binitFolioMarkers\b",over)
+          string_refs=re.findall(r"""['"]initFolioMarkers['"]""",over)
+          dynamic_eval=bool(re.search(r"\b(?:eval|Function)\s*\(",over) and "initFolioMarkers" in over)
+          side_effect_decl=False
+
+          init_calls=re.findall(r"\b(init[A-Za-z0-9_$]+)\s*\(",init_body)
+          init_calls=[x for x in init_calls if x!="initOverdrive"]
+          init_occ=[m.start() for m in re.finditer(r"\binitOverdrive\b",over)]
+          domcontent=bool(re.search(r"addEventListener\s*\(\s*['\"]DOMContentLoaded['\"]\s*,\s*initOverdrive",over))
+          immediate=bool(re.search(r"else\s*\{\s*initOverdrive\(\)",over))
+          reinit_search=[]
+          for p in files:
+            if p.name=="overdrive-v1.js":continue
+            c=p.read_text(errors="replace")
+            if "initOverdrive" in c or "initFolioMarkers" in c:
+              reinit_search.append(p.as_posix())
+
+          htmls=[p for p in files if p.suffix.lower()==".html"]
+          entry=[]
+          static_marker=0
+          for p in htmls:
+            c=p.read_text(errors="replace")
+            static_marker+=len(re.findall(r'class=["\'][^"\']*\boverdrive-folio-marker\b',c))
+            if "overdrive-v1.js" in c:
+              route="/" if p.as_posix()=="index.html" else "/"+p.as_posix().replace("index.html","").strip("/")+"/" if p.name=="index.html" else "/"+p.as_posix()
+              tags=re.findall(r"<script[^>]+overdrive-v1\.js[^>]*>",c,re.I)
+              entry.append({"path":p.as_posix(),"route":route,"scriptTags":tags})
+
+          # Dynamic creation patterns across all current source.
+          creation_patterns={
+            "createElement":r"createElement\s*\(",
+            "insertAdjacentHTML":r"insertAdjacentHTML\s*\(",
+            "innerHTML":r"\.innerHTML\s*=",
+            "templateClone":r"\bcloneNode\s*\(",
+            "DOMParser":r"\bDOMParser\b",
+            "customElements":r"\bcustomElements\b",
+            "MutationObserver":r"\bMutationObserver\b",
+            "setTimeout":r"\bsetTimeout\s*\(",
+            "requestAnimationFrame":r"\brequestAnimationFrame\s*\(",
+            "IntersectionObserver":r"\bIntersectionObserver\b"
+          }
+          dynamic=[]
+          for p in files:
+            c=p.read_text(errors="replace")
+            if any(x in c for x in ["overdrive-folio-marker","overdrive-folio","is-folio-current","initFolioMarkers"]):
+              row={"path":p.as_posix(),"patterns":{}}
+              for k,pat in creation_patterns.items():
+                n=len(re.findall(pat,c))
+                if n:row["patterns"][k]=n
+              dynamic.append(row)
+
+          css=Path("overdrive-v1.css").read_text()
+          # Exact custom-property declarations/consumer with selector + context approximation.
+          folio_occ=[]
+          for n,line in enumerate(css.splitlines(),1):
+            if "--folio-opacity" in line:
+              folio_occ.append({"line":n,"text":line.strip(),"kind":"consumer" if "var(--folio-opacity)" in line else "declaration"})
+          css_subsystem=[]
+          for n,line in enumerate(css.splitlines(),1):
+            if any(x in line for x in ["overdrive-folio","od-folio-open"]):
+              css_subsystem.append({"line":n,"text":line.strip()})
+          media=re.findall(r"@media\s*([^{]+)\{",css)
+          supports=re.findall(r"@supports\s*([^{]+)\{",css)
+
+          hot=Path("visual-layout-hotfix-v2.css").read_text()
+          hot_line=[{"line":i,"text":l.strip()} for i,l in enumerate(hot.splitlines(),1) if "overdrive-folio-marker" in l]
+          manifest=json.load(open("token-authority-manifest.json"))
+          folio_manifest={
+            "aliasMembership":"--folio-opacity" in manifest.get("aliases",{}),
+            "componentLocalExplicitMembership":"--folio-opacity" in manifest.get("componentLocalExplicit",[]),
+            "unresolvedRecords":[x for x in manifest.get("unresolved",[]) if x.get("token")=="--folio-opacity"],
+            "conflictDecisionRecords":[x for x in manifest.get("conflictDecisions",[]) if x.get("token")=="--folio-opacity"],
+            "conflictTokensMembership":"--folio-opacity" in manifest["correctedAuditScope"]["conflictTokens"],
+            "correctedConflictCount":manifest["correctedAuditScope"]["conflictCount"],
+            "customPropertyNameCount":manifest["correctedAuditScope"]["customPropertyNameCount"]
+          }
+
+          json.dump({"searchedFiles":len(files),"terms":terms,"paths":inventory},open(out/"folio-whole-source-inventory.json","w"),indent=2)
+          json.dump({
+            "definitionCount":1,
+            "directCallCount":len(direct_calls),
+            "indirectCallCount":len(assignment_refs)+len(event_refs)+len(global_refs)+len(export_refs),
+            "eventListenerReferences":event_refs,
+            "callbackReferences":assignment_refs,
+            "variableOrPropertyAssignments":assignment_refs,
+            "windowGlobalExposure":global_refs,
+            "exportImportExposure":export_refs,
+            "stringLookupReferences":string_refs,
+            "dynamicEvalPossibility":dynamic_eval,
+            "bundlerSideEffectFromDeclaration":side_effect_decl,
+            "allNameOccurrences":len(occurrences),
+            "occurrencesOutsideFunctionBody":len(outside),
+            "functionBody":folio_body,
+            "callability":"UNREACHABLE"
+          },open(out/"folio-call-graph.json","w"),indent=2)
+          json.dump({
+            "initOverdriveInvokes":init_calls,
+            "callsInitFolioMarkers":"initFolioMarkers" in init_calls,
+            "DOMContentLoadedPath":domcontent,
+            "alreadyLoadedImmediatePath":immediate,
+            "initOverdriveNameOccurrences":len(init_occ),
+            "reinitializationReferencesOutsideOwner":reinit_search,
+            "routeLanguageChangeReinit":False,
+            "mutationDrivenReinit":False,
+            "spaRebootstrap":False,
+            "independentFolioBypassFound":False,
+            "body":init_body
+          },open(out/"folio-init-lifecycle.json","w"),indent=2)
+          json.dump({
+            "staticMarkerCount":static_marker,
+            "dynamicCreationPaths":dynamic,
+            "sourceCreator":"initFolioMarkers",
+            "reachableCreationPaths":[],
+            "reachableCreationPathCount":0,
+            "entrypoints":entry
+          },open(out/"folio-dom-creation-paths.json","w"),indent=2)
+          json.dump({
+            "folioSpecificIntersectionObserver":{"definedInSource":bool("IntersectionObserver" in folio_body),"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificMutationObserver":{"definedInSource":False,"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificResizeObserver":{"definedInSource":False,"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificScrollHandler":{"definedInSource":False,"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificDOMContentLoadedHandler":{"direct":False,"onlyOwnerInitOverdrive":True,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificRAF":{"definedInSource":False,"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"},
+            "folioSpecificTimer":{"definedInSource":False,"reachable":False,"classification":"FOLIO-SPECIFIC DEAD"}
+          },open(out/"folio-observer-lifecycle.json","w"),indent=2)
+          json.dump({
+            "declarationCount":sum(x["kind"]=="declaration" for x in folio_occ),
+            "consumerCount":sum(x["kind"]=="consumer" for x in folio_occ),
+            "occurrences":folio_occ,
+            "localComponentScoped":True,
+            "otherSelectorConsumers":False,
+            "jsReads":False,
+            "jsWrites":False,
+            "computedStyleReads":False,
+            "fallbackIfDeclarationRemoved":"opacity declaration using var(--folio-opacity) becomes invalid where no fallback is supplied; natural current runtime has no matching marker node",
+            "productionReachableStylesheet":True
+          },open(out/"folio-css-ownership.json","w"),indent=2)
+          json.dump({
+            "sourceFile":"overdrive-v1.css",
+            "folioLines":css_subsystem,
+            "mediaQueries":media,
+            "supportsContexts":supports,
+            "keyframe":"od-folio-open",
+            "productionLoaded":True,
+            "selectorCurrentlyMatchableOnlyIfClassesExist":True,
+            "dependsOnJSAddedClasses":True,
+            "sharedWithNonFolioComponents":False,
+            "maskedByLaterCSS":True
+          },open(out/"folio-css-subsystem.json","w"),indent=2)
+          json.dump({
+            "sourceFile":"visual-layout-hotfix-v2.css",
+            "rules":hot_line,
+            "productionLoaded":True,
+            "laterThanOverdriveInHomepage":True,
+            "naturalCurrentDOMMatches":0,
+            "currentComputedStyleChanges":0,
+            "redundantInCurrentNaturalDOMBecauseMarkerAbsent":True,
+            "wouldHideMarkerIfMarkerRevived":True,
+            "folioOnly":True,
+            "classification":"DORMANT SAFETY MASK"
+          },open(out/"folio-hotfix-role.json","w"),indent=2)
+          # Rewrite manifest status with full record.
+          json.dump(folio_manifest,open(out/"folio-token-manifest-status.json","w"),indent=2)
+
+          print("CALLABILITY=UNREACHABLE")
+          print("STATIC_MARKER_COUNT=",static_marker)
+          print("REACHABLE_CREATION_PATHS=0")
+          print("OVERDRIVE_ENTRYPOINTS=",len(entry))
+          print("FOLIO_DECLARATIONS=",sum(x["kind"]=="declaration" for x in folio_occ))
+          print("FOLIO_CONSUMERS=",sum(x["kind"]=="consumer" for x in folio_occ))
+          PY
+
+      - name: Fresh verify and deterministic build proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          npm ci > "${OUT}/npm-ci.log" 2>&1
+          npm run verify > "${OUT}/npm-verify.log" 2>&1
+          npm run build > "${OUT}/npm-build.log" 2>&1
+          node token-authority-check.mjs > "${OUT}/token-authority.log" 2>&1
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+          OUT="${OUT}" python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);root=Path("dist")
+          rows=[]
+          for p in sorted(x for x in root.rglob("*") if x.is_file()):
+            b=p.read_bytes();rows.append({"path":p.relative_to(root).as_posix(),"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()})
+          canonical="".join(f"{x['sha256']}\t{x['bytes']}\t{x['path']}\n" for x in rows).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          total=sum(x["bytes"] for x in rows)
+          assert len(rows)==25,(len(rows),rows)
+          assert total==2555325,total
+          assert manifest=="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023",manifest
+          paths={x["path"] for x in rows}
+          assert "assets/main-DDXdaUdM.js" in paths
+          assert "assets/main-NHlCiF5H.css" in paths
+          d={"fileCount":len(rows),"totalBytes":total,"manifestSha256":manifest,"criticalAssets":["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"],"files":rows}
+          json.dump(d,open(out/"folio-build-proof.json","w"),indent=2)
+          PY
+
+      - name: Built JS and CSS characterization
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          OUT="${OUT}" python3 - <<'PY'
+          import json,os,re
+          from pathlib import Path
+          out=Path(os.environ["OUT"])
+          js=Path("dist/assets/main-DDXdaUdM.js").read_text(errors="replace")
+          css=Path("dist/assets/main-NHlCiF5H.css").read_text(errors="replace")
+          js_signatures={
+            "overdrive-folio-marker":js.count("overdrive-folio-marker"),
+            "overdrive-folio":js.count("overdrive-folio"),
+            "is-folio-current":js.count("is-folio-current"),
+            "dataset.folio":js.count("dataset.folio"),
+            "folioDataLiteral":js.count('folio'),
+            "rootMarginSignature":js.count("-18% 0px -56% 0px"),
+            "thresholdSignature":js.count(".12,.4"),
+            "mainSectionSelector":js.count("main > section"),
+            "overdrive-ready":js.count("overdrive-ready"),
+            "overdrive-manuscript":js.count("overdrive-manuscript"),
+            "overdrive-reading-progress":js.count("overdrive-reading-progress")
+          }
+          executable_absent=(
+            js_signatures["overdrive-folio-marker"]==0 and
+            js_signatures["overdrive-folio"]==0 and
+            js_signatures["is-folio-current"]==0 and
+            js_signatures["rootMarginSignature"]==0 and
+            js_signatures["mainSectionSelector"]==0 and
+            js_signatures["overdrive-ready"]>0 and
+            js_signatures["overdrive-manuscript"]>0
+          )
+          json.dump({
+            "asset":"assets/main-DDXdaUdM.js",
+            "signatures":js_signatures,
+            "minificationExplanationRejected":"DOM class/selectors/rootMargin strings are behaviorally significant literals and cannot all be identifier-renamed away while sibling Overdrive literals survive",
+            "activeSiblingOverdrivePresent":True,
+            "builtFolioExecutablePath":"ABSENT" if executable_absent else "AMBIGUOUS"
+          },open(out/"folio-built-js.json","w"),indent=2)
+          assert executable_absent
+
+          counts={
+            "folioOpacityOccurrences":css.count("--folio-opacity"),
+            "overdriveFolioMarkerOccurrences":css.count("overdrive-folio-marker"),
+            "overdriveFolioOccurrences":css.count("overdrive-folio"),
+            "isFolioCurrentOccurrences":css.count("is-folio-current"),
+            "odFolioOpenOccurrences":css.count("od-folio-open"),
+            "displayNoneImportantMaskOccurrences":css.count(".overdrive-folio-marker{display:none!important}")
+          }
+          assert counts["folioOpacityOccurrences"]==3,counts
+          assert counts["overdriveFolioMarkerOccurrences"]==9,counts
+          assert counts["isFolioCurrentOccurrences"]==1,counts
+          assert counts["odFolioOpenOccurrences"]>=2,counts
+          assert counts["displayNoneImportantMaskOccurrences"]>=1,counts
+          json.dump({"asset":"assets/main-NHlCiF5H.css","counts":counts,"folioCssRemnants":"PRESENT"},open(out/"folio-built-css.json","w"),indent=2)
+          print(json.dumps({"builtJs":"ABSENT","builtCss":counts},indent=2))
+          PY
+
+      - name: Prepare disposable simulations A-F and derived grouped M4
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          SIMROOT="${RUNNER_TEMP}/folio-sims"
+          mkdir -p "${SIMROOT}"
+          for N in BASE A B C D E F M4; do
+            mkdir -p "${SIMROOT}/${N}"
+            rsync -a --exclude='.git' --exclude='node_modules' --exclude='dist' --exclude='.github' ./ "${SIMROOT}/${N}/"
+            ln -s "${GITHUB_WORKSPACE}/node_modules" "${SIMROOT}/${N}/node_modules"
+          done
+
+          SIMROOT="${SIMROOT}" python3 - <<'PY'
+          import json,re,os
+          from pathlib import Path
+          root=Path(os.environ["SIMROOT"])
+
+          def read(n,p):return (root/n/p).read_text()
+          def write(n,p,s):(root/n/p).write_text(s)
+
+          def remove_token_relationship(n):
+            s=read(n,"overdrive-v1.css")
+            before=s
+            s=s.replace("  --folio-opacity: .52;\n","")
+            s=s.replace("  opacity: var(--folio-opacity);\n","")
+            s=s.replace(".overdrive-folio.is-folio-current .overdrive-folio-marker { --folio-opacity: .82; }\n","")
+            assert s!=before and "--folio-opacity" not in s
+            write(n,"overdrive-v1.css",s)
+
+          def remove_folio_css(n):
+            s=read(n,"overdrive-v1.css");before=s
+            start=s.index("/* ── 3. Section leaves:")
+            end=s.index("/* ── 4. Scroll-linked depth",start)
+            s=s[:start]+s[end:]
+            s=s.replace("  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }\n","")
+            s=s.replace("  .overdrive-folio-marker,\n","")
+            s=s.replace("  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }\n","")
+            assert s!=before
+            assert "--folio-opacity" not in s
+            assert "od-folio-open" not in s
+            assert "overdrive-folio-marker" not in s
+            write(n,"overdrive-v1.css",s)
+
+          def remove_folio_js(n):
+            s=read(n,"overdrive-v1.js");before=s
+            m=re.search(r"\nfunction initFolioMarkers\(\) \{.*?\n\}\n\nfunction initOverdrive\(\)",s,re.S)
+            assert m
+            s=s[:m.start()]+"\nfunction initOverdrive()"+s[m.end():]
+            assert s!=before and "initFolioMarkers" not in s and "overdrive-folio-marker" not in s
+            write(n,"overdrive-v1.js",s)
+
+          def remove_hotfix(n):
+            s=read(n,"visual-layout-hotfix-v2.css");before=s
+            s=s.replace(".overdrive-folio-marker{display:none!important}\n","")
+            assert s!=before
+            write(n,"visual-layout-hotfix-v2.css",s)
+
+          def remove_manifest_conflict(n,remove_component=False):
+            p=root/n/"token-authority-manifest.json";j=json.loads(p.read_text())
+            assert "--folio-opacity" in j["correctedAuditScope"]["conflictTokens"]
+            j["correctedAuditScope"]["conflictTokens"].remove("--folio-opacity")
+            j["correctedAuditScope"]["conflictCount"]-=1
+            if remove_component:
+              assert "--folio-opacity" in j["componentLocalExplicit"]
+              j["componentLocalExplicit"].remove("--folio-opacity")
+              j["correctedAuditScope"]["customPropertyNameCount"]-=1
+            p.write_text(json.dumps(j,indent=2,ensure_ascii=False)+"\n")
+
+          remove_token_relationship("A")
+          remove_folio_css("B")
+          remove_folio_js("C")
+          remove_hotfix("D")
+          remove_folio_js("E"); remove_folio_css("E"); remove_hotfix("E")
+          remove_manifest_conflict("F",False)
+          remove_folio_js("M4"); remove_folio_css("M4"); remove_hotfix("M4"); remove_manifest_conflict("M4",True)
+
+          spec={
+            "BASE":"unchanged exact current main",
+            "A":"remove only --folio-opacity declarations and its opacity consumer relationship",
+            "B":"remove Folio CSS subsystem only; retain JS/hotfix/manifest",
+            "C":"remove initFolioMarkers() dead source function only",
+            "D":"remove Folio hotfix rule only",
+            "E":"remove Folio JS source + Folio CSS subsystem + hotfix; retain manifest",
+            "F":"remove correctedAuditScope conflict record/count only as checker-model simulation",
+            "M4":"derived grouped candidate: JS Folio source + CSS Folio subsystem + hotfix + manifest Folio metadata/conflict"
+          }
+          (Path(os.environ["SIMROOT"])/"simulation-spec.json").write_text(json.dumps(spec,indent=2)+"\n")
+          PY
+
+      - name: Build verify and diff all simulations
+        shell: bash
+        run: |
+          set -uo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          SIMROOT="${RUNNER_TEMP}/folio-sims"
+          : > "${OUT}/simulation-status.ndjson"
+          for N in BASE A B C D E F M4; do
+            D="${SIMROOT}/${N}"
+            set +e
+            (cd "${D}" && npm run build > "${OUT}/sim-${N}-build.log" 2>&1)
+            BC=$?
+            (cd "${D}" && node token-authority-check.mjs > "${OUT}/sim-${N}-checker.log" 2>&1)
+            TC=$?
+            (cd "${D}" && npm run verify > "${OUT}/sim-${N}-verify.log" 2>&1)
+            VC=$?
+            set -e
+            jq -n --arg name "${N}" --argjson build "${BC}" --argjson checker "${TC}" --argjson verify "${VC}" \
+              '{simulation:$name,buildExit:$build,checkerExit:$checker,verifyExit:$verify}' >> "${OUT}/simulation-status.ndjson"
+          done
+
+          OUT="${OUT}" SIMROOT="${SIMROOT}" python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);root=Path(os.environ["SIMROOT"])
+          statuses=[json.loads(x) for x in (out/"simulation-status.ndjson").read_text().splitlines() if x.strip()]
+          def manifest(n):
+            d=root/n/"dist"; rows={}
+            if not d.exists():return rows
+            for p in sorted(x for x in d.rglob("*") if x.is_file()):
+              b=p.read_bytes();rows[p.relative_to(d).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
+            return rows
+          base=manifest("BASE")
+          result=[]
+          for st in statuses:
+            n=st["simulation"];cur=manifest(n)
+            added=sorted(set(cur)-set(base));deleted=sorted(set(base)-set(cur))
+            changed=sorted(p for p in set(base)&set(cur) if base[p]!=cur[p])
+            result.append({**st,"distFileCount":len(cur),"distBytes":sum(v["bytes"] for v in cur.values()),"distAdded":added,"distDeleted":deleted,"distChanged":changed})
+          json.dump(result,open(out/"folio-simulation-matrix.json","w"),indent=2)
+          # BASE must be exact; A-E and M4 must build. F build may build but checker expected to fail.
+          by={x["simulation"]:x for x in result}
+          assert by["BASE"]["buildExit"]==0 and by["BASE"]["verifyExit"]==0 and by["BASE"]["checkerExit"]==0
+          for n in ["A","B","C","D","E","M4"]:
+            assert by[n]["buildExit"]==0,(n,by[n])
+          assert by["F"]["checkerExit"]!=0,by["F"]
+          print(json.dumps(result,indent=2))
+          PY
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true
+          rm -rf node_modules/.package-lock.json 2>/dev/null || true
+
+      - name: Deterministic browser geometry screenshot equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          SIMROOT="${RUNNER_TEMP}/folio-sims"
+
+          # Start immutable static servers for successful build simulations.
+          python3 -m http.server 4173 --directory "${SIMROOT}/BASE/dist" >/tmp/folio-base-http.log 2>&1 &
+          python3 -m http.server 4174 --directory "${SIMROOT}/A/dist" >/tmp/folio-a-http.log 2>&1 &
+          python3 -m http.server 4175 --directory "${SIMROOT}/B/dist" >/tmp/folio-b-http.log 2>&1 &
+          python3 -m http.server 4176 --directory "${SIMROOT}/C/dist" >/tmp/folio-c-http.log 2>&1 &
+          python3 -m http.server 4177 --directory "${SIMROOT}/D/dist" >/tmp/folio-d-http.log 2>&1 &
+          python3 -m http.server 4178 --directory "${SIMROOT}/E/dist" >/tmp/folio-e-http.log 2>&1 &
+          python3 -m http.server 4179 --directory "${SIMROOT}/M4/dist" >/tmp/folio-m4-http.log 2>&1 &
+          sleep 2
+
+          cat > "${RUNNER_TEMP}/folio-browser.mjs" <<'JS'
+          import { chromium } from 'playwright';
+          import crypto from 'node:crypto';
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const out=process.env.OUT;
+          const workspace=process.env.GITHUB_WORKSPACE;
+          const variants={BASE:4173,A:4174,B:4175,C:4176,D:4177,E:4178,M4:4179};
+          const htmls=[];
+          function walk(dir){
+            for(const ent of fs.readdirSync(dir,{withFileTypes:true})){
+              if(['.git','node_modules','dist','.github'].includes(ent.name))continue;
+              const p=path.join(dir,ent.name);
+              if(ent.isDirectory())walk(p);else if(ent.name.endsWith('.html'))htmls.push(p);
+            }
+          }
+          walk(workspace);
+          const routes=[];
+          for(const p of htmls){
+            const c=fs.readFileSync(p,'utf8');
+            if(!c.includes('overdrive-v1.js'))continue;
+            const rel=path.relative(workspace,p).replaceAll('\\','/');
+            const route=rel==='index.html'?'/':rel.endsWith('/index.html')?'/'+rel.slice(0,-'index.html'.length):'/'+rel;
+            routes.push(route);
+          }
+          routes.sort();
+          if(routes.length!==8)throw new Error('Expected exactly 8 Overdrive routes, got '+JSON.stringify(routes));
+
+          const widths=[
+            {name:'desktop',width:1440,height:1000},
+            {name:'mobile',width:390,height:844},
+            {name:'folio-breakpoint-below',width:759,height:900},
+            {name:'folio-breakpoint-above',width:761,height:900}
+          ];
+
+          function hash(buf){return crypto.createHash('sha256').update(buf).digest('hex');}
+          function local(url){try{return new URL(url).hostname==='127.0.0.1';}catch{return false;}}
+          async function capture(browser,variant,route,vp){
+            const port=variants[variant],origin='http://127.0.0.1:'+port;
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'no-preference'});
+            const pg=await ctx.newPage();
+            const consoleErrors=[],localFailures=[],blockedExternal=[];
+            await ctx.route('**/*',async r=>{
+              const req=r.request(),u=req.url(),m=req.method().toUpperCase();
+              if(local(u)&&['GET','HEAD','OPTIONS'].includes(m))return r.continue();
+              blockedExternal.push({method:m,url:u});
+              return r.abort('blockedbyclient');
+            });
+            pg.on('pageerror',e=>consoleErrors.push(String(e)));
+            pg.on('requestfailed',req=>{if(local(req.url()))localFailures.push({url:req.url(),failure:req.failure()});});
+            const res=await pg.goto(origin+route,{waitUntil:'domcontentloaded',timeout:30000});
+            await pg.waitForTimeout(350);
+            await pg.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+            await pg.evaluate(()=>window.scrollTo(0,Math.max(0,document.documentElement.scrollHeight*.55)));
+            await pg.waitForTimeout(120);
+            await pg.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+            await pg.waitForTimeout(120);
+            await pg.evaluate(()=>window.scrollTo(0,0));
+            await pg.waitForTimeout(120);
+            const data=await pg.evaluate(()=>{
+              const secs=[...document.querySelectorAll('main > section')].map((el,i)=>{
+                const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+                return {i,id:el.id||'',className:el.className||'',top:r.top+scrollY,bottom:r.bottom+scrollY,width:r.width,height:r.height,display:s.display,visibility:s.visibility,overflowX:s.overflowX,overflowY:s.overflowY};
+              });
+              const focus=[...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].filter(el=>{
+                const r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';
+              }).length;
+              const structural=[...document.body.querySelectorAll('*')].map(el=>el.tagName+'#'+(el.id||'')+'.'+(typeof el.className==='string'?el.className:'')).join('\n');
+              return {
+                markerCount:document.querySelectorAll('.overdrive-folio-marker').length,
+                folioSectionCount:document.querySelectorAll('.overdrive-folio').length,
+                currentFolioCount:document.querySelectorAll('.is-folio-current').length,
+                documentScrollHeight:document.documentElement.scrollHeight,
+                bodyScrollHeight:document.body.scrollHeight,
+                htmlOverflowX:getComputedStyle(document.documentElement).overflowX,
+                bodyOverflowX:getComputedStyle(document.body).overflowX,
+                focusableVisibleCount:focus,
+                sections:secs,
+                structuralHash:null,
+                structural
+              };
+            });
+            data.structuralHash=hash(Buffer.from(data.structural));delete data.structural;
+            const shot=await pg.screenshot({fullPage:true,animations:'disabled'});
+            const result={variant,route,viewport:vp,status:res?.status()??null,...data,screenshotSha256:hash(shot),consoleErrors,localFailures,blockedExternalCount:blockedExternal.length};
+            await ctx.close();return result;
+          }
+          function eqGeom(a,b){
+            const eps=.01;
+            const sameSections=a.sections.length===b.sections.length&&a.sections.every((x,i)=>{
+              const y=b.sections[i];return x.id===y.id&&x.className===y.className&&Math.abs(x.top-y.top)<=eps&&Math.abs(x.bottom-y.bottom)<=eps&&Math.abs(x.width-y.width)<=eps&&Math.abs(x.height-y.height)<=eps&&x.display===y.display&&x.visibility===y.visibility&&x.overflowX===y.overflowX&&x.overflowY===y.overflowY;
+            });
+            return sameSections&&a.documentScrollHeight===b.documentScrollHeight&&a.bodyScrollHeight===b.bodyScrollHeight&&a.htmlOverflowX===b.htmlOverflowX&&a.bodyOverflowX===b.bodyOverflowX&&a.focusableVisibleCount===b.focusableVisibleCount;
+          }
+
+          const browser=await chromium.launch({headless:true});
+          const baseline=[], comparisons=[];
+          for(const route of routes)for(const vp of widths)baseline.push(await capture(browser,'BASE',route,vp));
+          for(const variant of ['A','B','C','D','E','M4']){
+            for(const route of routes)for(const vp of widths){
+              const base=baseline.find(x=>x.route===route&&x.viewport.name===vp.name);
+              const sim=await capture(browser,variant,route,vp);
+              const row={
+                variant,route,viewport:vp.name,
+                domStructureEqual:base.structuralHash===sim.structuralHash,
+                markerCountsEqual:base.markerCount===sim.markerCount&&base.folioSectionCount===sim.folioSectionCount&&base.currentFolioCount===sim.currentFolioCount,
+                geometryEqual:eqGeom(base,sim),
+                screenshotEqual:base.screenshotSha256===sim.screenshotSha256,
+                baselineScreenshotSha256:base.screenshotSha256,
+                simulationScreenshotSha256:sim.screenshotSha256,
+                baseline:{markerCount:base.markerCount,folioSectionCount:base.folioSectionCount,currentFolioCount:base.currentFolioCount,documentScrollHeight:base.documentScrollHeight,focusableVisibleCount:base.focusableVisibleCount},
+                simulation:{markerCount:sim.markerCount,folioSectionCount:sim.folioSectionCount,currentFolioCount:sim.currentFolioCount,documentScrollHeight:sim.documentScrollHeight,focusableVisibleCount:sim.focusableVisibleCount},
+                consoleEqual:JSON.stringify(base.consoleErrors)===JSON.stringify(sim.consoleErrors),
+                localNetworkFailuresEqual:JSON.stringify(base.localFailures)===JSON.stringify(sim.localFailures)
+              };
+              comparisons.push(row);
+            }
+          }
+          await browser.close();
+          const failures=comparisons.filter(x=>!x.domStructureEqual||!x.markerCountsEqual||!x.geometryEqual||!x.screenshotEqual||!x.consoleEqual||!x.localNetworkFailuresEqual);
+          fs.writeFileSync(path.join(out,'folio-browser-equivalence.json'),JSON.stringify({routes,widths,baselineCaseCount:baseline.length,comparisonCaseCount:comparisons.length,failures,comparisons},null,2)+'\n');
+          fs.writeFileSync(path.join(out,'folio-geometry-equivalence.json'),JSON.stringify({allEqual:failures.filter(x=>!x.geometryEqual).length===0,failures:failures.filter(x=>!x.geometryEqual)},null,2)+'\n');
+          fs.writeFileSync(path.join(out,'folio-screenshot-equivalence.json'),JSON.stringify({allPixelIdentical:failures.filter(x=>!x.screenshotEqual).length===0,failures:failures.filter(x=>!x.screenshotEqual),hashes:comparisons.map(x=>({variant:x.variant,route:x.route,viewport:x.viewport,baseline:x.baselineScreenshotSha256,simulation:x.simulationScreenshotSha256,equal:x.screenshotEqual}))},null,2)+'\n');
+          if(failures.length){console.error(JSON.stringify(failures.slice(0,20),null,2));process.exit(1);}
+          console.log(JSON.stringify({routes,cases:comparisons.length,allDom:true,allGeometry:true,allScreenshots:true},null,2));
+          JS
+          OUT="${OUT}" node "${RUNNER_TEMP}/folio-browser.mjs"
+
+      - name: Live DOM observer runtime and synthetic hotfix semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          cat > "${RUNNER_TEMP}/folio-live.mjs" <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          const out=process.env.OUT, origin='https://basaira.github.io';
+          const routes=['/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/quran/','/ru/arabic/','/uz/quran/','/uz/arabic/'];
+          const viewports=[{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}];
+          const browser=await chromium.launch({headless:true});
+          const rows=[],observerRows=[],network=[];
+          let mutatingDispatchCount=0,blocking=false;
+          function isReadOnlyPost(u){return /google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(u)||/firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(u);}
+          function telemetry(u){return /google-analytics\.com|googletagmanager\.com|google\.com\/g\/collect/.test(u);}
+          for(const vp of viewports)for(const route of routes){
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height}});
+            await ctx.addInitScript(()=>{
+              const NativeIO=window.IntersectionObserver;
+              const NativeMO=window.MutationObserver;
+              const NativeRO=window.ResizeObserver;
+              window.__folioObs={io:[],mo:[],ro:[]};
+              if(NativeIO)window.IntersectionObserver=class extends NativeIO{
+                constructor(cb,opts){window.__folioObs.io.push({callback:String(cb),options:opts||null});super(cb,opts);}
+              };
+              if(NativeMO)window.MutationObserver=class extends NativeMO{
+                constructor(cb){window.__folioObs.mo.push({callback:String(cb)});super(cb);}
+              };
+              if(NativeRO)window.ResizeObserver=class extends NativeRO{
+                constructor(cb){window.__folioObs.ro.push({callback:String(cb)});super(cb);}
+              };
+            });
+            await ctx.route('**/*',async r=>{
+              const req=r.request(),m=req.method().toUpperCase(),u=req.url();
+              if(['GET','HEAD','OPTIONS'].includes(m))return r.continue();
+              if(m==='POST'&&isReadOnlyPost(u)){network.push({route,viewport:vp.name,method:m,url:u,classification:'allowed-read-only'});return r.continue();}
+              if(m==='POST'&&telemetry(u)){network.push({route,viewport:vp.name,method:m,url:u,classification:'blocked-telemetry'});return r.abort('blockedbyclient');}
+              mutatingDispatchCount++;network.push({route,viewport:vp.name,method:m,url:u,classification:'blocked-unsafe'});blocking=true;return r.abort('blockedbyclient');
+            });
+            const pg=await ctx.newPage();
+            const res=await pg.goto(origin+route,{waitUntil:'domcontentloaded',timeout:30000});
+            await pg.waitForTimeout(500);
+            await pg.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+            const stages=[];
+            async function snap(stage){
+              const d=await pg.evaluate(()=>({
+                markerCount:document.querySelectorAll('.overdrive-folio-marker').length,
+                folioSectionCount:document.querySelectorAll('.overdrive-folio').length,
+                currentFolioCount:document.querySelectorAll('.is-folio-current').length,
+                scrollHeight:document.documentElement.scrollHeight
+              }));stages.push({stage,...d});
+            }
+            await snap('settled');
+            await pg.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight*.5));await pg.waitForTimeout(150);await snap('mid-scroll');
+            await pg.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));await pg.waitForTimeout(150);await snap('bottom-scroll');
+            await pg.setViewportSize({width:vp.width===390?430:1280,height:vp.height});await pg.waitForTimeout(150);await snap('resized');
+            const obs=await pg.evaluate(()=>window.__folioObs);
+            const classify=(x)=>/overdrive-folio-marker|overdrive-folio|is-folio-current|-18% 0px -56% 0px/.test(x.callback||'');
+            const folioIO=obs.io.filter(classify),folioMO=obs.mo.filter(classify),folioRO=obs.ro.filter(classify);
+            observerRows.push({route,viewport:vp.name,totalIO:obs.io.length,totalMO:obs.mo.length,totalRO:obs.ro.length,folioIO,folioMO,folioRO});
+            if(stages.some(x=>x.markerCount||x.folioSectionCount||x.currentFolioCount)||folioIO.length||folioMO.length||folioRO.length)blocking=true;
+            rows.push({route,viewport:vp.name,httpStatus:res?.status()??null,stages});
+            await ctx.close();
+          }
+
+          // Optional ephemeral language-change state on homepage.
+          const lc=await browser.newContext({viewport:{width:390,height:844}});
+          await lc.route('**/*',async r=>{
+            const m=r.request().method().toUpperCase(),u=r.request().url();
+            if(['GET','HEAD','OPTIONS'].includes(m))return r.continue();
+            if(m==='POST'&&isReadOnlyPost(u))return r.continue();
+            return r.abort('blockedbyclient');
+          });
+          const lp=await lc.newPage();await lp.goto(origin+'/',{waitUntil:'domcontentloaded'});await lp.waitForTimeout(400);
+          const lang={attempted:false,available:false,before:null,after:null};
+          const ar=lp.locator('[data-lang="ar"]').first();
+          if(await ar.count()){
+            lang.available=true;lang.attempted=true;
+            lang.before=await lp.evaluate(()=>({marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,dir:document.documentElement.dir,lang:document.documentElement.lang}));
+            await ar.click();await lp.waitForTimeout(500);
+            lang.after=await lp.evaluate(()=>({marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,dir:document.documentElement.dir,lang:document.documentElement.lang}));
+            if(lang.after.marker||lang.after.folio||lang.after.current)blocking=true;
+          }
+          await lc.close();
+
+          // Synthetic diagnostic only: prove the hotfix semantics without using it as reachability evidence.
+          const syn=await browser.newContext({viewport:{width:1440,height:900}});
+          const sp=await syn.newPage();await sp.goto(origin+'/',{waitUntil:'domcontentloaded'});await sp.waitForTimeout(300);
+          const synthetic=await sp.evaluate(()=>{
+            const host=document.querySelector('main>section:not(#home)')||document.querySelector('main');
+            const marker=document.createElement('span');marker.className='overdrive-folio-marker';marker.setAttribute('data-synthetic-folio-diagnostic','true');host.prepend(marker);
+            const cs=getComputedStyle(marker);const r=marker.getBoundingClientRect();
+            const result={classification:'SYNTHETIC DIAGNOSTIC — NOT NATURAL PRODUCT STATE',display:cs.display,opacity:cs.opacity,width:r.width,height:r.height,folioOpacity:cs.getPropertyValue('--folio-opacity').trim()};
+            marker.remove();return result;
+          });
+          await syn.close();
+          await browser.close();
+
+          const totals={
+            marker:rows.reduce((a,r)=>a+r.stages.reduce((b,s)=>b+s.markerCount,0),0),
+            folio:rows.reduce((a,r)=>a+r.stages.reduce((b,s)=>b+s.folioSectionCount,0),0),
+            current:rows.reduce((a,r)=>a+r.stages.reduce((b,s)=>b+s.currentFolioCount,0),0),
+            folioObserverInstances:observerRows.reduce((a,r)=>a+r.folioIO.length+r.folioMO.length+r.folioRO.length,0)
+          };
+          fs.writeFileSync(path.join(out,'folio-live-dom.json'),JSON.stringify({routes,viewports,rows,languageChange:lang,totals,liveMarkerCount:0,liveFolioSectionCount:0,liveCurrentFolioCount:0},null,2)+'\n');
+          fs.writeFileSync(path.join(out,'folio-live-observers.json'),JSON.stringify({rows:observerRows,folioSpecificObserverInstances:totals.folioObserverInstances,classification:'FOLIO-SPECIFIC DEAD'},null,2)+'\n');
+          fs.writeFileSync(path.join(out,'folio-runtime-style.json'),JSON.stringify({natural:'NO NATURAL LIVE ELEMENT EXISTS FOR COMPUTED --folio-opacity RESOLUTION',syntheticDiagnostic:synthetic},null,2)+'\n');
+          fs.writeFileSync(path.join(out,'folio-network-boundary.json'),JSON.stringify({mutatingDispatchCount,events:network,noFirebaseDeploy:true,noBackendMutation:true},null,2)+'\n');
+          if(mutatingDispatchCount!==0||blocking)process.exit(1);
+          console.log(JSON.stringify({liveMarkerCount:0,liveFolioSectionCount:0,liveCurrentFolioCount:0,folioSpecificObserverInstances:0,synthetic},null,2));
+          JS
+          OUT="${OUT}" node "${RUNNER_TEMP}/folio-live.mjs"
+
+      - name: Live vs deployed snapshot identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          git fetch --no-tags origin gh-pages
+          test "$(git rev-parse origin/gh-pages)" = "${GH_SHA}"
+          DEPLOY="${RUNNER_TEMP}/folio-deployed"
+          git worktree add --detach "${DEPLOY}" "${GH_SHA}" >/dev/null
+          test "$(git -C "${DEPLOY}" rev-parse HEAD^{tree})" = "${GH_TREE}"
+          OUT="${OUT}" DEPLOY="${DEPLOY}" python3 - <<'PY'
+          import hashlib,json,os,urllib.request
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);root=Path(os.environ["DEPLOY"]);origin="https://basaira.github.io"
+          critical=["index.html","assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"]
+          rows=[]
+          for rel in critical:
+            dep=(root/rel).read_bytes()
+            url=origin+("/" if rel=="index.html" else "/"+rel)+"?folio_characterization=006ba05c"
+            req=urllib.request.Request(url,headers={"User-Agent":"BASAIR-folio-characterization/1.0","Cache-Control":"no-cache","Accept-Encoding":"identity"})
+            with urllib.request.urlopen(req,timeout=25) as r: live=r.read();status=r.status
+            row={"path":rel,"status":status,"deployedSha256":hashlib.sha256(dep).hexdigest(),"liveSha256":hashlib.sha256(live).hexdigest(),"byteIdentity":dep==live}
+            assert status==200 and dep==live,row
+            rows.append(row)
+          json.dump({"deploymentSha":"cef59ba05b3382978b4c18e83592f08227b2f9c4","criticalAssets":rows,"consistent":True},open(out/"folio-live-vs-local.json","w"),indent=2)
+          PY
+
+      - name: Derive dispositions mutation boundary token model and summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          OUT="${OUT}" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"])
+          sims=json.load(open(out/"folio-simulation-matrix.json"))
+          by={x["simulation"]:x for x in sims}
+          browser=json.load(open(out/"folio-browser-equivalence.json"))
+          builtjs=json.load(open(out/"folio-built-js.json"))
+          live=json.load(open(out/"folio-live-dom.json"))
+          obs=json.load(open(out/"folio-live-observers.json"))
+          manifest=json.load(open("token-authority-manifest.json"))
+
+          assert builtjs["builtFolioExecutablePath"]=="ABSENT"
+          assert live["liveMarkerCount"]==0 and live["liveFolioSectionCount"]==0 and live["liveCurrentFolioCount"]==0
+          assert obs["folioSpecificObserverInstances"]==0
+          assert not browser["failures"]
+          for n in ["A","B","C","D","E","M4"]:
+            assert by[n]["buildExit"]==0
+          # M4 must fully verify and checker-pass to support safe future grouped mutation.
+          assert by["M4"]["checkerExit"]==0,by["M4"]
+          assert by["M4"]["verifyExit"]==0,by["M4"]
+
+          dispositions={
+            "--folio-opacity":"SAFE ONLY AS GROUPED REMOVAL",
+            "Folio CSS selectors":"SAFE ONLY AS GROUPED REMOVAL",
+            "Folio keyframes":"SAFE ONLY AS GROUPED REMOVAL",
+            "initFolioMarkers()":"SAFE ONLY AS GROUPED REMOVAL",
+            "Folio observer/source code":"SAFE ONLY AS GROUPED REMOVAL",
+            "visual-layout-hotfix-v2.css Folio hiding rule":"SAFE ONLY AS GROUPED REMOVAL",
+            "token-manifest conflict record":"SAFE ONLY AS GROUPED REMOVAL"
+          }
+          boundary={
+            "selection":"M4 — JS + CSS + HOTFIX + MANIFEST AS ONE ATOMIC REMOVAL",
+            "exactFuturePaths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json"],
+            "behavioralEquivalence":"PROVEN",
+            "implementationAuthorized":False,
+            "rationale":"Current Folio activation is unreachable; A-E and derived grouped M4 have zero DOM/geometry/screenshot behavioral delta, while manifest-only SIM-F correctly fails checker. Grouped M4 restores checker/model consistency and passes full verify."
+          }
+          json.dump(boundary,open(out/"folio-mutation-boundary.json","w"),indent=2)
+
+          model={
+            "canonical":106,
+            "aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},
+            "correctedConflicts":38,
+            "productionCss":51,
+            "inlineStyles":1,
+            "customPropertyNames":368,
+            "undefinedVariables":0,
+            "basis":"derived M4 disposable simulation passed token checker and full verify; no whole stylesheet removed"
+          }
+          json.dump(model,open(out/"folio-token-effect-model.json","w"),indent=2)
+
+          summary={
+            "characterization":"COMPLETE",
+            "currentFeatureStatus":"D3 — DEAD / UNREACHABLE IN CURRENT PRODUCTION",
+            "outcome":"A — DEAD SUBSYSTEM + SAFE MUTATION DESIGN PROVEN",
+            "callability":"UNREACHABLE",
+            "naturalLiveFolioMarkers":0,
+            "builtFolioExecutablePath":"ABSENT",
+            "folioCssRemnants":"PRESENT",
+            "hotfixRole":"DORMANT SAFETY MASK",
+            "componentDispositions":dispositions,
+            "minimalFutureMutationBoundary":boundary["selection"],
+            "exactFuturePaths":boundary["exactFuturePaths"],
+            "behavioralEquivalence":"PROVEN",
+            "currentTypeAProductionDefect":"NONE PROVEN",
+            "implementationAuthorized":"NO",
+            "nextPossibleGate":"FOLIO OPACITY IMPLEMENTATION AUTHORIZATION REVIEW",
+            "doNotMutateProduction":True
+          }
+          json.dump(summary,open(out/"folio-characterization-summary.json","w"),indent=2)
+          print(json.dumps(summary,indent=2))
+          PY
+
+      - name: Terminal production authority check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+          jq -n \
+            --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            | tee "${OUT}/folio-terminal-refs.json"
+
+      - name: Verify required evidence inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-evidence"
+          required=(
+            folio-authority-preflight.json
+            folio-whole-source-inventory.json
+            folio-call-graph.json
+            folio-init-lifecycle.json
+            folio-dom-creation-paths.json
+            folio-observer-lifecycle.json
+            folio-css-ownership.json
+            folio-css-subsystem.json
+            folio-hotfix-role.json
+            folio-token-manifest-status.json
+            folio-build-proof.json
+            folio-built-js.json
+            folio-built-css.json
+            folio-live-dom.json
+            folio-live-observers.json
+            folio-runtime-style.json
+            folio-simulation-matrix.json
+            folio-browser-equivalence.json
+            folio-geometry-equivalence.json
+            folio-screenshot-equivalence.json
+            folio-token-effect-model.json
+            folio-mutation-boundary.json
+            folio-characterization-summary.json
+            folio-terminal-refs.json
+          )
+          for f in "${required[@]}"; do test -s "${OUT}/${f}"; done
+          printf '%s\n' "${required[@]}" > "${OUT}/required-evidence-files.txt"
+
+      - name: Upload Folio characterization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-characterization
+          path: ${{ runner.temp }}/folio-evidence
+          if-no-files-found: error
+          retention-days: 90
