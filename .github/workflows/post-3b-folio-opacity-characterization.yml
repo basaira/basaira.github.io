@@ -525,7 +525,7 @@ jobs:
             (cd "${D}" && npm run verify > "${OUT}/sim-${N}-verify.log" 2>&1)
             VC=$?
             set -e
-            jq -n --arg name "${N}" --argjson build "${BC}" --argjson checker "${TC}" --argjson verify "${VC}" \
+            jq -c -n --arg name "${N}" --argjson build "${BC}" --argjson checker "${TC}" --argjson verify "${VC}" \
               '{simulation:$name,buildExit:$build,checkerExit:$checker,verifyExit:$verify}' >> "${OUT}/simulation-status.ndjson"
           done
 
