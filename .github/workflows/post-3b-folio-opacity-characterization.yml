@@ -680,11 +680,11 @@ jobs:
               for(const v of document.querySelectorAll('video')){try{v.pause();v.currentTime=0;}catch{}}
               window.scrollTo(0,0);
             });
-            await pg.addStyleTag({content:`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}`});
+            await pg.addStyleTag({content:`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}`});
             await pg.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
             await pg.waitForTimeout(80);
             const shot=await pg.screenshot({fullPage:true,animations:'disabled'});
-            const result={variant,route,viewport:vp,status:res?.status()??null,...data,screenshotSha256:hash(shot),screenshotNormalization:'after natural-state measurement: fonts/images settled; videos paused+hidden; animations/transitions/caret disabled; scroll top',consoleErrors,localFailures,blockedExternalCount:blockedExternal.length,_screenshot:shot};
+            const result={variant,route,viewport:vp,status:res?.status()??null,...data,screenshotSha256:hash(shot),screenshotNormalization:'after natural-state measurement: fonts/images settled; videos paused+hidden; animations/transitions/caret disabled; splash forced to its terminal hidden state; scroll top',consoleErrors,localFailures,blockedExternalCount:blockedExternal.length,_screenshot:shot};
             await ctx.close();return result;
           }
           function pixelDelta(aBuf,bBuf){
