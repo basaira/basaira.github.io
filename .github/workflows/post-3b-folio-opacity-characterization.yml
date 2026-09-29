@@ -624,7 +624,7 @@ jobs:
           function local(url){try{return new URL(url).hostname==='127.0.0.1';}catch{return false;}}
           async function capture(browser,variant,route,vp){
             const port=variants[variant],origin='http://127.0.0.1:'+port;
-            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'no-preference'});
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce'});
             const pg=await ctx.newPage();
             const consoleErrors=[],localFailures=[],blockedExternal=[];
             await ctx.route('**/*',async r=>{
