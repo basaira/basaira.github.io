@@ -583,7 +583,7 @@ jobs:
           python3 -m http.server 4179 --directory "${SIMROOT}/M4/dist" >/tmp/folio-m4-http.log 2>&1 &
           sleep 2
 
-          cat > "${RUNNER_TEMP}/folio-browser.mjs" <<'JS'
+          cat > ".folio-browser.mjs" <<'JS'
           import { chromium } from 'playwright';
           import crypto from 'node:crypto';
           import fs from 'node:fs';
@@ -710,14 +710,15 @@ jobs:
           if(failures.length){console.error(JSON.stringify(failures.slice(0,20),null,2));process.exit(1);}
           console.log(JSON.stringify({routes,cases:comparisons.length,allDom:true,allGeometry:true,allScreenshots:true},null,2));
           JS
-          OUT="${OUT}" node "${RUNNER_TEMP}/folio-browser.mjs"
+          OUT="${OUT}" node ".folio-browser.mjs"
+          rm -f ".folio-browser.mjs"
 
       - name: Live DOM observer runtime and synthetic hotfix semantics
         shell: bash
         run: |
           set -euo pipefail
           OUT="${RUNNER_TEMP}/folio-evidence"
-          cat > "${RUNNER_TEMP}/folio-live.mjs" <<'JS'
+          cat > ".folio-live.mjs" <<'JS'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
           import path from 'node:path';
@@ -826,7 +827,8 @@ jobs:
           if(mutatingDispatchCount!==0||blocking)process.exit(1);
           console.log(JSON.stringify({liveMarkerCount:0,liveFolioSectionCount:0,liveCurrentFolioCount:0,folioSpecificObserverInstances:0,synthetic},null,2));
           JS
-          OUT="${OUT}" node "${RUNNER_TEMP}/folio-live.mjs"
+          OUT="${OUT}" node ".folio-live.mjs"
+          rm -f ".folio-live.mjs"
 
       - name: Live vs deployed snapshot identity
         shell: bash
