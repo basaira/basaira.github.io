@@ -1,0 +1,315 @@
+name: Post-3B Remaining Slice Authorization Review
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-remaining-slice-authorization-review'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/remaining-review"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MAIN_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_GIT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GH_GIT}")" = "${GH_TREE}"
+          jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")" \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree}' \
+            > "${OUT}/authority.json"
+
+      - name: Recover historical repository authorities
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/remaining-review"
+          git fetch --no-tags origin \
+            basair/post-3b-roadmap-design \
+            basair/phase-3b-4-review-candidate-token-disposition-evidence \
+            basair/phase-3b-5-hero-delight-animate-exact-concat-evidence \
+            basair/phase-3b-5c-hero-ownership-characterization-evidence
+
+          ROADMAP="$(git rev-parse origin/basair/post-3b-roadmap-design)"
+          B4="$(git rev-parse origin/basair/phase-3b-4-review-candidate-token-disposition-evidence)"
+          B5="$(git rev-parse origin/basair/phase-3b-5-hero-delight-animate-exact-concat-evidence)"
+          B5C="$(git rev-parse origin/basair/phase-3b-5c-hero-ownership-characterization-evidence)"
+          git show "${ROADMAP}:post-3b-roadmap-design.json" > "${OUT}/roadmap.json"
+
+          python3 - "${OUT}" "${ROADMAP}" "${B4}" "${B5}" "${B5C}" <<'PY'
+          import json,sys
+          out,road,b4,b5,b5c=sys.argv[1:]
+          r=json.load(open(out+"/roadmap.json"))
+          data={
+            "roadmapBranch":"basair/post-3b-roadmap-design",
+            "roadmapHead":road,
+            "roadmapAuthority":r.get("authority"),
+            "roadmapMode":r.get("mode"),
+            "current51":r.get("freshParserCurrent51"),
+            "sameParserDelta":r.get("sameParserDelta"),
+            "phase3b4EvidenceHead":b4,
+            "phase3b5EvidenceHead":b5,
+            "phase3b5cEvidenceHead":b5c
+          }
+          open(out+"/historical-authority.json","w").write(json.dumps(data,indent=2)+"\n")
+          PY
+
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/34989128726" > "${OUT}/phase3b4-run.json"
+          api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/35024437916" > "${OUT}/phase3b5c-run.json"
+          api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/35144805775" > "${OUT}/phase3b5-run.json"
+
+      - name: Fresh build and current-source analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/remaining-review"
+          npm ci >/dev/null
+          npm run build >/dev/null
+          node token-authority-check.mjs > "${OUT}/token-authority.txt"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/token-authority.txt"
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+          OUT="${OUT}" python3 - <<'PY'
+          import json, os, re, hashlib
+          from pathlib import Path
+          root=Path(".")
+          out=Path(os.environ["OUT"])
+
+          htmls=sorted(root.rglob("*.html"))
+          text_ext={".css",".js",".mjs",".ts",".html",".md",".json"}
+          source_files=[p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in text_ext and ".git" not in p.parts and "node_modules" not in p.parts and "dist" not in p.parts]
+
+          def clean_css(s):
+              return re.sub(r"/\*.*?\*/","",s,flags=re.S)
+          def parse_css(path):
+              s=clean_css(Path(path).read_text(errors="replace"))
+              rules=[]
+              for m in re.finditer(r"([^{}]+)\{([^{}]*)\}",s,re.S):
+                  head=re.sub(r"\s+"," ",m.group(1)).strip()
+                  if not head or head.startswith("@"): continue
+                  decls=[]
+                  for part in m.group(2).split(";"):
+                      if ":" not in part: continue
+                      k,v=part.split(":",1)
+                      k=re.sub(r"\s+"," ",k).strip();v=re.sub(r"\s+"," ",v).strip()
+                      if k and v: decls.append((k,v))
+                  rules.append((head,decls))
+              selectors=sorted(set(x[0] for x in rules))
+              decltuples=sorted(set(f"{k}:{v}" for _,ds in rules for k,v in ds))
+              selectorprops=sorted(set(f"{sel}|||{k}" for sel,ds in rules for k,v in ds))
+              exactblocks=sorted(set(f"{sel}{{"+";".join(f"{k}:{v}" for k,v in ds)+"}" for sel,ds in rules))
+              keyframes=re.findall(r"@(?:-webkit-)?keyframes\s+([^\s{]+)",s)
+              medias=[re.sub(r"\s+"," ",x).strip() for x in re.findall(r"@media\s*([^{]+)",s)]
+              return {"rules":rules,"selectors":selectors,"decltuples":decltuples,"selectorprops":selectorprops,"exactblocks":exactblocks,"keyframes":keyframes,"medias":medias}
+          def pair(a,b):
+              A=parse_css(a);B=parse_css(b)
+              inter=lambda x,y:sorted(set(x)&set(y))
+              return {
+                "files":[{"path":a,"bytes":Path(a).stat().st_size},{"path":b,"bytes":Path(b).stat().st_size}],
+                "ruleCounts":[len(A["rules"]),len(B["rules"])],
+                "selectorCounts":[len(A["selectors"]),len(B["selectors"])],
+                "selectorOverlap":inter(A["selectors"],B["selectors"]),
+                "identicalDeclarationTupleOverlap":inter(A["decltuples"],B["decltuples"]),
+                "selectorPropertyOwnershipOverlap":inter(A["selectorprops"],B["selectorprops"]),
+                "exactBlockOverlap":inter(A["exactblocks"],B["exactblocks"]),
+                "keyframes":[A["keyframes"],B["keyframes"]],
+                "keyframeNameOverlap":inter(A["keyframes"],B["keyframes"]),
+                "mediaQueries":[A["medias"],B["medias"]]
+              }
+          def refs(a,b):
+              rows=[]
+              for p in htmls:
+                  c=p.read_text(errors="replace")
+                  ap=c.find(a);bp=c.find(b)
+                  if ap>=0 or bp>=0:
+                      rows.append({"html":p.as_posix(),"aPos":ap,"bPos":bp,"both":ap>=0 and bp>=0,"order":(a+" -> "+b if ap>=0 and bp>=0 and ap<bp else b+" -> "+a if ap>=0 and bp>=0 else None)})
+              return rows
+
+          A=pair("acquisition-animate-v1.css","acquisition-delight-v1.css")
+          A["references"]=refs("acquisition-animate-v1.css","acquisition-delight-v1.css")
+          B=pair("premium-v3.css","premium-v4.css")
+          B["references"]=refs("premium-v3.css","premium-v4.css")
+
+          # Folio whole-source evidence.
+          pats=["--folio-opacity","initFolioMarkers","initOverdrive","overdrive-folio-marker","overdrive-folio","is-folio-current","MutationObserver","IntersectionObserver"]
+          folio=[]
+          for p in source_files:
+              c=p.read_text(errors="replace")
+              hits={pat:c.count(pat) for pat in pats if pat in c}
+              if hits:
+                  folio.append({"path":p.as_posix(),"hits":hits})
+          over=Path("overdrive-v1.js").read_text(errors="replace")
+          total_calls=len(re.findall(r"\binitFolioMarkers\s*\(",over))
+          defs=len(re.findall(r"\bfunction\s+initFolioMarkers\s*\(",over))
+          call_count=max(0,total_calls-defs)
+          html_marker=sum(p.read_text(errors="replace").count("overdrive-folio-marker") for p in htmls)
+          html_overdrive_refs=[p.as_posix() for p in htmls if "overdrive-v1.js" in p.read_text(errors="replace")]
+          built_text="\n".join(p.read_text(errors="replace") for p in Path("dist").rglob("*") if p.is_file() and p.suffix.lower() in {".js",".css",".html"})
+          built_hits={pat:built_text.count(pat) for pat in pats if pat in built_text}
+
+          # Hero v3 repository-only reachability.
+          hero3=["hero-animate-v3.css","hero-delight-v3.css","hero-polish-v3.css"]
+          hero_rows=[]
+          for h in hero3:
+              refs_all=[]
+              for p in source_files:
+                  if p.as_posix()==h: continue
+                  c=p.read_text(errors="replace")
+                  if h in c: refs_all.append(p.as_posix())
+              prod_refs=[x for x in refs_all if x.endswith(".html") or x.endswith(".js") or x.endswith(".css")]
+              hero_rows.append({"path":h,"exists":Path(h).exists(),"bytes":Path(h).stat().st_size if Path(h).exists() else None,"allReferences":refs_all,"productionLikeReferences":prod_refs})
+          built_hero={h:(h in built_text) for h in hero3}
+
+          manifest=json.load(open("token-authority-manifest.json"))
+          compact_closed={
+            "compactAliasPresent":"--layout-section-compact" in manifest.get("aliases",{}),
+            "correctedConflictContains":"--layout-section-compact" in manifest.get("correctedAuditScope",{}).get("conflictTokens",[]),
+            "folioConflictContains":"--folio-opacity" in manifest.get("correctedAuditScope",{}).get("conflictTokens",[])
+          }
+
+          result={
+            "candidateA":A,
+            "candidateB":B,
+            "candidateD":{
+              "wholeSourceMatches":folio,
+              "initFolioMarkersDefinitionCount":defs,
+              "initFolioMarkersCallCount":call_count,
+              "initOverdriveCallCount":max(0,len(re.findall(r"\binitOverdrive\s*\(",over))-len(re.findall(r"\bfunction\s+initOverdrive\s*\(",over))),
+              "htmlMarkerMarkupCount":html_marker,
+              "htmlOverdriveScriptRefs":html_overdrive_refs,
+              "builtMatches":built_hits,
+              "hotfixHidesMarker":"display:none!important" in re.sub(r"\s+","",Path("visual-layout-hotfix-v2.css").read_text(errors="replace")),
+              "retirementComment":"Folio separators were intentionally retired after visual QA." in over
+            },
+            "heroV3": {"files":hero_rows,"builtFilenameMentions":built_hero},
+            "compactClosure":compact_closed
+          }
+          open(out/"current-candidate-analysis.json","w").write(json.dumps(result,indent=2)+"\n")
+          print(json.dumps({
+            "A":{"refs":len(A["references"]),"selectorOverlap":len(A["selectorOverlap"]),"selectorPropertyOverlap":len(A["selectorPropertyOwnershipOverlap"]),"exactBlocks":len(A["exactBlockOverlap"]),"keyframeOverlap":len(A["keyframeNameOverlap"])},
+            "B":{"refs":len(B["references"]),"selectorOverlap":len(B["selectorOverlap"]),"selectorPropertyOverlap":len(B["selectorPropertyOwnershipOverlap"]),"exactBlocks":len(B["exactBlockOverlap"])},
+            "D":{"defs":defs,"calls":call_count,"htmlMarkerMarkup":html_marker,"scriptRefs":len(html_overdrive_refs),"builtMatches":built_hits,"hotfix":result["candidateD"]["hotfixHidesMarker"]},
+            "heroV3":hero_rows
+          },indent=2))
+          PY
+
+      - name: Recover closed live verification and historical artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/remaining-review"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+
+          LIVE_RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/36489890484")"
+          test "$(jq -r '.conclusion' <<<"${LIVE_RUN}")" = "success"
+          test "$(jq -r '.head_branch' <<<"${LIVE_RUN}")" = "basair/post-3b-compact-token-post-release-live-verification"
+          LIVE_ART="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/11000782448")"
+          test "$(jq -r '.expired' <<<"${LIVE_ART}")" = "false"
+          curl --fail --silent --show-error --location \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/11000782448/zip" \
+            -o "${RUNNER_TEMP}/live.zip"
+          unzip -q "${RUNNER_TEMP}/live.zip" -d "${RUNNER_TEMP}/live-art"
+          cp "${RUNNER_TEMP}/live-art/live-verification-summary.json" "${OUT}/closed-live-summary.json"
+          cp "${RUNNER_TEMP}/live-art/live-console-classification.json" "${OUT}/closed-live-console.json"
+
+          jq -n \
+            --arg run "36489890484" \
+            --arg artifact "11000782448" \
+            --arg digest "$(jq -r '.digest' <<<"${LIVE_ART}")" \
+            --arg classification "$(jq -r '.classification' "${OUT}/closed-live-summary.json")" \
+            --arg runtime "$(jq -r '.productRuntimeRegressions' "${OUT}/closed-live-summary.json")" \
+            --arg unknown "$(jq -r '.unknownBlockingErrors' "${OUT}/closed-live-summary.json")" \
+            '{runId:($run|tonumber),artifactId:($artifact|tonumber),artifactDigest:$digest,classification:$classification,productRuntimeRegressions:($runtime|tonumber),unknownBlockingErrors:($unknown|tonumber)}' \
+            > "${OUT}/current-production-defect-evidence.json"
+
+          # Historical artifact identities (actual repository Actions state).
+          for A in 10405126530 10419437248 10466865491; do
+            api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${A}" >> "${OUT}/historical-artifacts.ndjson"
+          done
+
+      - name: Terminal authority check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/remaining-review"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${MAIN_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            '{main:$main,implementation:$impl,ghPages:$gh,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            > "${OUT}/terminal.json"
+
+      - name: Upload authorization-review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-remaining-slice-authorization-review
+          path: ${{ runner.temp }}/remaining-review
+          if-no-files-found: error
+          retention-days: 90
