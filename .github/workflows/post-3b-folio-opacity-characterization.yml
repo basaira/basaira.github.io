@@ -831,7 +831,7 @@ jobs:
           if(await ar.count()){
             lang.available=true;lang.attempted=true;
             lang.before=await lp.evaluate(()=>({marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,dir:document.documentElement.dir,lang:document.documentElement.lang}));
-            await ar.click();await lp.waitForTimeout(500);
+            await lp.evaluate(()=>document.querySelector('[data-lang="ar"]')?.click());await lp.waitForTimeout(500);
             lang.after=await lp.evaluate(()=>({marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,dir:document.documentElement.dir,lang:document.documentElement.lang}));
             if(lang.after.marker||lang.after.folio||lang.after.current)blocking=true;
           }
