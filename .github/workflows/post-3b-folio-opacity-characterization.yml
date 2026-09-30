@@ -179,10 +179,11 @@ jobs:
           for p in htmls:
             c=p.read_text(errors="replace")
             static_marker+=len(re.findall(r'class=["\'][^"\']*\boverdrive-folio-marker\b',c))
-            if "overdrive-v1.js" in c:
+            script_srcs=re.findall(r"""<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>""",c,re.I)
+            exact_overdrive=[src for src in script_srcs if src.split("?",1)[0].rsplit("/",1)[-1]=="overdrive-v1.js"]
+            if exact_overdrive:
               route="/" if p.as_posix()=="index.html" else "/"+p.as_posix().replace("index.html","").strip("/")+"/" if p.name=="index.html" else "/"+p.as_posix()
-              tags=re.findall(r"<script[^>]+overdrive-v1\.js[^>]*>",c,re.I)
-              entry.append({"path":p.as_posix(),"route":route,"scriptTags":tags})
+              entry.append({"path":p.as_posix(),"route":route,"scriptSrcs":exact_overdrive})
 
           # Dynamic creation patterns across all current source.
           creation_patterns={
@@ -605,13 +606,15 @@ jobs:
           const routes=[];
           for(const p of htmls){
             const c=fs.readFileSync(p,'utf8');
-            if(!c.includes('overdrive-v1.js'))continue;
+            const srcs=[...c.matchAll(/<script\\b[^>]*\\bsrc=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
+            const exact=srcs.filter(src=>src.split('?')[0].split('/').pop()==='overdrive-v1.js');
+            if(!exact.length)continue;
             const rel=path.relative(workspace,p).replaceAll('\\','/');
             const route=rel==='index.html'?'/':rel.endsWith('/index.html')?'/'+rel.slice(0,-'index.html'.length):'/'+rel;
             routes.push(route);
           }
           routes.sort();
-          if(routes.length!==8)throw new Error('Expected exactly 8 Overdrive routes, got '+JSON.stringify(routes));
+          if(routes.length!==1||routes[0]!=='/')throw new Error('Expected exact Overdrive owner route / only, got '+JSON.stringify(routes));
 
           const widths=[
             {name:'desktop',width:1440,height:1000},
@@ -757,7 +760,7 @@ jobs:
           import path from 'node:path';
           import crypto from 'node:crypto';
           const out=process.env.OUT, origin='https://basaira.github.io';
-          const routes=['/','/en/quran-kids/','/en/quran-adults/','/en/arabic/','/ru/quran/','/ru/arabic/','/uz/quran/','/uz/arabic/'];
+          const routes=['/'];
           const viewports=[{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}];
           const browser=await chromium.launch({headless:true});
           const rows=[],observerRows=[],network=[];
