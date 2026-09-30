@@ -606,7 +606,7 @@ jobs:
           const routes=[];
           for(const p of htmls){
             const c=fs.readFileSync(p,'utf8');
-            const srcs=[...c.matchAll(/<script\\b[^>]*\\bsrc=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
+            const srcs=[...c.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
             const exact=srcs.filter(src=>src.split('?')[0].split('/').pop()==='overdrive-v1.js');
             if(!exact.length)continue;
             const rel=path.relative(workspace,p).replaceAll('\\','/');
