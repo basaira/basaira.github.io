@@ -460,6 +460,24 @@ jobs:
               };
             });
             metrics.structuralHash=hash(Buffer.from(metrics.struct)); delete metrics.struct;
+
+            // Use the already-approved characterization screenshot normalization exactly:
+            // settle fonts/images; pause+hide video; force splash terminal hidden; disable
+            // animation/transition/caret after natural DOM/geometry was measured.
+            await page.evaluate(async()=>{
+              try{await document.fonts?.ready;}catch{}
+              await Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{
+                const done=()=>resolve();
+                img.addEventListener('load',done,{once:true});
+                img.addEventListener('error',done,{once:true});
+                setTimeout(done,1500);
+              })));
+              for(const v of document.querySelectorAll('video')){try{v.pause();v.currentTime=0;}catch{}}
+              window.scrollTo(0,0);
+            });
+            await page.addStyleTag({content:`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}`});
+            await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+            await page.waitForTimeout(80);
             const png=await page.screenshot({fullPage:true,animations:'disabled'});
             await ctx.close();
             return {metrics,consoleEvents,localFailures,externalBlocked,screenshotHash:hash(png),png};
