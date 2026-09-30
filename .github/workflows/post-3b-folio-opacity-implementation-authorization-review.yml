@@ -1,0 +1,809 @@
+name: Post-3B Folio Opacity Implementation Authorization Review
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-implementation-authorization-review'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  IMPL_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  CHAR_RUN_ID: '36649134327'
+  CHAR_ATTEMPT: '2'
+  CHAR_JOB_ID: '110139887235'
+  CHAR_ARTIFACT_ID: '11131851285'
+  CHAR_ARTIFACT_DIGEST: sha256:847437b5515da82644e8caf17b447c662cfe3c0d6b0e0af32bceaddfac608104
+  BASE_FILES: '25'
+  BASE_BYTES: '2555325'
+  BASE_MANIFEST: dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023
+  M4_FILES: '25'
+  M4_BYTES: '2554010'
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact frozen current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh production authority preflight
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+
+          jq -n \
+            --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" \
+            --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree,authorityDrift:false,productionMutation:false}' \
+            | tee "${OUT}/folio-implementation-auth-preflight.json"
+
+      - name: Recover and validate closed characterization authority
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          CHAR="${RUNNER_TEMP}/folio-characterization"
+          mkdir -p "${CHAR}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+
+          RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${CHAR_RUN_ID}")"
+          test "$(jq -r '.run_attempt' <<<"${RUN}")" = "${CHAR_ATTEMPT}"
+          test "$(jq -r '.head_branch' <<<"${RUN}")" = "basair/post-3b-folio-opacity-characterization"
+          test "$(jq -r '.head_sha' <<<"${RUN}")" = "32bd7f1d2168086e913c3d5a5cfae3a6e1a7d6c6"
+          test "$(jq -r '.status' <<<"${RUN}")" = "completed"
+          test "$(jq -r '.conclusion' <<<"${RUN}")" = "success"
+
+          ART="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CHAR_ARTIFACT_ID}")"
+          test "$(jq -r '.expired' <<<"${ART}")" = "false"
+          test "$(jq -r '.digest' <<<"${ART}")" = "${CHAR_ARTIFACT_DIGEST}"
+
+          curl --fail --silent --show-error --location \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${CHAR_ARTIFACT_ID}/zip" \
+            -o "${RUNNER_TEMP}/folio-char.zip"
+          unzip -q "${RUNNER_TEMP}/folio-char.zip" -d "${CHAR}"
+
+          for F in \
+            folio-whole-source-inventory.json \
+            folio-call-graph.json \
+            folio-css-ownership.json \
+            folio-css-subsystem.json \
+            folio-hotfix-role.json \
+            folio-token-manifest-status.json \
+            folio-built-js.json \
+            folio-built-css.json \
+            folio-simulation-matrix.json \
+            folio-browser-equivalence.json \
+            folio-geometry-equivalence.json \
+            folio-screenshot-equivalence.json \
+            folio-token-effect-model.json \
+            folio-mutation-boundary.json \
+            folio-characterization-summary.json
+          do
+            test -s "${CHAR}/${F}"
+          done
+
+          test "$(jq -r '.currentFeatureStatus' "${CHAR}/folio-characterization-summary.json")" = "D3 — DEAD / UNREACHABLE IN CURRENT PRODUCTION"
+          test "$(jq -r '.outcome' "${CHAR}/folio-characterization-summary.json")" = "A — DEAD SUBSYSTEM + SAFE MUTATION DESIGN PROVEN"
+          test "$(jq -r '.callability' "${CHAR}/folio-characterization-summary.json")" = "UNREACHABLE"
+          test "$(jq -r '.naturalLiveFolioMarkers' "${CHAR}/folio-characterization-summary.json")" = "0"
+          test "$(jq -r '.builtFolioExecutablePath' "${CHAR}/folio-characterization-summary.json")" = "ABSENT"
+          test "$(jq -r '.minimalFutureMutationBoundary' "${CHAR}/folio-characterization-summary.json")" = "M4 — JS + CSS + HOTFIX + MANIFEST AS ONE ATOMIC REMOVAL"
+          test "$(jq -r '.behavioralEquivalence' "${CHAR}/folio-characterization-summary.json")" = "PROVEN"
+
+          jq -n \
+            --arg branch "basair/post-3b-folio-opacity-characterization" \
+            --arg run "${CHAR_RUN_ID}" --arg attempt "${CHAR_ATTEMPT}" --arg job "${CHAR_JOB_ID}" \
+            --arg artifact "${CHAR_ARTIFACT_ID}" --arg digest "${CHAR_ARTIFACT_DIGEST}" \
+            --arg feature "$(jq -r '.currentFeatureStatus' "${CHAR}/folio-characterization-summary.json")" \
+            --arg outcome "$(jq -r '.outcome' "${CHAR}/folio-characterization-summary.json")" \
+            --arg callability "$(jq -r '.callability' "${CHAR}/folio-characterization-summary.json")" \
+            --arg boundary "$(jq -r '.minimalFutureMutationBoundary' "${CHAR}/folio-characterization-summary.json")" \
+            '{branch:$branch,runId:($run|tonumber),runAttempt:($attempt|tonumber),jobId:($job|tonumber),artifactId:($artifact|tonumber),artifactDigest:$digest,currentFeatureStatus:$feature,outcome:$outcome,callability:$callability,minimalFutureMutationBoundary:$boundary,recoveredFromActualArtifact:true}' \
+            | tee "${OUT}/folio-characterization-authority.json"
+
+      - name: Fresh baseline verify build and snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
+          test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          npm ci 2>&1 | tee "${OUT}/baseline-npm-ci.log"
+          npm run verify 2>&1 | tee "${OUT}/baseline-npm-verify.log"
+          npm run build 2>&1 | tee "${OUT}/baseline-npm-build.log"
+          node token-authority-check.mjs 2>&1 | tee "${OUT}/baseline-token-authority.log"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=39; production CSS=51; inline styles=1.' "${OUT}/baseline-token-authority.log"
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+          ROOT="${GITHUB_WORKSPACE}/dist" OUT="${OUT}" python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"]);out=Path(os.environ["OUT"])
+          rows=[]
+          for p in sorted(x for x in root.rglob("*") if x.is_file()):
+              b=p.read_bytes()
+              rows.append({"path":p.relative_to(root).as_posix(),"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()})
+          canonical="".join(f"{r['sha256']}\t{r['bytes']}\t{r['path']}\n" for r in rows).encode()
+          manifest=hashlib.sha256(canonical).hexdigest()
+          assert len(rows)==25
+          assert sum(r["bytes"] for r in rows)==2555325
+          assert manifest=="dcb90ad15c5ebcb2c00cc021057642122d1c4b2a9fbe197cf1e11f1c89989023"
+          assert any(r["path"]=="assets/main-DDXdaUdM.js" for r in rows)
+          assert any(r["path"]=="assets/main-NHlCiF5H.css" for r in rows)
+          json.dump({"fileCount":25,"totalBytes":2555325,"manifestSha256":manifest,"files":rows},open(out/"baseline-snapshot.json","w"),indent=2)
+          PY
+
+      - name: Derive exact four-path M4 contract and create disposable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          M4="${RUNNER_TEMP}/folio-m4"
+          git worktree add --detach "${M4}" "${MAIN_SHA}"
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${M4}/node_modules"
+
+          M4="${M4}" OUT="${OUT}" python3 - <<'PY'
+          import hashlib,json,os,re,subprocess
+          from pathlib import Path
+          root=Path(os.environ["M4"]);out=Path(os.environ["OUT"])
+
+          def sha(s):return hashlib.sha256(s.encode()).hexdigest()
+          def read(p):return (root/p).read_text()
+          def write(p,s):(root/p).write_text(s)
+
+          # JS: exact dead function block only.
+          p="overdrive-v1.js"; s=read(p); before=s
+          m=re.search(r"\nfunction initFolioMarkers\(\) \{.*?\n\}\n\nfunction initOverdrive\(\)",s,re.S)
+          assert m
+          removed_js=m.group(0)
+          s=s[:m.start()]+"\nfunction initOverdrive()"+s[m.end():]
+          assert "initFolioMarkers" not in s
+          for protected in ["function initManuscriptHero()","function initReadingProgress()","function initOverdrive()","overdrive-ready"]:
+              assert protected in s
+          write(p,s)
+          js_contract={
+            "path":p,
+            "removedBlockSha256":sha(removed_js),
+            "removedBlock":removed_js,
+            "requiredAfter":{"initFolioMarkersDefinitionCount":0,"initFolioMarkersReferenceCount":0,"folioExecutableSourceCount":0},
+            "protected":["initManuscriptHero()","initReadingProgress()","initOverdrive()","DOMContentLoaded boot logic","overdrive-ready"],
+            "wholeFileDeletion":False
+          }
+          json.dump(js_contract,open(out/"folio-m4-js-contract.json","w"),indent=2)
+
+          # CSS: exact characterized Folio subsystem + isolated responsive/reduced-motion residues.
+          p="overdrive-v1.css"; s=read(p); before_css=s
+          start=s.index("/* ── 3. Section leaves:")
+          end=s.index("/* ── 4. Scroll-linked depth",start)
+          main_block=s[start:end]
+          s=s[:start]+s[end:]
+          mobile="  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }\n"
+          reduced_selector="  .overdrive-folio-marker,\n"
+          reduced_rule="  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }\n"
+          for x in [mobile,reduced_selector,reduced_rule]:
+              assert x in s
+              s=s.replace(x,"",1)
+          assert "--folio-opacity" not in s
+          assert "overdrive-folio-marker" not in s
+          assert "is-folio-current" not in s
+          assert "od-folio-open" not in s
+          # Ensure non-Folio anchors remain.
+          for protected in ["od-reading-progress","Scroll-linked depth","od-manuscript-depth","video-card__media"]:
+              assert protected in s
+          write(p,s)
+          css_contract={
+            "path":p,
+            "mainFolioBlockSha256":sha(main_block),
+            "mainFolioBlock":main_block,
+            "additionalExactRemovals":[mobile.rstrip("\n"),reduced_selector.rstrip("\n"),reduced_rule.rstrip("\n")],
+            "coarsePointerFolioRulesDiscovered":0,
+            "requiredAfter":{"folioOpacityOccurrences":0,"overdriveFolioMarkerOccurrences":0,"isFolioCurrentOccurrences":0,"odFolioOpenOccurrences":0},
+            "preserveSurroundingMediaQueries":True,
+            "wholeFileDeletion":False
+          }
+          json.dump(css_contract,open(out/"folio-m4-css-contract.json","w"),indent=2)
+
+          # Hotfix: characterized simulation removed exact mask only. Associated comment remains optional/non-runtime.
+          p="visual-layout-hotfix-v2.css"; s=read(p)
+          rule=".overdrive-folio-marker{display:none!important}\n"
+          assert s.count(rule)==1
+          s=s.replace(rule,"",1)
+          assert ".overdrive-folio-marker{display:none!important}" not in s
+          assert "--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);" in s
+          write(p,s)
+          json.dump({
+            "path":p,
+            "exactRuleRemoval":rule.rstrip("\n"),
+            "associatedCommentRemoval":"OPTIONAL BUT NOT AUTHORIZED BY MINIMAL CHARACTERIZED PATCH",
+            "characterizedPatchPreservesAssociatedComment":True,
+            "requiredAfter":{"folioMaskOccurrences":0},
+            "protected":["--layout-section-compact ownership","all non-Folio visual-layout rules"],
+            "wholeFileDeletion":False
+          },open(out/"folio-m4-hotfix-contract.json","w"),indent=2)
+
+          # Manifest: minimal JSON-path semantic reconciliation, no reserialization.
+          p="token-authority-manifest.json"; s=read(p)
+          assert s.count('    "--folio-opacity",\n')==2
+          assert '    "customPropertyNameCount": 369,\n' in s
+          assert '    "conflictCount": 39,\n' in s
+          s=s.replace('    "--folio-opacity",\n',"",2)
+          s=s.replace('    "customPropertyNameCount": 369,\n','    "customPropertyNameCount": 368,\n',1)
+          s=s.replace('    "conflictCount": 39,\n','    "conflictCount": 38,\n',1)
+          j=json.loads(s)
+          assert "--folio-opacity" not in j.get("componentLocalExplicit",[])
+          assert "--folio-opacity" not in j["correctedAuditScope"]["conflictTokens"]
+          assert j["correctedAuditScope"]["conflictCount"]==38
+          assert j["correctedAuditScope"]["customPropertyNameCount"]==368
+          assert "--layout-section-compact" not in j.get("aliases",{})
+          assert "--layout-section-compact" not in j["correctedAuditScope"]["conflictTokens"]
+          write(p,s)
+          json.dump({
+            "path":p,
+            "jsonPathChanges":[
+              {"path":"$.componentLocalExplicit","operation":"REMOVE","value":"--folio-opacity"},
+              {"path":"$.correctedAuditScope.conflictTokens","operation":"REMOVE","value":"--folio-opacity"},
+              {"path":"$.correctedAuditScope.conflictCount","operation":"REPLACE","from":39,"to":38},
+              {"path":"$.correctedAuditScope.customPropertyNameCount","operation":"REPLACE","from":369,"to":368}
+            ],
+            "aliasesChanged":False,
+            "canonicalChanged":False,
+            "layoutSectionCompactChanged":False,
+            "unrelatedConflictTokensChanged":False,
+            "wholeFileDeletion":False
+          },open(out/"folio-m4-manifest-contract.json","w"),indent=2)
+
+          changed=subprocess.check_output(["git","-C",str(root),"diff","--name-only","HEAD","--"],text=True).splitlines()
+          expected=["overdrive-v1.css","overdrive-v1.js","token-authority-manifest.json","visual-layout-hotfix-v2.css"]
+          assert sorted(changed)==expected,changed
+          numstat=subprocess.check_output(["git","-C",str(root),"diff","--numstat","HEAD","--"],text=True)
+          patch=subprocess.check_output(["git","-C",str(root),"diff","--no-ext-diff","--unified=6","HEAD","--"],text=True)
+          (out/"folio-m4-source.patch").write_text(patch)
+          stats=[]
+          for line in numstat.splitlines():
+              a,d,path=line.split("\t")
+              stats.append({"path":path,"linesAdded":int(a),"linesRemoved":int(d)})
+          json.dump({
+            "changedPathCount":len(changed),
+            "changedPaths":sorted(changed),
+            "expectedChangedPaths":expected,
+            "exactFourPathBoundary":True,
+            "stats":stats,
+            "unrelatedFormattingChurn":0,
+            "unrelatedSemanticChanges":0,
+            "wholeFileDeletion":False,
+            "patchEvidenceFile":"folio-m4-source.patch"
+          },open(out/"folio-m4-source-contract.json","w"),indent=2)
+          PY
+
+      - name: Fresh exact M4 verify build token authority and generated delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          M4="${RUNNER_TEMP}/folio-m4"
+
+          (cd "${M4}" && npm run verify 2>&1 | tee "${OUT}/m4-npm-verify.log")
+          (cd "${M4}" && npm run build 2>&1 | tee "${OUT}/m4-npm-build.log")
+          (cd "${M4}" && node token-authority-check.mjs 2>&1 | tee "${OUT}/m4-token-authority.log")
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/m4-token-authority.log"
+          git -C "${M4}" diff --check
+
+          M4="${M4}" OUT="${OUT}" BASE="${GITHUB_WORKSPACE}/dist" python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          m4=Path(os.environ["M4"]);out=Path(os.environ["OUT"]);base=Path(os.environ["BASE"])
+          man=json.loads((m4/"token-authority-manifest.json").read_text())
+          authority={
+            "canonical":len(man.get("canonical",{})),
+            "aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},
+            "correctedConflicts":man["correctedAuditScope"]["conflictCount"],
+            "productionCss":man["correctedAuditScope"]["productionCssFileCount"],
+            "inlineStyles":man["correctedAuditScope"]["inlineStyleBlockCount"],
+            "customPropertyNames":man["correctedAuditScope"]["customPropertyNameCount"],
+            "undefinedVariables":0
+          }
+          expected={"canonical":106,"aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
+          assert authority==expected,(authority,expected)
+          json.dump({"actual":authority,"expected":expected,"match":True},open(out/"folio-m4-authority-model.json","w"),indent=2)
+
+          def snap(root):
+              rows={}
+              for p in sorted(x for x in root.rglob("*") if x.is_file()):
+                  b=p.read_bytes()
+                  rows[p.relative_to(root).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
+              return rows
+          b=snap(base);m=snap(m4/"dist")
+          assert len(m)==25,len(m)
+          assert sum(x["bytes"] for x in m.values())==2554010
+          assert "assets/main-CdDtQcjc.js" in m
+          assert "assets/main-BJIbyLNf.css" in m
+          assert "assets/main-DDXdaUdM.js" not in m
+          assert "assets/main-NHlCiF5H.css" not in m
+          add=sorted(set(m)-set(b));delete=sorted(set(b)-set(m));modify=sorted(k for k in set(b)&set(m) if b[k]!=m[k]);preserve=sorted(k for k in set(b)&set(m) if b[k]==m[k])
+          assert add==["assets/main-BJIbyLNf.css","assets/main-CdDtQcjc.js"],add
+          assert delete==["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"],delete
+          assert modify==["index.html"],modify
+          assert len(preserve)==22,len(preserve)
+          json.dump({
+            "fileCount":25,"totalBytes":2554010,
+            "criticalAssets":["assets/main-CdDtQcjc.js","assets/main-BJIbyLNf.css"],
+            "oldBaselineAssetsAbsent":True,
+            "verify":"PASS","build":"PASS","tokenAuthorityChecker":"PASS","gitDiffCheck":"PASS"
+          },open(out/"folio-m4-build-contract.json","w"),indent=2)
+          json.dump({"ADD":add,"MODIFY":modify,"DELETE":delete,"PRESERVE":preserve,"counts":{"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22},"noUnrelatedGeneratedChanges":True},open(out/"folio-m4-generated-delta.json","w"),indent=2)
+          PY
+
+      - name: Install browser tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true
+          rm -f node_modules/.package-lock.json 2>/dev/null || true
+          test -z "$(git status --porcelain)"
+
+      - name: Re-run exact M4 DOM geometry screenshot equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          M4="${RUNNER_TEMP}/folio-m4"
+          python3 -m http.server 4273 --directory "${GITHUB_WORKSPACE}/dist" >/tmp/folio-auth-base.log 2>&1 &
+          python3 -m http.server 4274 --directory "${M4}/dist" >/tmp/folio-auth-m4.log 2>&1 &
+          sleep 2
+
+          cat > ".folio-auth-browser.mjs" <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import { PNG } from 'pngjs';
+
+          const OUT=process.env.OUT;
+          const cases=[
+            {name:'desktop',width:1440,height:1000},
+            {name:'mobile',width:390,height:844},
+            {name:'below-760',width:759,height:900},
+            {name:'above-760',width:761,height:900}
+          ];
+          const origins={BASE:'http://127.0.0.1:4273',M4:'http://127.0.0.1:4274'};
+          const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+
+          async function capture(browser,variant,vp){
+            const origin=origins[variant];
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce'});
+            const page=await ctx.newPage();
+            const consoleEvents=[],localFailures=[],externalBlocked=[];
+            await ctx.route('**/*',async route=>{
+              const req=route.request(),u=new URL(req.url());
+              if(u.origin===origin && ['GET','HEAD','OPTIONS'].includes(req.method().toUpperCase())) return route.continue();
+              externalBlocked.push({method:req.method(),url:req.url()});
+              return route.abort('blockedbyclient');
+            });
+            page.on('console',m=>{if(['error','warning'].includes(m.type()))consoleEvents.push({type:m.type(),text:m.text().replaceAll('4273','PORT').replaceAll('4274','PORT')});});
+            page.on('pageerror',e=>consoleEvents.push({type:'pageerror',text:String(e).replaceAll('4273','PORT').replaceAll('4274','PORT')}));
+            page.on('requestfailed',req=>{try{if(new URL(req.url()).origin===origin)localFailures.push({url:req.url().replace(origin,'ORIGIN'),failure:req.failure()});}catch{}});
+            const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});
+            if(!res||!res.ok()) throw new Error('navigation failed '+variant+' '+vp.name);
+            await page.waitForTimeout(350);
+            await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+            await page.evaluate(()=>window.scrollTo(0,Math.max(0,document.documentElement.scrollHeight*.55)));
+            await page.waitForTimeout(100);
+            await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+            await page.waitForTimeout(100);
+            await page.evaluate(()=>window.scrollTo(0,0));
+            await page.waitForTimeout(100);
+            const metrics=await page.evaluate(()=>{
+              const secs=[...document.querySelectorAll('main > section')].map((el,i)=>{
+                const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+                return {i,id:el.id||'',className:typeof el.className==='string'?el.className:'',top:r.top+scrollY,bottom:r.bottom+scrollY,left:r.left+scrollX,width:r.width,height:r.height,display:s.display,visibility:s.visibility,overflowX:s.overflowX,overflowY:s.overflowY};
+              });
+              const struct=[...document.body.querySelectorAll('*')].map(el=>el.tagName+'#'+(el.id||'')+'.'+(typeof el.className==='string'?el.className:'')).join('\n');
+              return {
+                markerCount:document.querySelectorAll('.overdrive-folio-marker').length,
+                folioSectionCount:document.querySelectorAll('.overdrive-folio').length,
+                currentFolioCount:document.querySelectorAll('.is-folio-current').length,
+                readingProgressCount:document.querySelectorAll('.overdrive-reading-progress').length,
+                heroManuscriptCount:document.querySelectorAll('.overdrive-manuscript').length,
+                overdriveReady:document.documentElement.classList.contains('overdrive-ready'),
+                documentScrollHeight:document.documentElement.scrollHeight,
+                bodyScrollHeight:document.body.scrollHeight,
+                htmlOverflowX:getComputedStyle(document.documentElement).overflowX,
+                bodyOverflowX:getComputedStyle(document.body).overflowX,
+                sections:secs,
+                struct
+              };
+            });
+            metrics.structuralHash=hash(Buffer.from(metrics.struct)); delete metrics.struct;
+            const png=await page.screenshot({fullPage:true,animations:'disabled'});
+            await ctx.close();
+            return {metrics,consoleEvents,localFailures,externalBlocked,screenshotHash:hash(png),png};
+          }
+
+          const browser=await chromium.launch({headless:true});
+          const results=[];
+          for(const vp of cases){
+            const a=await capture(browser,'BASE',vp),b=await capture(browser,'M4',vp);
+            if(JSON.stringify(a.metrics)!==JSON.stringify(b.metrics)) throw new Error('DOM/geometry mismatch '+vp.name);
+            if(JSON.stringify(a.consoleEvents)!==JSON.stringify(b.consoleEvents)) throw new Error('console mismatch '+vp.name+'\n'+JSON.stringify({a:a.consoleEvents,b:b.consoleEvents}));
+            if(a.localFailures.length||b.localFailures.length) throw new Error('local failure '+vp.name);
+            const A=PNG.sync.read(a.png),B=PNG.sync.read(b.png);
+            if(A.width!==B.width||A.height!==B.height) throw new Error('screenshot dimensions mismatch '+vp.name);
+            let diffPixels=0,maxChannelDelta=0;
+            for(let i=0;i<A.data.length;i+=4){
+              let pixelDiff=false;
+              for(let c=0;c<4;c++){
+                const d=Math.abs(A.data[i+c]-B.data[i+c]);
+                if(d){pixelDiff=true;if(d>maxChannelDelta)maxChannelDelta=d;}
+              }
+              if(pixelDiff)diffPixels++;
+            }
+            const totalPixels=A.width*A.height,diffRatio=diffPixels/totalPixels;
+            if(diffPixels!==0||maxChannelDelta!==0||diffRatio!==0) throw new Error('pixel mismatch '+vp.name+' '+JSON.stringify({diffPixels,maxChannelDelta,diffRatio}));
+            results.push({
+              viewport:vp,
+              domEquivalence:'PASS',
+              markerCountsEqual:a.metrics.markerCount===b.metrics.markerCount,
+              markerCount:a.metrics.markerCount,
+              geometryExact:true,
+              scrollLayoutExact:true,
+              protectedRuntimeExact:{
+                readingProgress:a.metrics.readingProgressCount===b.metrics.readingProgressCount,
+                heroManuscript:a.metrics.heroManuscriptCount===b.metrics.heroManuscriptCount,
+                overdriveReady:a.metrics.overdriveReady===b.metrics.overdriveReady
+              },
+              consoleBehaviorEqual:true,
+              localNetworkFailuresEqual:true,
+              screenshot:{baseSha256:a.screenshotHash,m4Sha256:b.screenshotHash,diffPixels,maxChannelDelta,diffRatio,pixelIdentical:true}
+            });
+          }
+          await browser.close();
+          fs.writeFileSync(path.join(OUT,'folio-m4-equivalence.json'),JSON.stringify({
+            route:'/',
+            cases:results,
+            domEquivalence:'PASS',
+            geometry:'EXACT',
+            screenshots:'PIXEL IDENTICAL',
+            consoleBehavior:'EQUAL',
+            localNetworkFailures:'EQUAL',
+            unexplainedDifferences:0
+          },null,2)+'\n');
+          JS
+
+          OUT="${OUT}" node ".folio-auth-browser.mjs"
+          rm -f ".folio-auth-browser.mjs"
+          test -z "$(git status --porcelain)"
+
+      - name: Freshly reconfirm deadness on current live production
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          cat > ".folio-live-deadness.mjs" <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const OUT=process.env.OUT;
+          const ORIGIN='https://basaira.github.io';
+          const safe=['GET','HEAD','OPTIONS'];
+          const results=[];
+          const unsafe=[],allowedReadOnly=[],blockedTelemetry=[];
+          let productDefect=false;
+
+          function readOnlyPost(url){return /google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(url)||/firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);}
+          function telemetry(url){try{const u=new URL(url);return ((u.pathname==='/g/collect')&&(u.hostname==='www.google.com'||u.hostname.includes('google-analytics.com')))||u.hostname==='www.googletagmanager.com';}catch{return false;}}
+          function knownMutating(url){return /google\.firestore\.v1\.Firestore\/(Write|Commit)/i.test(url)||/firestore\.googleapis\.com\/.*:(commit|write)(\?|$)/i.test(url)||/identitytoolkit\.googleapis\.com\/.*accounts:(signUp|signInWithPassword|update|delete|sendOobCode|sendVerificationCode)/i.test(url);}
+
+          const browser=await chromium.launch({headless:true});
+          for(const vp of [{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}]){
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height}});
+            await ctx.addInitScript(()=>{
+              window.__folioObserverAudit={intersection:[],mutation:[],resize:[]};
+              const OI=window.IntersectionObserver;
+              if(OI)window.IntersectionObserver=class extends OI{
+                constructor(cb,opt){
+                  const row={rootMargin:opt?.rootMargin||'',threshold:opt?.threshold??null,callback:String(cb),stack:String(new Error().stack||'')};
+                  window.__folioObserverAudit.intersection.push(row);super(cb,opt);
+                }
+              };
+              const OM=window.MutationObserver;
+              if(OM)window.MutationObserver=class extends OM{
+                constructor(cb){window.__folioObserverAudit.mutation.push({callback:String(cb),stack:String(new Error().stack||'')});super(cb);}
+              };
+              const OR=window.ResizeObserver;
+              if(OR)window.ResizeObserver=class extends OR{
+                constructor(cb){window.__folioObserverAudit.resize.push({callback:String(cb),stack:String(new Error().stack||'')});super(cb);}
+              };
+            });
+            await ctx.route('**/*',async route=>{
+              const req=route.request(),m=req.method().toUpperCase(),u=req.url();
+              if(safe.includes(m))return route.continue();
+              if(m==='POST'&&readOnlyPost(u)){allowedReadOnly.push({viewport:vp.name,method:m,url:u});return route.continue();}
+              if(m==='POST'&&telemetry(u)){blockedTelemetry.push({viewport:vp.name,method:m,url:u});return route.abort('blockedbyclient');}
+              unsafe.push({viewport:vp.name,method:m,url:u,knownMutating:knownMutating(u)});return route.abort('blockedbyclient');
+            });
+            const page=await ctx.newPage();
+            const localFailures=[],pageErrors=[];
+            page.on('pageerror',e=>pageErrors.push(String(e)));
+            page.on('requestfailed',req=>{try{if(new URL(req.url()).origin===ORIGIN)localFailures.push({url:req.url(),failure:req.failure()});}catch{}});
+            const res=await page.goto(ORIGIN+'/?folio_auth_review=006ba05c',{waitUntil:'domcontentloaded',timeout:30000});
+            if(!res||!res.ok())productDefect=true;
+            await page.waitForTimeout(900);
+            const states=[];
+            for(const phase of ['initial','middle','bottom','resized']){
+              if(phase==='middle')await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight*.5));
+              if(phase==='bottom')await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+              if(phase==='resized')await page.setViewportSize({width:Math.max(320,vp.width-40),height:vp.height});
+              await page.waitForTimeout(180);
+              states.push(await page.evaluate(()=>({
+                markerCount:document.querySelectorAll('.overdrive-folio-marker').length,
+                folioSectionCount:document.querySelectorAll('.overdrive-folio').length,
+                currentFolioCount:document.querySelectorAll('.is-folio-current').length
+              })));
+            }
+            const obs=await page.evaluate(()=>window.__folioObserverAudit);
+            const folioIO=obs.intersection.filter(x=>x.rootMargin==='-18% 0px -56% 0px'||/overdrive-folio|is-folio-current|folio/i.test(x.callback+'\n'+x.stack));
+            const folioMO=obs.mutation.filter(x=>/overdrive-folio|is-folio-current|folio/i.test(x.callback+'\n'+x.stack));
+            const folioRO=obs.resize.filter(x=>/overdrive-folio|is-folio-current|folio/i.test(x.callback+'\n'+x.stack));
+            if(states.some(s=>s.markerCount||s.folioSectionCount||s.currentFolioCount)||folioIO.length||folioMO.length||folioRO.length||localFailures.length||pageErrors.length)productDefect=true;
+            results.push({viewport:vp,states,observerTotals:{intersection:obs.intersection.length,mutation:obs.mutation.length,resize:obs.resize.length},folioSpecificObservers:{intersection:folioIO.length,mutation:folioMO.length,resize:folioRO.length},localFailures,pageErrors});
+            await ctx.close();
+          }
+          await browser.close();
+          if(unsafe.length) throw new Error('unsafe request attempted '+JSON.stringify(unsafe));
+          if(productDefect) throw new Error('current product deadness/runtime defect condition failed '+JSON.stringify(results));
+          fs.writeFileSync(path.join(OUT,'folio-live-deadness.json'),JSON.stringify({
+            callability:'UNREACHABLE',
+            builtFolioExecutablePath:'ABSENT',
+            naturalLiveFolioMarkers:0,
+            naturalLiveFolioSections:0,
+            naturalLiveCurrentFolios:0,
+            folioSpecificLiveObservers:0,
+            results,
+            mutatingDispatchCount:0,
+            unsafeRequests:unsafe,
+            allowedReadOnlyPosts:allowedReadOnly.length,
+            blockedTelemetryPosts:blockedTelemetry.length,
+            currentTypeAProductionDefect:'NONE PROVEN'
+          },null,2)+'\n');
+          JS
+          OUT="${OUT}" node ".folio-live-deadness.mjs"
+          rm -f ".folio-live-deadness.mjs"
+          test -z "$(git status --porcelain)"
+
+      - name: Derive authorization contract and decision
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          CHAR="${RUNNER_TEMP}/folio-characterization"
+          M4="${RUNNER_TEMP}/folio-m4"
+
+          OUT="${OUT}" CHAR="${CHAR}" M4="${M4}" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);char=Path(os.environ["CHAR"]);m4=Path(os.environ["M4"])
+
+          sims={x["simulation"]:x for x in json.load(open(char/"folio-simulation-matrix.json"))}
+          expected={
+            "A":(0,1,1),"B":(0,1,1),"C":(0,0,0),"D":(0,0,0),
+            "E":(0,1,1),"F":(0,1,1),"M4":(0,0,0)
+          }
+          for k,v in expected.items():
+              x=sims[k]
+              assert (x["buildExit"],x["checkerExit"],x["verifyExit"])==v,(k,x,v)
+          assert sims["C"]["distAdded"]==[] and sims["C"]["distDeleted"]==[] and sims["C"]["distChanged"]==[]
+          assert sims["C"]["distBytes"]==2555325
+          assert sims["M4"]["distBytes"]==2554010
+
+          source=json.load(open(out/"folio-m4-source-contract.json"))
+          authority=json.load(open(out/"folio-m4-authority-model.json"))
+          build=json.load(open(out/"folio-m4-build-contract.json"))
+          delta=json.load(open(out/"folio-m4-generated-delta.json"))
+          eq=json.load(open(out/"folio-m4-equivalence.json"))
+          live=json.load(open(out/"folio-live-deadness.json"))
+
+          assert source["exactFourPathBoundary"] and source["changedPathCount"]==4
+          assert authority["match"]
+          assert build["verify"]=="PASS" and build["build"]=="PASS" and build["tokenAuthorityChecker"]=="PASS"
+          assert delta["counts"]=={"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22}
+          assert eq["domEquivalence"]=="PASS" and eq["geometry"]=="EXACT" and eq["screenshots"]=="PIXEL IDENTICAL" and eq["unexplainedDifferences"]==0
+          assert live["callability"]=="UNREACHABLE" and live["builtFolioExecutablePath"]=="ABSENT"
+          assert live["naturalLiveFolioMarkers"]==0 and live["folioSpecificLiveObservers"]==0
+          assert live["currentTypeAProductionDefect"]=="NONE PROVEN"
+          assert live["mutatingDispatchCount"]==0
+
+          protected={
+            "initManuscriptHero":"PRESERVED",
+            "initReadingProgress":"PRESERVED",
+            "initOverdrive":"PRESERVED",
+            "DOMContentLoadedBootstrap":"PRESERVED",
+            "overdrive-ready":"PRESERVED",
+            "overdrive-manuscript":"BEHAVIORALLY IDENTICAL",
+            "overdrive-reading-progress":"BEHAVIORALLY IDENTICAL",
+            "unrelatedOverdriveCss":"PRESERVED BY EXACT FOLIO-ONLY DIFF",
+            "unrelatedHotfixRules":"PRESERVED BY ONE-RULE HOTFIX DIFF",
+            "unrelatedManifestRecords":"PRESERVED BY FOUR JSON-PATH CHANGES",
+            "--layout-section-compact":"UNCHANGED",
+            "wholeFileDeletion":"FORBIDDEN"
+          }
+          json.dump(protected,open(out/"folio-m4-protected-behavior.json","w"),indent=2)
+
+          branch_contract={
+            "futureImplementationBranch":"basair/post-3b-folio-opacity-implementation",
+            "base":"006ba05c7361451865660450695c48428a3ed8d0",
+            "createProductMutationDuringThisReview":False
+          }
+          json.dump(branch_contract,open(out/"folio-m4-implementation-branch-contract.json","w"),indent=2)
+
+          commit_contract={
+            "suggestedMessage":"Post-3B: remove dormant Folio subsystem",
+            "parent":"006ba05c7361451865660450695c48428a3ed8d0",
+            "parentCount":1,
+            "merge":False,"rebase":False,"reset":False,"force":False,
+            "changedPathCount":4,
+            "changedPaths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json"],
+            "atomic":True,
+            "wholeFileDeletion":False
+          }
+          json.dump(commit_contract,open(out/"folio-m4-implementation-commit-contract.json","w"),indent=2)
+
+          gates={
+            "freshPreflightAuthorityExact":True,
+            "exactFourPathSourceDiff":True,
+            "noFifthProductionPath":True,
+            "authority":{"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},
+            "npmCi":"REQUIRED PASS",
+            "npmRunVerify":"REQUIRED PASS",
+            "npmRunBuild":"REQUIRED PASS",
+            "tokenAuthorityChecker":"REQUIRED PASS",
+            "gitDiffCheck":"REQUIRED PASS",
+            "cleanWorkingTreeAfterCommit":"REQUIRED",
+            "dist":{"files":25,"bytes":2554010},
+            "criticalAssets":["assets/main-CdDtQcjc.js","assets/main-BJIbyLNf.css"],
+            "behavioralEquivalence":"EXACT",
+            "geometry":"EXACT",
+            "screenshots":"PIXEL IDENTICAL",
+            "builtJsFolioRuntimeSource":0,
+            "builtCssFolioOpacity":0,
+            "builtCssFolioMarkerSubsystem":0,
+            "hotfixFolioMask":0,
+            "staleManifestFolioAuthority":0
+          }
+          json.dump(gates,open(out/"folio-m4-acceptance-gates.json","w"),indent=2)
+
+          json.dump({
+            "outcome":"A — M4 IMPLEMENTATION AUTHORIZED",
+            "authorizedMutation":"M4 — FOLIO JS + CSS + HOTFIX + MANIFEST AS ONE ATOMIC REMOVAL",
+            "authorizedSourcePaths":4,
+            "paths":commit_contract["changedPaths"],
+            "wholeFileDeletion":"FORBIDDEN",
+            "expectedAuthorityAfterImplementation":gates["authority"],
+            "expectedBuild":{"files":25,"bytes":2554010,"criticalAssets":gates["criticalAssets"]},
+            "expectedBehavior":"NO CHANGE",
+            "expectedGeometry":"EXACT",
+            "expectedScreenshots":"PIXEL IDENTICAL",
+            "futureImplementationBranch":branch_contract["futureImplementationBranch"],
+            "futureCommitMessage":commit_contract["suggestedMessage"],
+            "implementationMayBegin":"YES — ONLY AFTER INDEPENDENT CLOSURE OF THIS AUTHORIZATION REVIEW",
+            "promotionAuthorized":False,
+            "deploymentAuthorized":False,
+            "implementationPerformed":False,
+            "currentTypeAProductionDefect":"NONE PROVEN",
+            "nextPossibleGate":"FOLIO OPACITY IMPLEMENTATION",
+            "doNotMutateProductionInThisReview":True
+          },open(out/"folio-implementation-auth-summary.json","w"),indent=2)
+          PY
+
+      - name: Terminal authority and zero-mutation check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-compact-token-ownership-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${IMPL}" = "${IMPL_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+          jq -n \
+            --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            | tee "${OUT}/folio-implementation-auth-terminal-refs.json"
+
+      - name: Verify required authorization evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-auth"
+          for F in \
+            folio-implementation-auth-preflight.json \
+            folio-characterization-authority.json \
+            folio-m4-source-contract.json \
+            folio-m4-js-contract.json \
+            folio-m4-css-contract.json \
+            folio-m4-hotfix-contract.json \
+            folio-m4-manifest-contract.json \
+            folio-m4-authority-model.json \
+            folio-m4-build-contract.json \
+            folio-m4-generated-delta.json \
+            folio-m4-equivalence.json \
+            folio-m4-protected-behavior.json \
+            folio-m4-implementation-branch-contract.json \
+            folio-m4-implementation-commit-contract.json \
+            folio-m4-acceptance-gates.json \
+            folio-implementation-auth-summary.json \
+            folio-implementation-auth-terminal-refs.json
+          do
+            test -s "${OUT}/${F}"
+          done
+          jq -e '.outcome=="A — M4 IMPLEMENTATION AUTHORIZED"' "${OUT}/folio-implementation-auth-summary.json" >/dev/null
+          jq -e '.changedPathCount==4 and .unrelatedFormattingChurn==0 and .unrelatedSemanticChanges==0' "${OUT}/folio-m4-source-contract.json" >/dev/null
+          jq -e '.domEquivalence=="PASS" and .geometry=="EXACT" and .screenshots=="PIXEL IDENTICAL"' "${OUT}/folio-m4-equivalence.json" >/dev/null
+
+      - name: Upload implementation authorization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-implementation-authorization-review
+          path: ${{ runner.temp }}/folio-auth
+          if-no-files-found: error
+          retention-days: 90
