@@ -338,7 +338,7 @@ jobs:
           m4=Path(os.environ["M4"]);out=Path(os.environ["OUT"]);base=Path(os.environ["BASE"])
           man=json.loads((m4/"token-authority-manifest.json").read_text())
           authority={
-            "canonical":len(man.get("canonical",{})),
+            "canonical":len(man.get("canonicalTokens",{})),
             "aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},
             "correctedConflicts":man["correctedAuditScope"]["conflictCount"],
             "productionCss":man["correctedAuditScope"]["productionCssFileCount"],
