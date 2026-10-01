@@ -369,6 +369,7 @@ jobs:
             return keys.every(k=>samples.every(x=>x.hashes[k]===samples[0].hashes[k]));
           }
           function comparisonStable(comparisons){return comparisons.length>0&&comparisons.every(x=>x.pixelIdentical&&x.diffPixels===0&&x.maxChannelDelta===0&&x.diffRatio===0)}
+          function compactSamples(samples){return samples.map(x=>({accepted:x.accepted,variant:x.variant,viewport:x.viewport,label:x.label,pngHash:x.pngHash,hashes:x.hashes}))}
           function phasePass(phase){return phase.accepted===phase.required&&phaseIdentityStable(phase.samples)&&comparisonStable(phase.comparisons)}
 
           async function samePagePhase(variant,v){
@@ -387,6 +388,7 @@ jobs:
             }else out.error=open.error;
             await b.close();
             out.pass=out.accepted===5&&out.interShotChecks.every(x=>x.ok)&&phaseIdentityStable(out.samples)&&out.comparisons.length===4&&comparisonStable(out.comparisons);
+            out.samples=compactSamples(out.samples);
             return out;
           }
 
@@ -401,6 +403,7 @@ jobs:
             await b.close();
             for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-context-1-'+(i+1),out.samples[0],out.samples[i]));
             out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            out.samples=compactSamples(out.samples);
             return out;
           }
 
@@ -423,6 +426,7 @@ jobs:
             }
             for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-process-1-'+(i+1),out.samples[0],out.samples[i]));
             out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            out.samples=compactSamples(out.samples);
             return out;
           }
 
