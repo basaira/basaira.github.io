@@ -19,7 +19,7 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - name: Checkout exact implementation SHA
         uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
 
           jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
             --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg implTree "$(jq -r '.tree.sha' <<<"${IG}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
-            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,implementationTree:$implTree,ghPagesTree:$ghTree,mainMoved:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,implementationTree:$implTree,ghPagesTree:$ghTree,authorityDrift:false}' \
             > "${OUT}/folio-implementation-preflight.json"
 
           jq -n --arg sha "${IMPL}" --arg tree "$(jq -r '.tree.sha' <<<"${IG}")" --arg parent "$(jq -r '.parents[0].sha' <<<"${IG}")" \
@@ -69,81 +69,63 @@ jobs:
             '{sha:$sha,tree:$tree,parent:$parent,parentCount:1,message:$message}' \
             > "${OUT}/folio-implementation-commit.json"
 
-      - name: Exact four-path source diff and post-mutation assertions
+      - name: Exact source diff and source assertions
         shell: bash
         run: |
           set -euo pipefail
           OUT="${RUNNER_TEMP}/folio-implementation-evidence"
-          test "$(git rev-parse HEAD)" = "${IMPLEMENTATION_SHA}"
-          test "$(git rev-parse HEAD^{tree})" = "${IMPLEMENTATION_TREE}"
-
-          mapfile -t FILES < <(git diff --name-only "${BASE_SHA}..${IMPLEMENTATION_SHA}" --)
-          EXPECTED=(overdrive-v1.css overdrive-v1.js token-authority-manifest.json visual-layout-hotfix-v2.css)
-          test "${#FILES[@]}" = "4"
-          printf '%s\n' "${FILES[@]}" | diff -u <(printf '%s\n' "${EXPECTED[@]}") -
-
           git diff --numstat "${BASE_SHA}..${IMPLEMENTATION_SHA}" -- > "${OUT}/folio-implementation-numstat.txt"
+          git diff --name-only "${BASE_SHA}..${IMPLEMENTATION_SHA}" -- > "${OUT}/folio-implementation-name-only.txt"
+          git diff --no-ext-diff --unified=8 "${BASE_SHA}..${IMPLEMENTATION_SHA}" -- > "${OUT}/folio-implementation-source.patch"
+          git diff --check "${BASE_SHA}..${IMPLEMENTATION_SHA}"
+
+          test "$(wc -l < "${OUT}/folio-implementation-name-only.txt")" = "4"
+          grep -Fx 'overdrive-v1.css' "${OUT}/folio-implementation-name-only.txt"
+          grep -Fx 'overdrive-v1.js' "${OUT}/folio-implementation-name-only.txt"
+          grep -Fx 'token-authority-manifest.json' "${OUT}/folio-implementation-name-only.txt"
+          grep -Fx 'visual-layout-hotfix-v2.css' "${OUT}/folio-implementation-name-only.txt"
           grep -Fx $'0\t45\toverdrive-v1.css' "${OUT}/folio-implementation-numstat.txt"
           grep -Fx $'0\t25\toverdrive-v1.js' "${OUT}/folio-implementation-numstat.txt"
           grep -Fx $'3\t5\ttoken-authority-manifest.json' "${OUT}/folio-implementation-numstat.txt"
           grep -Fx $'0\t1\tvisual-layout-hotfix-v2.css' "${OUT}/folio-implementation-numstat.txt"
-          git diff --check "${BASE_SHA}..${IMPLEMENTATION_SHA}"
-          git diff --no-ext-diff --unified=8 "${BASE_SHA}..${IMPLEMENTATION_SHA}" -- > "${OUT}/folio-implementation-source.patch"
 
-          OUT="${OUT}" python3 - <<'PY'
-          import json,os,re,subprocess
+          python3 - "${OUT}" <<'PY'
+          import json,re,sys,subprocess
           from pathlib import Path
-          out=Path(os.environ["OUT"])
+          out=Path(sys.argv[1])
           js=Path("overdrive-v1.js").read_text()
           css=Path("overdrive-v1.css").read_text()
           hot=Path("visual-layout-hotfix-v2.css").read_text()
           man=json.loads(Path("token-authority-manifest.json").read_text())
 
-          js_result={
+          jsr={
             "initFolioMarkersDefinitionCount":len(re.findall(r"\bfunction\s+initFolioMarkers\s*\(",js)),
             "initFolioMarkersReferenceCount":len(re.findall(r"\binitFolioMarkers\b",js)),
-            "folioExecutableSourceCount":sum(js.count(x) for x in ["overdrive-folio-marker","is-folio-current","dataset.folio"]),
             "protected":{"initManuscriptHero":"function initManuscriptHero()" in js,"initReadingProgress":"function initReadingProgress()" in js,"initOverdrive":"function initOverdrive()" in js,"DOMContentLoaded":"DOMContentLoaded" in js,"overdriveReady":"overdrive-ready" in js}
           }
-          assert js_result["initFolioMarkersDefinitionCount"]==0 and js_result["initFolioMarkersReferenceCount"]==0 and js_result["folioExecutableSourceCount"]==0
-          assert all(js_result["protected"].values())
-          json.dump(js_result,open(out/"folio-implementation-js-result.json","w"),indent=2)
+          assert jsr["initFolioMarkersDefinitionCount"]==0 and jsr["initFolioMarkersReferenceCount"]==0 and all(jsr["protected"].values())
+          json.dump(jsr,open(out/"folio-implementation-js-result.json","w"),indent=2)
 
-          css_result={k:css.count(k) for k in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]}
-          css_result["protected"]={k:(k in css) for k in ["od-reading-progress","Scroll-linked depth","od-manuscript-depth","video-card__media"]}
-          assert all(css_result[k]==0 for k in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"])
-          assert all(css_result["protected"].values())
-          json.dump(css_result,open(out/"folio-implementation-css-result.json","w"),indent=2)
+          cssr={k:css.count(k) for k in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]}
+          cssr["protected"]={k:(k in css) for k in ["od-reading-progress","Scroll-linked depth","od-manuscript-depth","video-card__media"]}
+          assert all(cssr[k]==0 for k in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]) and all(cssr["protected"].values())
+          json.dump(cssr,open(out/"folio-implementation-css-result.json","w"),indent=2)
 
-          hot_result={
-            "folioMaskOccurrences":hot.count(".overdrive-folio-marker{display:none!important}"),
-            "authorizedCommentPreserved":"The folio ornament created a visible line/diamond floating inside large empty top padding." in hot,
-            "layoutSectionCompactPreserved":"--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);" in hot
-          }
-          assert hot_result=={"folioMaskOccurrences":0,"authorizedCommentPreserved":True,"layoutSectionCompactPreserved":True}
-          json.dump(hot_result,open(out/"folio-implementation-hotfix-result.json","w"),indent=2)
+          hotr={"folioMaskOccurrences":hot.count(".overdrive-folio-marker{display:none!important}"),"authorizedCommentPreserved":"The folio ornament created a visible line/diamond floating inside large empty top padding." in hot,"layoutSectionCompactPreserved":"--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);" in hot}
+          assert hotr=={"folioMaskOccurrences":0,"authorizedCommentPreserved":True,"layoutSectionCompactPreserved":True}
+          json.dump(hotr,open(out/"folio-implementation-hotfix-result.json","w"),indent=2)
 
-          mres={
-            "folioInComponentLocalExplicit":"--folio-opacity" in man.get("componentLocalExplicit",[]),
-            "folioInConflictTokens":"--folio-opacity" in man["correctedAuditScope"]["conflictTokens"],
-            "conflictCount":man["correctedAuditScope"]["conflictCount"],
-            "customPropertyNameCount":man["correctedAuditScope"]["customPropertyNameCount"],
-            "canonicalCount":len(man["canonicalTokens"]),
-            "layoutSectionCompactAliasPresent":"--layout-section-compact" in man.get("aliases",{}),
-            "layoutSectionCompactConflictPresent":"--layout-section-compact" in man["correctedAuditScope"]["conflictTokens"]
-          }
-          assert mres["folioInComponentLocalExplicit"] is False and mres["folioInConflictTokens"] is False
-          assert mres["conflictCount"]==38 and mres["customPropertyNameCount"]==368 and mres["canonicalCount"]==106
-          assert mres["layoutSectionCompactAliasPresent"] is False and mres["layoutSectionCompactConflictPresent"] is False
-          json.dump(mres,open(out/"folio-implementation-manifest-result.json","w"),indent=2)
+          mr={"folioInComponentLocalExplicit":"--folio-opacity" in man.get("componentLocalExplicit",[]),"folioInConflictTokens":"--folio-opacity" in man["correctedAuditScope"]["conflictTokens"],"conflictCount":man["correctedAuditScope"]["conflictCount"],"customPropertyNameCount":man["correctedAuditScope"]["customPropertyNameCount"],"canonicalCount":len(man["canonicalTokens"])}
+          assert mr=={"folioInComponentLocalExplicit":False,"folioInConflictTokens":False,"conflictCount":38,"customPropertyNameCount":368,"canonicalCount":106}
+          json.dump(mr,open(out/"folio-implementation-manifest-result.json","w"),indent=2)
 
           stats=[]
-          for line in subprocess.check_output(["git","diff","--numstat",os.environ.get("BASE_SHA","006ba05c7361451865660450695c48428a3ed8d0")+"..HEAD","--"],text=True).splitlines():
-              a,d,p=line.split("\t");stats.append({"path":p,"additions":int(a),"deletions":int(d)})
-          json.dump({"changedPathCount":4,"changedPaths":sorted(x["path"] for x in stats),"stats":stats,"unrelatedFormattingChurn":0,"unrelatedSemanticChanges":0,"wholeFileDeletion":False,"gitDiffCheck":"PASS"},open(out/"folio-implementation-source-diff.json","w"),indent=2)
+          for l in (out/"folio-implementation-numstat.txt").read_text().splitlines():
+            a,d,p=l.split("\t");stats.append({"path":p,"additions":int(a),"deletions":int(d)})
+          json.dump({"changedPathCount":4,"stats":stats,"unrelatedFormattingChurn":0,"unrelatedSemanticChanges":0,"wholeFileDeletion":False,"gitDiffCheck":"PASS"},open(out/"folio-implementation-source-diff.json","w"),indent=2)
           PY
 
-      - name: Fresh post-commit verification and build identity
+      - name: Fresh verification build identity and detect blocker
         shell: bash
         run: |
           set -euo pipefail
@@ -156,32 +138,22 @@ jobs:
           git diff --check
           test -z "$(git status --porcelain)"
 
-          OUT="${OUT}" python3 - <<'PY'
-          import hashlib,json,os
+          python3 - "${OUT}" <<'PY'
+          import hashlib,json,sys
           from pathlib import Path
-          out=Path(os.environ["OUT"])
+          out=Path(sys.argv[1])
           man=json.load(open("token-authority-manifest.json"))
-          authority={
-            "canonical":len(man["canonicalTokens"]),
-            "aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},
-            "correctedConflicts":man["correctedAuditScope"]["conflictCount"],
-            "productionCss":man["correctedAuditScope"]["productionCssFileCount"],
-            "inlineStyles":man["correctedAuditScope"]["inlineStyleBlockCount"],
-            "customPropertyNames":man["correctedAuditScope"]["customPropertyNameCount"],
-            "undefinedVariables":0
-          }
-          exp={"canonical":106,"aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
-          assert authority==exp,(authority,exp)
-          json.dump(authority,open(out/"folio-implementation-authority.json","w"),indent=2)
+          auth={"canonical":len(man["canonicalTokens"]),"aliases":[1,48,23,23,2],"correctedConflicts":man["correctedAuditScope"]["conflictCount"],"productionCss":man["correctedAuditScope"]["productionCssFileCount"],"inlineStyles":man["correctedAuditScope"]["inlineStyleBlockCount"],"customPropertyNames":man["correctedAuditScope"]["customPropertyNameCount"],"undefinedVariables":0}
+          assert auth=={"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
+          json.dump(auth,open(out/"folio-implementation-authority.json","w"),indent=2)
 
           root=Path("dist"); rows={}
           for p in sorted(x for x in root.rglob("*") if x.is_file()):
             b=p.read_bytes();rows[p.relative_to(root).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
-          assert len(rows)==25
-          assert sum(x["bytes"] for x in rows.values())==2554010
+          assert len(rows)==25 and sum(x["bytes"] for x in rows.values())==2554010
           assert "assets/main-CdDtQcjc.js" in rows and "assets/main-BJIbyLNf.css" in rows
           assert "assets/main-DDXdaUdM.js" not in rows and "assets/main-NHlCiF5H.css" not in rows
-          json.dump({"fileCount":25,"totalBytes":2554010,"mainJs":"assets/main-CdDtQcjc.js","mainCss":"assets/main-BJIbyLNf.css","oldBaselineAssetsAbsent":True,"files":rows},open(out/"folio-implementation-build.json","w"),indent=2)
+          json.dump({"fileCount":25,"totalBytes":2554010,"mainJs":"assets/main-CdDtQcjc.js","mainCss":"assets/main-BJIbyLNf.css","oldBaselineAssetsAbsent":True},open(out/"folio-implementation-build.json","w"),indent=2)
 
           js=Path("dist/assets/main-CdDtQcjc.js").read_text(errors="replace")
           css=Path("dist/assets/main-BJIbyLNf.css").read_text(errors="replace")
@@ -189,234 +161,41 @@ jobs:
             "builtJs":{"overdriveFolioMarker":js.count("overdrive-folio-marker"),"overdriveFolio":js.count("overdrive-folio"),"isFolioCurrent":js.count("is-folio-current"),"datasetFolio":js.count("dataset.folio"),"folioRootMargin":js.count("-18% 0px -56% 0px"),"overdriveReady":js.count("overdrive-ready"),"overdriveManuscript":js.count("overdrive-manuscript"),"overdriveReadingProgress":js.count("overdrive-reading-progress")},
             "builtCss":{"folioOpacity":css.count("--folio-opacity"),"overdriveFolioMarker":css.count("overdrive-folio-marker"),"isFolioCurrent":css.count("is-folio-current"),"odFolioOpen":css.count("od-folio-open"),"folioMask":css.count(".overdrive-folio-marker{display:none!important}")}
           }
-          print(json.dumps(runtime,indent=2))
           assert all(runtime["builtJs"][k]==0 for k in ["overdriveFolioMarker","overdriveFolio","isFolioCurrent","datasetFolio","folioRootMargin"])
           assert runtime["builtJs"]["overdriveReady"]>0 and runtime["builtJs"]["overdriveManuscript"]>0 and runtime["builtJs"]["overdriveReadingProgress"]>0
-          assert all(v==0 for v in runtime["builtCss"].values())
           json.dump(runtime,open(out/"folio-implementation-runtime-absence.json","w"),indent=2)
+
+          blocker={
+            "verificationGate":"BUILT FOLIO ABSENCE",
+            "expectedBuiltCss":{"folioOpacity":0,"overdriveFolioMarker":0,"isFolioCurrent":0,"odFolioOpen":0,"folioMask":0},
+            "actualBuiltCss":runtime["builtCss"],
+            "blocking":runtime["builtCss"]["overdriveFolioMarker"]!=0 or runtime["builtCss"]["folioMask"]!=0 or runtime["builtCss"]["folioOpacity"]!=0 or runtime["builtCss"]["isFolioCurrent"]!=0 or runtime["builtCss"]["odFolioOpen"]!=0,
+            "classification":"D — IMPLEMENTATION BLOCKED BY VERIFICATION FAILURE"
+          }
+          assert blocker["blocking"] is True
+          json.dump(blocker,open(out/"folio-implementation-blocker.json","w"),indent=2)
           PY
 
-      - name: Build frozen baseline and prove exact generated delta
+      - name: Prove blocker source is unchanged fifth production path
         shell: bash
         run: |
           set -euo pipefail
           OUT="${RUNNER_TEMP}/folio-implementation-evidence"
-          BASE="${RUNNER_TEMP}/folio-base"
-          git worktree add --detach "${BASE}" "${BASE_SHA}"
-          ln -s "${GITHUB_WORKSPACE}/node_modules" "${BASE}/node_modules"
-          (cd "${BASE}" && npm run build >/dev/null)
+          BASE_BLOB="$(git rev-parse "${BASE_SHA}:homepage-sections-v1.css")"
+          IMPL_BLOB="$(git rev-parse "${IMPLEMENTATION_SHA}:homepage-sections-v1.css")"
+          test "${BASE_BLOB}" = "ef073fbb20c95292c40d6ca9f0775c1f2a4f8866"
+          test "${IMPL_BLOB}" = "ef073fbb20c95292c40d6ca9f0775c1f2a4f8866"
+          grep -nFx 'main > section.home-chapter > .overdrive-folio-marker{display:none!important}' homepage-sections-v1.css > "${OUT}/folio-blocker-source-line.txt"
+          grep -F 'homepage-sections-v1.css?v=20260829-home1' index.html >/dev/null
 
-          OUT="${OUT}" BASE="${BASE}/dist" IMPL="${GITHUB_WORKSPACE}/dist" python3 - <<'PY'
-          import hashlib,json,os
-          from pathlib import Path
-          out=Path(os.environ["OUT"])
-          def snap(root):
-            root=Path(root); rows={}
-            for p in sorted(x for x in root.rglob("*") if x.is_file()):
-              b=p.read_bytes();rows[p.relative_to(root).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
-            return rows
-          b=snap(os.environ["BASE"]);i=snap(os.environ["IMPL"])
-          assert len(b)==25 and sum(x["bytes"] for x in b.values())==2555325
-          assert len(i)==25 and sum(x["bytes"] for x in i.values())==2554010
-          add=sorted(set(i)-set(b));delete=sorted(set(b)-set(i));modify=sorted(k for k in set(b)&set(i) if b[k]!=i[k]);preserve=sorted(k for k in set(b)&set(i) if b[k]==i[k])
-          assert add==["assets/main-BJIbyLNf.css","assets/main-CdDtQcjc.js"],add
-          assert delete==["assets/main-DDXdaUdM.js","assets/main-NHlCiF5H.css"],delete
-          assert modify==["index.html"],modify
-          assert len(preserve)==22,len(preserve)
-          json.dump({"ADD":add,"MODIFY":modify,"DELETE":delete,"PRESERVE":preserve,"counts":{"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22},"noUnrelatedGeneratedChanges":True},open(out/"folio-implementation-generated-delta.json","w"),indent=2)
-          PY
+          jq -n \
+            --arg path "homepage-sections-v1.css" \
+            --arg baseBlob "${BASE_BLOB}" --arg implementationBlob "${IMPL_BLOB}" \
+            --arg rule 'main > section.home-chapter > .overdrive-folio-marker{display:none!important}' \
+            '{path:$path,authorizedPath:false,fifthProductionPath:true,baselineBlob:$baseBlob,implementationBlob:$implementationBlob,unchangedFromBaseline:true,productionReferencedFromIndex:true,exactResidualRule:$rule,contractExpansionRequiredToRemove:true,contractExpansionForbidden:true}' \
+            > "${OUT}/folio-implementation-blocker-source.json"
 
-      - name: Install Playwright Chromium
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
-          npx playwright install --with-deps chromium >/dev/null
-          git checkout -- package.json package-lock.json 2>/dev/null || true
-          rm -f node_modules/.package-lock.json 2>/dev/null || true
-          test -z "$(git status --porcelain)"
-
-      - name: Exact post-commit browser geometry screenshot and network proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT="${RUNNER_TEMP}/folio-implementation-evidence"
-          BASE="${RUNNER_TEMP}/folio-base"
-          python3 -m http.server 4373 --directory "${BASE}/dist" >/tmp/folio-impl-base.log 2>&1 &
-          python3 -m http.server 4374 --directory "${GITHUB_WORKSPACE}/dist" >/tmp/folio-impl-new.log 2>&1 &
-          sleep 2
-
-          cat > ".folio-impl-browser.mjs" <<'JS'
-          import { chromium } from 'playwright';
-          import fs from 'node:fs';
-          import path from 'node:path';
-          import crypto from 'node:crypto';
-          import { PNG } from 'pngjs';
-
-          const OUT=process.env.OUT;
-          const origins={BASE:'http://127.0.0.1:4373',IMPL:'http://127.0.0.1:4374'};
-          const vps=[
-            {name:'desktop',width:1440,height:1000},
-            {name:'mobile',width:390,height:844},
-            {name:'below-760',width:759,height:900},
-            {name:'above-760',width:761,height:900}
-          ];
-          const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
-
-          async function capture(browser,variant,vp){
-            const origin=origins[variant];
-            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce'});
-            const pg=await ctx.newPage();
-            const consoleEvents=[],localFailures=[],blockedExternal=[],mutatingAttempts=[];
-            await ctx.route('**/*',async route=>{
-              const req=route.request(),m=req.method().toUpperCase(),url=req.url();
-              let u; try{u=new URL(url);}catch{return route.abort('blockedbyclient');}
-              if(u.origin===origin && ['GET','HEAD','OPTIONS'].includes(m)) return route.continue();
-              if(['GET','HEAD','OPTIONS'].includes(m)){blockedExternal.push({method:m,url});return route.abort('blockedbyclient');}
-              const readOnly=/google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(url)||/firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);
-              const telemetry=/google-analytics\.com|googletagmanager\.com|google\.com\/g\/collect/.test(url);
-              if(readOnly||telemetry){blockedExternal.push({method:m,url,classification:readOnly?'read-only-blocked':'telemetry-blocked'});return route.abort('blockedbyclient');}
-              mutatingAttempts.push({method:m,url}); return route.abort('blockedbyclient');
-            });
-            pg.on('console',m=>{if(['error','warning'].includes(m.type()))consoleEvents.push({type:m.type(),text:m.text().replaceAll('4373','PORT').replaceAll('4374','PORT')});});
-            pg.on('pageerror',e=>consoleEvents.push({type:'pageerror',text:String(e).replaceAll('4373','PORT').replaceAll('4374','PORT')}));
-            pg.on('requestfailed',req=>{try{if(new URL(req.url()).origin===origin)localFailures.push({url:req.url().replace(origin,'ORIGIN'),failure:req.failure()});}catch{}});
-            const res=await pg.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});
-            if(!res||!res.ok())throw new Error('navigation failed '+variant+' '+vp.name);
-            await pg.waitForTimeout(350);
-            await pg.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
-            await pg.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight*.55));
-            await pg.waitForTimeout(120);
-            await pg.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
-            await pg.waitForTimeout(120);
-            await pg.evaluate(()=>window.scrollTo(0,0));
-            await pg.waitForTimeout(120);
-            const metrics=await pg.evaluate(()=>{
-              const sections=[...document.querySelectorAll('main > section')].map((el,i)=>{
-                const r=el.getBoundingClientRect(),s=getComputedStyle(el);
-                return {i,id:el.id||'',className:typeof el.className==='string'?el.className:'',top:r.top+scrollY,bottom:r.bottom+scrollY,left:r.left+scrollX,width:r.width,height:r.height,display:s.display,visibility:s.visibility,overflowX:s.overflowX,overflowY:s.overflowY};
-              });
-              const structural=[...document.body.querySelectorAll('*')].map(el=>el.tagName+'#'+(el.id||'')+'.'+(typeof el.className==='string'?el.className:'')).join('\n');
-              return {
-                markerCount:document.querySelectorAll('.overdrive-folio-marker').length,
-                folioSectionCount:document.querySelectorAll('.overdrive-folio').length,
-                currentFolioCount:document.querySelectorAll('.is-folio-current').length,
-                readingProgressCount:document.querySelectorAll('.overdrive-reading-progress').length,
-                heroManuscriptCount:document.querySelectorAll('.overdrive-manuscript').length,
-                overdriveReady:document.documentElement.classList.contains('overdrive-ready'),
-                documentScrollHeight:document.documentElement.scrollHeight,
-                bodyScrollHeight:document.body.scrollHeight,
-                htmlOverflowX:getComputedStyle(document.documentElement).overflowX,
-                bodyOverflowX:getComputedStyle(document.body).overflowX,
-                sections,structural
-              };
-            });
-            metrics.structuralHash=hash(Buffer.from(metrics.structural)); delete metrics.structural;
-
-            await pg.evaluate(async()=>{
-              try{await document.fonts?.ready;}catch{}
-              await Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{
-                const done=()=>resolve(); img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});setTimeout(done,1500);
-              })));
-              for(const v of document.querySelectorAll('video')){try{v.pause();v.currentTime=0;}catch{}}
-              window.scrollTo(0,0);
-            });
-            await pg.addStyleTag({content:\`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}\`});
-            await pg.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-            await pg.waitForTimeout(80);
-            const png=await pg.screenshot({fullPage:true,animations:'disabled'});
-            await ctx.close();
-            return {metrics,consoleEvents,localFailures,blockedExternal,mutatingAttempts,png};
-          }
-
-          const browser=await chromium.launch({headless:true});
-          const rows=[],network=[];
-          for(const vp of vps){
-            const a=await capture(browser,'BASE',vp),b=await capture(browser,'IMPL',vp);
-            if(a.mutatingAttempts.length||b.mutatingAttempts.length)throw new Error('unsafe request attempted '+vp.name);
-            if(JSON.stringify(a.metrics)!==JSON.stringify(b.metrics))throw new Error('DOM/geometry mismatch '+vp.name);
-            if(JSON.stringify(a.consoleEvents)!==JSON.stringify(b.consoleEvents))throw new Error('console mismatch '+vp.name);
-            if(a.localFailures.length||b.localFailures.length)throw new Error('local network failure '+vp.name);
-            const A=PNG.sync.read(a.png),B=PNG.sync.read(b.png);
-            if(A.width!==B.width||A.height!==B.height)throw new Error('screenshot size mismatch '+vp.name);
-            let diffPixels=0,maxChannelDelta=0;
-            for(let i=0;i<A.data.length;i+=4){
-              let pd=false;
-              for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){pd=true;if(d>maxChannelDelta)maxChannelDelta=d;}}
-              if(pd)diffPixels++;
-            }
-            const diffRatio=diffPixels/(A.width*A.height);
-            if(diffPixels||maxChannelDelta||diffRatio)throw new Error('pixel mismatch '+vp.name+' '+JSON.stringify({diffPixels,maxChannelDelta,diffRatio}));
-            rows.push({viewport:vp.name,domEquivalence:'PASS',markerCountBase:a.metrics.markerCount,markerCountImplementation:b.metrics.markerCount,geometry:'EXACT',scrollLayout:'EXACT',readingProgress:'UNCHANGED',heroManuscript:'UNCHANGED',overdriveReady:'UNCHANGED',consoleBehavior:'EQUAL',localNetworkFailures:'EQUAL',screenshot:{diffPixels,maxChannelDelta,diffRatio,pixelIdentical:true}});
-            network.push({viewport:vp.name,baseBlockedExternal:a.blockedExternal.length,implementationBlockedExternal:b.blockedExternal.length,baseMutatingAttempts:0,implementationMutatingAttempts:0});
-          }
-          await browser.close();
-          fs.writeFileSync(path.join(OUT,'folio-implementation-equivalence.json'),JSON.stringify({route:'/',cases:rows,caseCount:4,dom:'EXACT',geometry:'EXACT',scrollLayout:'EXACT',screenshots:'PIXEL IDENTICAL',productRuntimeRegression:false},null,2)+'\n');
-          fs.writeFileSync(path.join(OUT,'folio-implementation-network-boundary.json'),JSON.stringify({cases:network,mutatingDispatchCount:0,backendMutation:false,firebaseMutation:false,localNetworkFailures:0},null,2)+'\n');
-          JS
-          OUT="${OUT}" node ".folio-impl-browser.mjs"
-          rm -f ".folio-impl-browser.mjs"
-          test -z "$(git status --porcelain)"
-
-      - name: Protected-behavior and implementation summary
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT="${RUNNER_TEMP}/folio-implementation-evidence"
-          python3 - "${OUT}" <<'PY'
-          import json,sys
-          from pathlib import Path
-          out=Path(sys.argv[1])
-          js=json.load(open(out/"folio-implementation-js-result.json"))
-          css=json.load(open(out/"folio-implementation-css-result.json"))
-          hot=json.load(open(out/"folio-implementation-hotfix-result.json"))
-          man=json.load(open(out/"folio-implementation-manifest-result.json"))
-          eq=json.load(open(out/"folio-implementation-equivalence.json"))
-          runtime=json.load(open(out/"folio-implementation-runtime-absence.json"))
-
-          protected={
-            "initManuscriptHero":js["protected"]["initManuscriptHero"],
-            "initReadingProgress":js["protected"]["initReadingProgress"],
-            "initOverdrive":js["protected"]["initOverdrive"],
-            "DOMContentLoadedBootstrap":js["protected"]["DOMContentLoaded"],
-            "overdriveReady":js["protected"]["overdriveReady"],
-            "unrelatedOverdriveCss":all(css["protected"].values()),
-            "unrelatedHotfixes":hot["layoutSectionCompactPreserved"],
-            "authorizedFolioCommentPreserved":hot["authorizedCommentPreserved"],
-            "layoutSectionCompactUnchanged":not man["layoutSectionCompactAliasPresent"] and not man["layoutSectionCompactConflictPresent"],
-            "runtimeEquivalence":eq["productRuntimeRegression"] is False
-          }
-          assert all(protected.values())
-          json.dump(protected,open(out/"folio-implementation-protected-behavior.json","w"),indent=2)
-
-          summary={
-            "classification":"A — M4 IMPLEMENTATION EXACTLY COMPLETE",
-            "base":"006ba05c7361451865660450695c48428a3ed8d0",
-            "implementationBranch":"basair/post-3b-folio-opacity-implementation",
-            "implementationSha":"5bc4e216a568a57b217187b4030f8208ad87fe31",
-            "implementationTree":"d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65",
-            "parent":"006ba05c7361451865660450695c48428a3ed8d0",
-            "parentCount":1,
-            "commitMessage":"Post-3B: remove dormant Folio subsystem",
-            "changedProductionPaths":4,
-            "wholeFileDeletion":"NONE",
-            "tokenAuthority":{"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},
-            "build":{"files":25,"bytes":2554010,"mainJs":"assets/main-CdDtQcjc.js","mainCss":"assets/main-BJIbyLNf.css"},
-            "generatedDelta":{"ADD":2,"MODIFY":1,"DELETE":2,"PRESERVE":22},
-            "folioExecutableJs":"ABSENT",
-            "folioCssRemnants":0,
-            "folioHotfixMask":0,
-            "staleFolioManifestAuthority":0,
-            "behavior":"UNCHANGED","geometry":"EXACT","screenshots":"PIXEL IDENTICAL",
-            "main":"UNCHANGED","ghPages":"UNCHANGED","promotion":"NOT PERFORMED","deployment":"NOT PERFORMED","firebaseBackendMutation":"NONE",
-            "nextPossibleGate":"FOLIO OPACITY PROMOTION CHARACTERIZATION",
-            "doNotPromoteYet":True,"doNotDeployYet":True
-          }
-          assert runtime["builtJs"]["overdriveFolioMarker"]==0 and all(v==0 for v in runtime["builtCss"].values())
-          json.dump(summary,open(out/"folio-implementation-summary.json","w"),indent=2)
-          PY
-
-      - name: Terminal authority check
+      - name: Terminal refs and blocked summary
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -432,54 +211,38 @@ jobs:
           MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
           IMPL="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation" | jq -r '.object.sha')"
           GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
-          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
-          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
           test "${MAIN}" = "${BASE_SHA}"
           test "${IMPL}" = "${IMPLEMENTATION_SHA}"
           test "${GH}" = "${GH_SHA}"
-          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${BASE_TREE}"
-          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+
           jq -n --arg main "${MAIN}" --arg impl "${IMPL}" --arg gh "${GH}" \
-            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
-            '{main:$main,implementation:$impl,ghPages:$gh,mainTree:$mainTree,ghPagesTree:$ghTree,mainMoved:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            '{main:$main,implementation:$impl,ghPages:$gh,mainMoved:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
             > "${OUT}/folio-implementation-terminal-refs.json"
 
-      - name: Verify required evidence set
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT="${RUNNER_TEMP}/folio-implementation-evidence"
-          for F in \
-            folio-implementation-preflight.json \
-            folio-implementation-commit.json \
-            folio-implementation-source-diff.json \
-            folio-implementation-js-result.json \
-            folio-implementation-css-result.json \
-            folio-implementation-hotfix-result.json \
-            folio-implementation-manifest-result.json \
-            folio-implementation-authority.json \
-            folio-implementation-build.json \
-            folio-implementation-generated-delta.json \
-            folio-implementation-protected-behavior.json \
-            folio-implementation-equivalence.json \
-            folio-implementation-runtime-absence.json \
-            folio-implementation-network-boundary.json \
-            folio-implementation-terminal-refs.json \
-            folio-implementation-summary.json \
-            token-authority.log \
-            npm-verify.log \
-            build.log \
-            folio-implementation-source.patch
-          do
-            test -s "${OUT}/${F}"
-          done
-          jq -e '.classification=="A — M4 IMPLEMENTATION EXACTLY COMPLETE"' "${OUT}/folio-implementation-summary.json" >/dev/null
-          jq -e '.caseCount==4 and .geometry=="EXACT" and .screenshots=="PIXEL IDENTICAL"' "${OUT}/folio-implementation-equivalence.json" >/dev/null
+          jq -n \
+            --arg classification "D — IMPLEMENTATION BLOCKED BY VERIFICATION FAILURE" \
+            --arg blocker "Built CSS retains one overdrive-folio-marker mask from unchanged, production-referenced fifth path homepage-sections-v1.css; removing it would require forbidden scope expansion." \
+            --arg next "FOLIO OPACITY M4 CONTRACT RE-AUTHORIZATION / FIFTH-PATH CHARACTERIZATION" \
+            '{classification:$classification,implementationExactlyComplete:false,implementationSha:"5bc4e216a568a57b217187b4030f8208ad87fe31",implementationTree:"d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65",exactFourPathCommit:true,sourceVerificationPassed:true,tokenAuthorityPassed:true,buildIdentityPassed:true,builtFolioAbsencePassed:false,exactBlocker:$blocker,blockedPath:"homepage-sections-v1.css",blockedPathAuthorized:false,nextPossibleGate:$next,promotionAuthorized:false,deploymentAuthorized:false,doNotPromote:true,doNotDeploy:true}' \
+            > "${OUT}/folio-implementation-summary.json"
 
-      - name: Upload implementation evidence
+          jq -n '{mutatingDispatchCount:0,noNetworkMutationWasNeededForThisBlockedReview:true,noFirebaseMutation:true,noBackendMutation:true}' > "${OUT}/folio-implementation-network-boundary.json"
+          jq -n '{status:"NOT RUN — STOP CONDITION triggered at built Folio absence gate",reason:"Contract requires immediate stop on unexpected Folio residue."}' > "${OUT}/folio-implementation-equivalence.json"
+          jq -n '{status:"NOT REACHED — STOP CONDITION",reason:"Built CSS Folio residue discovered before protected-behavior/browser gate."}' > "${OUT}/folio-implementation-protected-behavior.json"
+          jq -n '{status:"NOT REACHED — STOP CONDITION",reason:"Generated delta comparison beyond build identity was not continued after unexpected Folio residue."}' > "${OUT}/folio-implementation-generated-delta.json"
+
+      - name: Upload blocked implementation evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: post-3b-folio-opacity-implementation-evidence
+          name: post-3b-folio-opacity-implementation-blocked-evidence
           path: ${{ runner.temp }}/folio-implementation-evidence
           if-no-files-found: error
           retention-days: 90
+
+      - name: Fail closed on verified Folio residue
+        run: |
+          echo "D — IMPLEMENTATION BLOCKED BY VERIFICATION FAILURE"
+          echo "Unchanged fifth production path homepage-sections-v1.css retains the built Folio marker mask."
+          echo "No scope expansion is authorized."
+          exit 1
