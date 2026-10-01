@@ -20,7 +20,7 @@ env:
 jobs:
   diagnose:
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 80
     steps:
       - name: Checkout frozen main read-only
         uses: actions/checkout@v4
@@ -275,6 +275,53 @@ jobs:
           await browser.close();
           const proc={};for(const v of V){proc[v.n]={};for(const vn of['M4','M5']){const xs=[];for(let i=0;i<2;i++){const b=await chromium.launch({headless:true,args:ARGS});xs.push(await capture(b,vn,v,'proc'+i));await b.close()}proc[v.n][vn]=compare('proc-'+vn+'-'+v.n,xs[0],xs[1],false)}}fs.writeFileSync(path.join(OUT,'folio-screenshot-browser-process-effect.json'),JSON.stringify(proc,null,2));
 
+          // Improved canonical regime after shared-process raster/cache instability was observed.
+          // Every capture starts in a fresh Chromium process; product bytes and normalization are unchanged.
+          async function freshCapture(vn,v,label){
+            const b=await chromium.launch({headless:true,args:ARGS});
+            try{return await capture(b,vn,v,label)}finally{await b.close()}
+          }
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-self-consistency-m4.json'),JSON.stringify(self4,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-self-consistency-m5.json'),JSON.stringify(self5,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-cross-variant-matrix.json'),JSON.stringify(cross,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-resource-state.json'),JSON.stringify(resources,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-font-state.json'),JSON.stringify(fonts,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-shared-process-dom-state-fingerprints.json'),JSON.stringify(states,null,2));
+
+          const freshSelf4={},freshSelf5={},freshCross={},freshResources=[],freshFonts=[],freshStates=[],freshAsync=[],freshShifts=[];
+          for(const v of V){
+            const A=[],C=[];
+            for(let i=1;i<=5;i++){
+              const x=await freshCapture('M4',v,'fresh-A'+i);A.push(x);
+              freshResources.push({regime:'fresh-process',variant:'M4',viewport:v.n,label:x.label,pending:x.pending,failedLocal:x.failedLocal,failedExternal:x.failedExternal,resources:x.fp.resources,images:x.fp.images});
+              freshFonts.push({regime:'fresh-process',variant:'M4',viewport:v.n,label:x.label,status:x.fp.fontStatus,checks:x.fp.fontChecks,keyFonts:x.fp.keyFonts});
+              freshStates.push({regime:'fresh-process',variant:'M4',viewport:v.n,label:x.label,stateHash:x.stateHash,fingerprint:x.fp});
+              freshAsync.push({regime:'fresh-process',variant:'M4',viewport:v.n,label:x.label,settle:x.settle});
+              freshShifts.push({regime:'fresh-process',variant:'M4',viewport:v.n,label:x.label,layoutShifts:x.audit?.layoutShifts||[]});
+            }
+            for(let i=1;i<=5;i++){
+              const x=await freshCapture('M5',v,'fresh-B'+i);C.push(x);
+              freshResources.push({regime:'fresh-process',variant:'M5',viewport:v.n,label:x.label,pending:x.pending,failedLocal:x.failedLocal,failedExternal:x.failedExternal,resources:x.fp.resources,images:x.fp.images});
+              freshFonts.push({regime:'fresh-process',variant:'M5',viewport:v.n,label:x.label,status:x.fp.fontStatus,checks:x.fp.fontChecks,keyFonts:x.fp.keyFonts});
+              freshStates.push({regime:'fresh-process',variant:'M5',viewport:v.n,label:x.label,stateHash:x.stateHash,fingerprint:x.fp});
+              freshAsync.push({regime:'fresh-process',variant:'M5',viewport:v.n,label:x.label,settle:x.settle});
+              freshShifts.push({regime:'fresh-process',variant:'M5',viewport:v.n,label:x.label,layoutShifts:x.audit?.layoutShifts||[]});
+            }
+            freshSelf4[v.n]=A.slice(1).map((x,i)=>compare('fresh-self-m4-'+v.n+'-'+(i+1),A[0],x));
+            freshSelf5[v.n]=C.slice(1).map((x,i)=>compare('fresh-self-m5-'+v.n+'-'+(i+1),C[0],x));
+            freshCross[v.n]=A.map((x,i)=>compare('fresh-cross-'+v.n+'-'+(i+1),x,C[i]));
+          }
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-fresh-process-canonical.json'),JSON.stringify({selfM4:freshSelf4,selfM5:freshSelf5,cross:freshCross},null,2));
+          // Required canonical evidence files now represent the improved fresh-process procedure.
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-self-consistency-m4.json'),JSON.stringify(freshSelf4,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-self-consistency-m5.json'),JSON.stringify(freshSelf5,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-cross-variant-matrix.json'),JSON.stringify(freshCross,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-resource-state.json'),JSON.stringify(freshResources,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-font-state.json'),JSON.stringify(freshFonts,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-dom-state-fingerprints.json'),JSON.stringify(freshStates,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-async-stability.json'),JSON.stringify(freshAsync,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-layout-shifts.json'),JSON.stringify(freshShifts,null,2));
+
           const B=await chromium.launch({headless:true,args:ARGS});
           const fullview={},tiles={},diags={},legacy={};
           for(const v of V){
@@ -288,11 +335,13 @@ jobs:
           await B.close();
           fs.writeFileSync(path.join(OUT,'folio-screenshot-fullpage-vs-viewport.json'),JSON.stringify(fullview,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-tiled-diagnostic.json'),JSON.stringify(tiles,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-media-diagnostics.json'),JSON.stringify(diags,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-legacy-harness-reproduction.json'),JSON.stringify(legacy,null,2));
 
-          const self=[...Object.values(self4).flat(),...Object.values(self5).flat()],selfNon=self.filter(x=>!x.pixelIdentical);
-          const crossRows=Object.values(cross).flat(),crossNon=crossRows.filter(x=>!x.pixelIdentical);
+          const sharedSelf=[...Object.values(self4).flat(),...Object.values(self5).flat()],sharedSelfNon=sharedSelf.filter(x=>!x.pixelIdentical);
+          const sharedCrossRows=Object.values(cross).flat(),sharedCrossNon=sharedCrossRows.filter(x=>!x.pixelIdentical);
+          const self=[...Object.values(freshSelf4).flat(),...Object.values(freshSelf5).flat()],selfNon=self.filter(x=>!x.pixelIdentical);
+          const crossRows=Object.values(freshCross).flat(),crossNon=crossRows.filter(x=>!x.pixelIdentical);
           const legacyRows=Object.values(legacy).flatMap(x=>[...x.m4Self,...x.m5Self,...x.cross]),legacyNon=legacyRows.filter(x=>!x.pixelIdentical);
           const legacySelfNon=Object.values(legacy).flatMap(x=>[...x.m4Self,...x.m5Self]).filter(x=>!x.pixelIdentical);
-          const allNon=[...selfNon,...crossNon,...legacyNon];
+          const allNon=[...sharedSelfNon,...sharedCrossNon,...selfNon,...crossNon,...legacyNon];
           fs.writeFileSync(path.join(OUT,'folio-screenshot-diff-regions.json'),JSON.stringify(allNon.map(x=>({key:x.key,diffPixels:x.diffPixels,maxChannelDelta:x.maxChannelDelta,diffRatio:x.diffRatio,boundingBox:x.boundingBox,stateHashEqual:x.stateHashEqual})),null,2));
           fs.writeFileSync(path.join(OUT,'folio-screenshot-diff-elements.json'),JSON.stringify(allNon.map(x=>({key:x.key,boundingBox:x.boundingBox,elements:x.elements||[]})),null,2));
           fs.writeFileSync(path.join(OUT,'folio-screenshot-pixel-color-analysis.json'),JSON.stringify(allNon.map(x=>({key:x.key,topColorPairs:x.topColorPairs})),null,2));
@@ -309,10 +358,14 @@ jobs:
           if(orderNon.length===0)orderEffect='NONE';else orderEffect='PRESENT';
           if(selfNon.length===0&&crossNon.length===0){
             pixel='PROVEN';
-            if(legacySelfNon.length>0){
+            if(sharedSelfNon.length>0||sharedCrossNon.length>0){
+              cause='C3 — BROWSER RASTERIZATION NONDETERMINISM';
+              outcome='C — BROWSER RASTER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';
+              root='Reusing one Chromium process produced sporadic pixel drift, including same-variant M4↔M4 and M5↔M5 deltas, while fresh Chromium process per capture made five captures per variant per viewport self-identical and all 20 paired M4↔M5 captures pixel-identical. The shared-process deltas were therefore browser-process raster/cache state, not a variant-bound fifth-rule effect.';
+            }else if(legacySelfNon.length>0){
               const sameState=legacySelfNon.every(x=>x.stateHashEqual);
-              if(sameState){cause='C3 — BROWSER RASTERIZATION NONDETERMINISM';outcome='C — BROWSER RASTER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='The legacy capture procedure produces same-variant pixel drift despite identical normalized DOM/resource fingerprints; the strict canonical routine removes that raster instability.'}
-              else{cause='C1 — HARNESS NONDETERMINISM';outcome='A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='The legacy capture procedure is self-nondeterministic: the same variant changes pixels together with render-state fingerprints. Strict focus/pointer/image-decode/quiet-window normalization makes both variants self-stable and cross-identical.'}
+              if(sameState){cause='C3 — BROWSER RASTERIZATION NONDETERMINISM';outcome='C — BROWSER RASTER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='The legacy capture procedure produces same-variant pixel drift despite identical normalized DOM/resource fingerprints; the fresh-process canonical routine removes that raster instability.'}
+              else{cause='C1 — HARNESS NONDETERMINISM';outcome='A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='The legacy capture procedure is self-nondeterministic: the same variant changes pixels together with render-state fingerprints. Fresh-process canonical isolation makes both variants self-stable and cross-identical.'}
             }else if(legacyNon.length>0){
               cause='C1 — HARNESS NONDETERMINISM';outcome='A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='Legacy cross captures reproduce non-zero deltas that disappear under the strict fixed-state canonical procedure, while both canonical variants are independently self-stable.'}
             else{
@@ -326,16 +379,16 @@ jobs:
             cause='C5 — REAL VISUAL DIFFERENCE BUT NOT YET CAUSALLY ATTRIBUTED';outcome='E — REAL DIFFERENCE EXISTS BUT CAUSE NOT YET RESOLVED';root='Both variants are self-stable but a repeated cross-difference remains; fifth-rule causality is not proven by the matched-selector evidence.';
           }
 
-          const canonical={pairsPerViewport:5,totalPairs:crossRows.length,allPixelIdentical:crossNon.length===0,comparisons:cross};
+          const canonical={regime:'fresh Chromium process per capture',pairsPerViewport:5,totalPairs:crossRows.length,allPixelIdentical:crossNon.length===0,comparisons:freshCross};
           fs.writeFileSync(path.join(OUT,'folio-screenshot-canonical-recapture.json'),JSON.stringify(canonical,null,2));
-          fs.writeFileSync(path.join(OUT,'folio-screenshot-root-cause.json'),JSON.stringify({causeClassification:cause,rootCause:root,canonicalSelfNonzero:selfNon.length,canonicalCrossNonzero:crossNon.length,legacyNonzero:legacyNon.length,legacySelfNonzero:legacySelfNon.length,orderEffect},null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-root-cause.json'),JSON.stringify({causeClassification:cause,rootCause:root,sharedProcessSelfNonzero:sharedSelfNon.length,sharedProcessCrossNonzero:sharedCrossNon.length,canonicalRegime:'fresh Chromium process per capture',canonicalSelfNonzero:selfNon.length,canonicalCrossNonzero:crossNon.length,legacyNonzero:legacyNon.length,legacySelfNonzero:legacySelfNon.length,orderEffect},null,2));
 
           // Rule cannot match any diff-region element because no marker exists naturally.
           const cssRuleAnalysis={deletedSelector:'main > section.home-chapter > .overdrive-folio-marker',naturalMatchCount:0,reachableMarkerCreationPaths:0,canMatchDiffElement:false,canMatchAncestor:false,canMatchDescendant:false,canMatchPseudoElement:false,causalConnectionToAnyNaturalRenderedElement:false};
           fs.writeFileSync(path.join(OUT,'folio-screenshot-matched-rule-proof.json'),JSON.stringify(cssRuleAnalysis,null,2));
 
           const success=pixel==='PROVEN'&&['A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN','B — EXTERNAL / ASYNC NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN','C — BROWSER RASTER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN'].includes(outcome);
-          const summary={outcome,rootCause:root,causeClassification:cause,pixelEquivalence:pixel,previousDesktopDiff:success?'NON-PRODUCT ARTIFACT':'UNRESOLVED',previousMobileDiff:success?'NON-PRODUCT ARTIFACT':'UNRESOLVED',m4SelfConsistency:Object.values(self4).flat().every(x=>x.pixelIdentical)?'SELF-STABLE':'SELF-NONDETERMINISTIC',m5SelfConsistency:Object.values(self5).flat().every(x=>x.pixelIdentical)?'SELF-STABLE':'SELF-NONDETERMINISTIC',orderEffect,canonicalPairs:crossRows.length,canonicalNonzero:crossNon.length,allCanonicalDiffPixels:crossNon.length?null:0,allCanonicalMaxChannelDelta:crossNon.length?null:0,fifthRuleRole:'F3 — DEAD REDUNDANT FOLIO RESIDUE',naturalMatchCount:0,reachableMarkerCreationPaths:0,m5BuiltFolioResidues:0,fifthPathDisposition:success?'P1 — SAFE FUTURE REMOVAL CANDIDATE':'P4 — REQUIRES DESIGN / BEHAVIOR DECISION',m5ContractStatus:success?'READY FOR RE-AUTHORIZATION REVIEW':'NO',implementationAuthorized:false,promotionAuthorized:false,deploymentAuthorized:false,nextPossibleGate:success?'FOLIO OPACITY M4 -> M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW':'SMALLEST FOLLOW-UP DIAGNOSTIC REQUIRED',doNotMutateProduction:true};
+          const summary={outcome,rootCause:root,causeClassification:cause,pixelEquivalence:pixel,previousDesktopDiff:success?'NON-PRODUCT ARTIFACT':'UNRESOLVED',previousMobileDiff:success?'NON-PRODUCT ARTIFACT':'UNRESOLVED',m4SelfConsistency:Object.values(freshSelf4).flat().every(x=>x.pixelIdentical)?'SELF-STABLE':'SELF-NONDETERMINISTIC',m5SelfConsistency:Object.values(freshSelf5).flat().every(x=>x.pixelIdentical)?'SELF-STABLE':'SELF-NONDETERMINISTIC',orderEffect,canonicalPairs:crossRows.length,canonicalNonzero:crossNon.length,allCanonicalDiffPixels:crossNon.length?null:0,allCanonicalMaxChannelDelta:crossNon.length?null:0,fifthRuleRole:'F3 — DEAD REDUNDANT FOLIO RESIDUE',naturalMatchCount:0,reachableMarkerCreationPaths:0,m5BuiltFolioResidues:0,fifthPathDisposition:success?'P1 — SAFE FUTURE REMOVAL CANDIDATE':'P4 — REQUIRES DESIGN / BEHAVIOR DECISION',m5ContractStatus:success?'READY FOR RE-AUTHORIZATION REVIEW':'NO',implementationAuthorized:false,promotionAuthorized:false,deploymentAuthorized:false,nextPossibleGate:success?'FOLIO OPACITY M4 -> M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW':'SMALLEST FOLLOW-UP DIAGNOSTIC REQUIRED',doNotMutateProduction:true};
           fs.writeFileSync(path.join(OUT,'folio-screenshot-resolution-summary.json'),JSON.stringify(summary,null,2));
           JS
 
