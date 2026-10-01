@@ -381,7 +381,7 @@ jobs:
               if(phase==='bottom')await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
               if(phase==='resized')await page.setViewportSize({width:Math.max(320,vp.width-20),height:vp.height});
               await page.waitForTimeout(120);
-              states.push(await page.evaluate(()=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length})));
+              states.push(await page.evaluate(phase=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length}),phase));
             }
             await page.setViewportSize({width:vp.width,height:vp.height});await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(120);
             const metrics=await page.evaluate(()=>{
@@ -427,7 +427,7 @@ jobs:
               if(phase==='bottom')await pg.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
               if(phase==='resize')await pg.setViewportSize({width:Math.max(320,vp.width-30),height:vp.height});
               await pg.waitForTimeout(150);
-              states.push(await pg.evaluate(()=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length})));
+              states.push(await pg.evaluate(phase=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length}),phase));
             }
             const ar=await pg.evaluate(()=>{
               const el=document.querySelector('[data-lang="ar"],[data-language="ar"]')||[...document.querySelectorAll('button,a,[role="button"]')].find(x=>/^(العربية|عربي)$/.test((x.textContent||'').trim()));
