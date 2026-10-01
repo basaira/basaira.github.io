@@ -1,0 +1,629 @@
+name: Folio Self-Consistency Quiet-Window Resolution
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-self-consistency-quiet-window-resolution'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  M4_SHA: 5bc4e216a568a57b217187b4030f8208ad87fe31
+  M4_TREE: d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  FIFTH_BLOB: ef073fbb20c95292c40d6ca9f0775c1f2a4f8866
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout frozen main read-only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority exact M5 and build identities
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/quiet"; M4="${RUNNER_TEMP}/m4"; M5="${RUNNER_TEMP}/m5"
+          mkdir -p "${OUT}"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"
+          M4R="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"; M4G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4R}")"; GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"; test "${M4R}" = "${M4_SHA}"; test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha'<<<"${MG}")" = "${MAIN_TREE}"; test "$(jq -r '.tree.sha'<<<"${M4G}")" = "${M4_TREE}"; test "$(jq -r '.tree.sha'<<<"${GG}")" = "${GH_TREE}"
+          test "$(git rev-parse "${MAIN_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"
+          test "$(git rev-parse "${M4_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"
+          jq -n --arg main "${MAIN}" --arg m4 "${M4R}" --arg gh "${GH}" --arg mt "$(jq -r '.tree.sha'<<<"${MG}")" --arg m4t "$(jq -r '.tree.sha'<<<"${M4G}")" --arg gt "$(jq -r '.tree.sha'<<<"${GG}")" \
+            '{main:$main,blockedM4:$m4,ghPages:$gh,mainTree:$mt,m4Tree:$m4t,ghPagesTree:$gt,authorityDrift:false}' > "${OUT}/folio-quiet-window-preflight.json"
+
+          git worktree add --detach "${M4}" "${M4_SHA}"
+          git worktree add --detach "${M5}" "${MAIN_SHA}"
+
+          M4="${M4}" M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,re,subprocess,json,hashlib
+          from pathlib import Path
+          m4=Path(os.environ["M4"]);m5=Path(os.environ["M5"]);out=Path(os.environ["OUT"])
+          fifth='main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n'
+          # Exact characterized M4 + exact fifth rule deletion, from frozen main.
+          p=m5/'overdrive-v1.js';s=p.read_text();m=re.search(r'\nfunction initFolioMarkers\(\) \{.*?\n\}\n\nfunction initOverdrive\(\)',s,re.S);assert m;p.write_text(s[:m.start()]+'\nfunction initOverdrive()'+s[m.end():])
+          p=m5/'overdrive-v1.css';s=p.read_text();a=s.index('/* ── 3. Section leaves:');b=s.index('/* ── 4. Scroll-linked depth',a);s=s[:a]+s[b:]
+          for x in ['  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }\n','  .overdrive-folio-marker,\n','  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }\n']:
+            assert x in s;s=s.replace(x,'',1)
+          p.write_text(s)
+          p=m5/'visual-layout-hotfix-v2.css';s=p.read_text();x='.overdrive-folio-marker{display:none!important}\n';assert s.count(x)==1;p.write_text(s.replace(x,'',1))
+          p=m5/'token-authority-manifest.json';s=p.read_text();assert s.count('    "--folio-opacity",\n')==2;s=s.replace('    "--folio-opacity",\n','',2).replace('    "customPropertyNameCount": 369,\n','    "customPropertyNameCount": 368,\n',1).replace('    "conflictCount": 39,\n','    "conflictCount": 38,\n',1);p.write_text(s)
+          p=m5/'homepage-sections-v1.css';s=p.read_text();assert s.count(fifth)==1;p.write_text(s.replace(fifth,'',1))
+          exp=['homepage-sections-v1.css','overdrive-v1.css','overdrive-v1.js','token-authority-manifest.json','visual-layout-hotfix-v2.css']
+          changed=subprocess.check_output(['git','-C',str(m5),'diff','--name-only','HEAD','--'],text=True).splitlines();assert changed==exp
+          subprocess.check_call(['git','-C',str(m5),'diff','--check'])
+          # Prove byte identity to blocked M4 + one exact deletion.
+          files=subprocess.check_output(['git','-C',str(m5),'ls-files'],text=True).splitlines();bad=[]
+          for rel in files:
+            a=(m4/rel).read_bytes();b=(m5/rel).read_bytes()
+            if rel=='homepage-sections-v1.css':
+              if a.decode().replace(fifth,'',1)!=b.decode():bad.append(rel)
+            elif a!=b:bad.append(rel)
+          assert not bad,bad
+          json.dump({'m5PathCount':5,'paths':exp,'m5EqualsBlockedM4PlusExactFifthDeletion':True,'otherByteDifferences':0},open(out/'m5-reconstruction.json','w'),indent=2)
+          PY
+
+          npm ci >/dev/null
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${M4}/node_modules"; ln -s "${GITHUB_WORKSPACE}/node_modules" "${M5}/node_modules"
+          for V in M4 M5; do DIR="${M4}"; [ "${V}" = M5 ] && DIR="${M5}"; (cd "${DIR}" && npm run verify >"${OUT}/${V}-verify.log" 2>&1 && npm run build >"${OUT}/${V}-build.log" 2>&1 && node token-authority-check.mjs >"${OUT}/${V}-token.log" 2>&1); git -C "${DIR}" diff --check; done
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/M4-token.log"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/M5-token.log"
+
+          M4="${M4}" M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          o=Path(os.environ['OUT']);m4=Path(os.environ['M4']);m5=Path(os.environ['M5'])
+          def snap(root):
+            rows={}
+            for p in sorted(x for x in root.rglob('*') if x.is_file()):
+              b=p.read_bytes();rows[p.relative_to(root).as_posix()]={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+            return rows
+          a=snap(m4/'dist');b=snap(m5/'dist')
+          ajs=[k for k in a if k.startswith('assets/main-') and k.endswith('.js')];acss=[k for k in a if k.startswith('assets/main-') and k.endswith('.css')]
+          bjs=[k for k in b if k.startswith('assets/main-') and k.endswith('.js')];bcss=[k for k in b if k.startswith('assets/main-') and k.endswith('.css')]
+          assert len(a)==25 and sum(x['bytes'] for x in a.values())==2554010 and ajs==['assets/main-CdDtQcjc.js'] and acss==['assets/main-BJIbyLNf.css']
+          assert len(b)==25 and sum(x['bytes'] for x in b.values())==2553937 and bjs==['assets/main-B4PdnOC4.js'] and bcss==['assets/main-B-cTtzqp.css']
+          json.dump({'M4':{'files':25,'bytes':2554010,'mainJs':ajs[0],'mainCss':acss[0]},'M5':{'files':25,'bytes':2553937,'mainJs':bjs[0],'mainCss':bcss[0]}},open(o/'folio-quiet-window-build-identities.json','w'),indent=2)
+          c4=(m4/'dist'/acss[0]).read_text();c5=(m5/'dist'/bcss[0]).read_text();r='main>section.home-chapter>.overdrive-folio-marker{display:none!important}'
+          assert c4.count(r)==1 and r not in c5 and c4.replace(r,'',1)==c5
+          json.dump({'exactSemanticDifferenceCount':1,'removedRule':r,'unrelatedBuiltCssChanges':0,'m4MinusRuleEqualsM5':True,'parserSideEffect':False,'adjacentRuleMerge':False,'cascadeReordering':False},open(o/'folio-quiet-window-cssom-diff.json','w'),indent=2)
+          json.dump({'exactSemanticDifferenceCount':1,'removedRule':r,'unrelatedBuiltCssChanges':0,'m4MinusRuleEqualsM5':True},open(o/'folio-quiet-window-built-css-diff.json','w'),indent=2)
+          j4=(m4/'dist'/ajs[0]).read_text();j5=(m5/'dist'/bjs[0]).read_text()
+          same=j4==j5 or j4.replace(acss[0].split('/')[-1],'<CSS>')==j5.replace(bcss[0].split('/')[-1],'<CSS>');assert same
+          json.dump({'executableBehaviorDifference':False,'differenceLimitedToAssetReferenceMetadata':j4!=j5},open(o/'folio-quiet-window-built-js-diff.json','w'),indent=2)
+          PY
+
+      - name: Run strict same-variant quiet-window gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/quiet"; M4="$RUNNER_TEMP/m4"; M5="$RUNNER_TEMP/m5"
+          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true
+          rm -f node_modules/.package-lock.json 2>/dev/null || true
+          uname -a >"$OUT/os.txt"
+          printf '%s\n' "${ImageOS:-unknown}" >"$OUT/runner-image-os.txt"
+          printf '%s\n' "${ImageVersion:-unknown}" >"$OUT/runner-image-version.txt"
+          (fc-list || true) | sort >"$OUT/fonts.txt"
+          python3 -m http.server 4674 --directory "$M4/dist" >/tmp/m4-quiet.log 2>&1 &
+          python3 -m http.server 4675 --directory "$M5/dist" >/tmp/m5-quiet.log 2>&1 &
+          sleep 2
+
+          cat > .quiet.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import { PNG } from 'pngjs';
+
+          const OUT=process.env.OUT;
+          const ROOT={M4:process.env.M4,M5:process.env.M5};
+          const ORIGIN={M4:'http://127.0.0.1:4674',M5:'http://127.0.0.1:4675'};
+          const VIEWPORTS={
+            mobile:{n:'390x844',w:390,h:844},
+            desktop:{n:'1440x1000',w:1440,h:1000},
+            below760:{n:'759x900',w:759,h:900},
+            above760:{n:'761x900',w:761,h:900}
+          };
+          const ORDER=['desktop','mobile','below760','above760'];
+          const ARGS=['--disable-background-networking','--disable-default-apps','--disable-sync','--no-first-run'];
+          const NORMALIZATION='*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}';
+          const EXPECTED_CHROMIUM='140.0.7339.16';
+          const H=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const J=o=>JSON.stringify(o);
+          const hashObj=o=>H(Buffer.from(J(o)));
+          const contextOptions=v=>({viewport:{width:v.w,height:v.h},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezoneId:'UTC'});
+          fs.mkdirSync(path.join(OUT,'pixel-evidence'),{recursive:true});
+
+          const allResourceManifests=[],allResourceHashes=[],allFontHashes=[],allImageHashes=[],allGeometryHashes=[],allRenderHashes=[];
+          const allMutationSamples=[],allLayoutSamples=[],allPendingSamples=[];
+          const allSelfDiffs=[],allSelfDiffElements=[],allSelfDiffColors=[];
+          const networkRecords=[];
+
+          function rect(r){return{x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)}}
+          function normalizeUrl(u,origin){try{const x=new URL(u);if(x.origin===origin)return 'LOCAL'+x.pathname+x.search;return x.origin+x.pathname+x.search}catch{return u}}
+          function selector(e){if(!e)return null;return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):'')}
+
+          function pdiff(a,b){
+            const A=PNG.sync.read(a),B=PNG.sync.read(b);
+            if(A.width!==B.width||A.height!==B.height)throw new Error('PNG size mismatch');
+            let n=0,max=0,minX=A.width,minY=A.height,maxX=-1,maxY=-1;
+            const mask=new PNG({width:A.width,height:A.height}),heat=new PNG({width:A.width,height:A.height}),pairs=new Map();
+            for(let y=0;y<A.height;y++)for(let x=0;x<A.width;x++){
+              const i=(y*A.width+x)*4;let hit=false;
+              for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){hit=true;max=Math.max(max,d)}}
+              if(hit){
+                n++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+                mask.data[i]=mask.data[i+1]=mask.data[i+2]=mask.data[i+3]=255;
+                heat.data[i]=255;heat.data[i+1]=0;heat.data[i+2]=0;heat.data[i+3]=255;
+                const k=[...A.data.slice(i,i+4)].join(',')+' -> '+[...B.data.slice(i,i+4)].join(',');
+                pairs.set(k,(pairs.get(k)||0)+1);
+              }else{mask.data[i+3]=255;heat.data[i+3]=55}
+            }
+            return{diffPixels:n,maxChannelDelta:max,diffRatio:n/(A.width*A.height),boundingBox:n?{minX,minY,maxX,maxY,width:maxX-minX+1,height:maxY-minY+1}:null,pixelIdentical:n===0,A,B,mask:PNG.sync.write(mask),heat:PNG.sync.write(heat),pairs:[...pairs.entries()].sort((a,b)=>b[1]-a[1]).slice(0,40).map(([pair,count])=>({pair,count}))};
+          }
+          function crop(P,b){if(!b)return null;const q=8,x=Math.max(0,b.minX-q),y=Math.max(0,b.minY-q),w=Math.min(P.width-x,b.width+2*q),h=Math.min(P.height-y,b.height+2*q),C=new PNG({width:w,height:h});PNG.bitblt(P,C,x,y,w,h,0,0);return PNG.sync.write(C)}
+          function saveDiff(key,a,b,d){
+            if(d.pixelIdentical)return;
+            const q=path.join(OUT,'pixel-evidence');
+            fs.writeFileSync(path.join(q,key+'-A.png'),a.png);fs.writeFileSync(path.join(q,key+'-B.png'),b.png);
+            fs.writeFileSync(path.join(q,key+'-mask.png'),d.mask);fs.writeFileSync(path.join(q,key+'-heatmap.png'),d.heat);
+            const ca=crop(d.A,d.boundingBox),cb=crop(d.B,d.boundingBox),ch=crop(PNG.sync.read(d.heat),d.boundingBox);
+            if(ca)fs.writeFileSync(path.join(q,key+'-A-crop.png'),ca);
+            if(cb)fs.writeFileSync(path.join(q,key+'-B-crop.png'),cb);
+            if(ch)fs.writeFileSync(path.join(q,key+'-diff-crop.png'),ch);
+          }
+
+          async function launch(){
+            const b=await chromium.launch({headless:true,args:ARGS});
+            if(b.version()!==EXPECTED_CHROMIUM){await b.close();throw new Error('BROWSER_VERSION_DRIFT expected '+EXPECTED_CHROMIUM+' got '+b.version())}
+            return b;
+          }
+
+          async function installAudit(ctx){
+            await ctx.addInitScript(()=>{
+              window.__quietAudit={mutations:[],layoutShifts:[],layoutSupported:true};
+              document.addEventListener('DOMContentLoaded',()=>{
+                const mo=new MutationObserver(list=>{
+                  for(const m of list)window.__quietAudit.mutations.push({type:m.type,target:m.target?.nodeName||null,attributeName:m.attributeName||null,added:m.addedNodes?.length||0,removed:m.removedNodes?.length||0});
+                });
+                mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});
+              },{once:true});
+              try{
+                new PerformanceObserver(list=>{
+                  for(const e of list.getEntries())window.__quietAudit.layoutShifts.push({value:e.value,hadRecentInput:e.hadRecentInput,sources:(e.sources||[]).map(s=>({node:s.node?.nodeName||null,previousRect:s.previousRect?{x:s.previousRect.x,y:s.previousRect.y,width:s.previousRect.width,height:s.previousRect.height}:null,currentRect:s.currentRect?{x:s.currentRect.x,y:s.currentRect.y,width:s.currentRect.width,height:s.currentRect.height}:null}))});
+                }).observe({type:'layout-shift',buffered:true});
+              }catch{window.__quietAudit.layoutSupported=false}
+            });
+          }
+
+          async function installNetworkPolicy(ctx,origin,net){
+            await ctx.route('**/*',async route=>{
+              const req=route.request(),method=req.method().toUpperCase(),url=req.url();
+              let u;try{u=new URL(url)}catch{net.blockedExternal.push({method,url});return route.abort('blockedbyclient')}
+              const local=u.origin===origin;
+              const safe=['GET','HEAD','OPTIONS'].includes(method);
+              const telemetry=/google-analytics\.com|googletagmanager\.com|google\.com\/g\/collect|analytics/i.test(url);
+              if(!safe){net.blockedUnsafe.push({method,url:normalizeUrl(url,origin)});return route.abort('blockedbyclient')}
+              if(local){net.allowedLocal++;return route.continue()}
+              if(telemetry){net.blockedTelemetry.push(normalizeUrl(url,origin));return route.abort('blockedbyclient')}
+              net.blockedExternal.push({method,url:normalizeUrl(url,origin)});return route.abort('blockedbyclient');
+            });
+          }
+
+          function requestTracker(page,origin){
+            const state={pendingLocal:0,pendingExternal:0,pendingTotal:0,failedLocal:[],failedExternal:[],events:[]};
+            const classify=req=>{try{return new URL(req.url()).origin===origin?'local':'external'}catch{return'external'}};
+            page.on('request',req=>{const k=classify(req);state[k==='local'?'pendingLocal':'pendingExternal']++;state.pendingTotal++;state.events.push({type:'request',kind:k,method:req.method(),url:normalizeUrl(req.url(),origin)})});
+            const done=(req,type)=>{const k=classify(req);state[k==='local'?'pendingLocal':'pendingExternal']=Math.max(0,state[k==='local'?'pendingLocal':'pendingExternal']-1);state.pendingTotal=Math.max(0,state.pendingTotal-1);state.events.push({type,kind:k,method:req.method(),url:normalizeUrl(req.url(),origin)})};
+            page.on('requestfinished',req=>done(req,'finished'));
+            page.on('requestfailed',req=>{done(req,'failed');const k=classify(req);(k==='local'?state.failedLocal:state.failedExternal).push(normalizeUrl(req.url(),origin))});
+            return state;
+          }
+
+          async function normalizePage(page,v){
+            await page.evaluate(async()=>{
+              try{await document.fonts.ready}catch{}
+              const imgs=[...document.images];
+              await Promise.all(imgs.map(i=>i.complete?Promise.resolve():new Promise(r=>{const d=()=>r();i.addEventListener('load',d,{once:true});i.addEventListener('error',d,{once:true});setTimeout(d,3000)})));
+              for(const i of imgs){try{if(i.complete&&i.naturalWidth>0)await i.decode()}catch{}}
+              for(const x of document.querySelectorAll('video')){try{x.pause();x.currentTime=0}catch{}}
+              scrollTo(0,0);
+              try{document.activeElement?.blur?.()}catch{}
+              try{getSelection()?.removeAllRanges()}catch{}
+            });
+            await page.mouse.move(v.w-2,v.h-2);
+            await page.addStyleTag({content:NORMALIZATION});
+            await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+          }
+
+          async function pageSnapshot(page,origin,v){
+            return await page.evaluate(({origin,v})=>{
+              const R=r=>({x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)});
+              const Q=e=>e?e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):''):null;
+              const visible=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'};
+              const style=e=>{const s=getComputedStyle(e);return{display:s.display,visibility:s.visibility,opacity:s.opacity,position:s.position,zIndex:s.zIndex,transform:s.transform,filter:s.filter,background:s.background,backgroundImage:s.backgroundImage,border:s.border,boxShadow:s.boxShadow,fontFamily:s.fontFamily,fontSize:s.fontSize,fontWeight:s.fontWeight,fontStyle:s.fontStyle,lineHeight:s.lineHeight,letterSpacing:s.letterSpacing,fontFeatureSettings:s.fontFeatureSettings,fontVariationSettings:s.fontVariationSettings,objectFit:s.objectFit,objectPosition:s.objectPosition}};
+              const localResources=performance.getEntriesByType('resource').filter(e=>{try{return new URL(e.name).origin===origin}catch{return false}}).map(e=>{const u=new URL(e.name);return{path:u.pathname+u.search,initiatorType:e.initiatorType,transferSize:e.transferSize,decodedBodySize:e.decodedBodySize}}).sort((a,b)=>(a.path+'|'+a.initiatorType).localeCompare(b.path+'|'+b.initiatorType));
+              const texts=[...document.querySelectorAll('body *')].filter(e=>visible(e)&&(e.childElementCount===0||(e.textContent||'').trim())&&(e.textContent||'').trim()).slice(0,500).map(e=>{const s=getComputedStyle(e);let check=null;try{check=document.fonts.check(s.fontWeight+' '+s.fontSize+' '+s.fontFamily)}catch{}return{selector:Q(e),text:(e.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),fontFamily:s.fontFamily,fontWeight:s.fontWeight,fontSize:s.fontSize,lineHeight:s.lineHeight,letterSpacing:s.letterSpacing,fontFeatureSettings:s.fontFeatureSettings,fontVariationSettings:s.fontVariationSettings,check}});
+              const images=[...document.images].map(i=>({src:(()=>{try{const u=new URL(i.src);return u.origin===origin?'LOCAL'+u.pathname+u.search:u.origin+u.pathname+u.search}catch{return i.src}})(),currentSrc:(()=>{try{const u=new URL(i.currentSrc);return u.origin===origin?'LOCAL'+u.pathname+u.search:u.origin+u.pathname+u.search}catch{return i.currentSrc}})(),complete:i.complete,naturalWidth:i.naturalWidth,naturalHeight:i.naturalHeight,rect:R(i.getBoundingClientRect()),objectFit:getComputedStyle(i).objectFit,objectPosition:getComputedStyle(i).objectPosition}));
+              const fixedSticky=[...document.querySelectorAll('*')].filter(e=>visible(e)&&['fixed','sticky'].includes(getComputedStyle(e).position)).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect()),style:style(e)}));
+              const main=document.querySelector('main');
+              const geometry={documentElement:{scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight},body:{scrollWidth:document.body.scrollWidth,scrollHeight:document.body.scrollHeight},main:main?R(main.getBoundingClientRect()):null,mainSections:[...document.querySelectorAll('main > section')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),homeChapters:[...document.querySelectorAll('.home-chapter')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),fixedSticky:fixedSticky.map(x=>({selector:x.selector,rect:x.rect}))};
+              const pseudo=[...document.querySelectorAll('h1,h2,h3,p,a,button,section,main')].filter(visible).slice(0,250).map(e=>{const b=getComputedStyle(e,'::before'),a=getComputedStyle(e,'::after');return{selector:Q(e),before:{content:b.content,display:b.display,position:b.position,opacity:b.opacity,transform:b.transform,background:b.background,border:b.border,boxShadow:b.boxShadow,filter:b.filter},after:{content:a.content,display:a.display,position:a.position,opacity:a.opacity,transform:a.transform,background:a.background,border:a.border,boxShadow:a.boxShadow,filter:a.filter}}});
+              const elements=[...document.querySelectorAll('*')].filter(visible).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect()),style:style(e),text:(e.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),before:(()=>{const x=getComputedStyle(e,'::before');return{content:x.content,display:x.display,position:x.position,opacity:x.opacity,transform:x.transform,background:x.background,border:x.border,boxShadow:x.boxShadow,filter:x.filter}})(),after:(()=>{const x=getComputedStyle(e,'::after');return{content:x.content,display:x.display,position:x.position,opacity:x.opacity,transform:x.transform,background:x.background,border:x.border,boxShadow:x.boxShadow,filter:x.filter}})()}));
+              const videos=[...document.querySelectorAll('video')].map(x=>({paused:x.paused,currentTime:x.currentTime,readyState:x.readyState,networkState:x.networkState,rect:R(x.getBoundingClientRect()),visibility:getComputedStyle(x).visibility}));
+              return{
+                resourceManifest:localResources,
+                fontState:{status:document.fonts.status,texts},
+                imageState:images,
+                geometry,
+                render:{htmlClass:document.documentElement.className,bodyClass:document.body.className,lang:document.documentElement.lang,dir:document.documentElement.dir||getComputedStyle(document.documentElement).direction,scrollX,scrollY,innerWidth,innerHeight,devicePixelRatio,activeElement:Q(document.activeElement),selectionRangeCount:getSelection()?.rangeCount||0,selectionText:getSelection()?.toString()||'',pointer:{x:v.w-2,y:v.h-2},fixedSticky,keyTextStyles:texts.map(x=>({selector:x.selector,text:x.text,fontFamily:x.fontFamily,fontWeight:x.fontWeight,fontSize:x.fontSize,lineHeight:x.lineHeight,letterSpacing:x.letterSpacing,fontFeatureSettings:x.fontFeatureSettings,fontVariationSettings:x.fontVariationSettings})),images:images.map(x=>({currentSrc:x.currentSrc,naturalWidth:x.naturalWidth,naturalHeight:x.naturalHeight,rect:x.rect})),pseudo},
+                videos,elements
+              };
+            },{origin,v});
+          }
+
+          function hashSnapshot(s){
+            return{
+              resourceSetSha256:hashObj(s.resourceManifest),
+              fontStateSha256:hashObj(s.fontState),
+              imageStateSha256:hashObj(s.imageState),
+              geometrySha256:hashObj(s.geometry),
+              renderStateSha256:hashObj({render:s.render,resourceSetSha256:hashObj(s.resourceManifest),fontStateSha256:hashObj(s.fontState),imageStateSha256:hashObj(s.imageState),geometrySha256:hashObj(s.geometry)})
+            };
+          }
+
+          async function quietWindow(page,tracker,origin,v,variant,label){
+            const attempts=[];
+            for(let attempt=1;attempt<=10;attempt++){
+              const before=await page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+              const startSnap=await pageSnapshot(page,origin,v),startHashes=hashSnapshot(startSnap);
+              const pending=[],geometrySamples=[];
+              for(let i=0;i<=20;i++){
+                pending.push({offsetMs:i*50,pendingLocal:tracker.pendingLocal,pendingExternal:tracker.pendingExternal,pendingTotal:tracker.pendingTotal});
+                if([0,5,10,15,20].includes(i)){const g=await page.evaluate(()=>{const R=r=>({x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)});const Q=e=>e?e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):''):null;const main=document.querySelector('main');return{documentElement:{scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight},body:{scrollWidth:document.body.scrollWidth,scrollHeight:document.body.scrollHeight},main:main?R(main.getBoundingClientRect()):null,mainSections:[...document.querySelectorAll('main > section')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),homeChapters:[...document.querySelectorAll('.home-chapter')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),fixedSticky:[...document.querySelectorAll('*')].filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&['fixed','sticky'].includes(s.position)}).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())}))}});geometrySamples.push({offsetMs:i*50,geometry:g,sha256:hashObj(g)})}
+                if(i<20)await page.waitForTimeout(50);
+              }
+              const after=await page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false,layout:(window.__quietAudit?.layoutShifts||[]).slice(before.l),mutations:(window.__quietAudit?.mutations||[]).slice(before.m)}));
+              const endSnap=await pageSnapshot(page,origin,v),endHashes=hashSnapshot(endSnap);
+              const allPendingZero=pending.every(x=>x.pendingLocal===0);
+              const mutationDelta=after.m-before.m;
+              const layoutShiftDelta=after.supported?after.l-before.l:'UNSUPPORTED';
+              const geometryStable=geometrySamples.every(x=>x.sha256===geometrySamples[0].sha256);
+              const stateStable=startHashes.resourceSetSha256===endHashes.resourceSetSha256&&startHashes.fontStateSha256===endHashes.fontStateSha256&&startHashes.imageStateSha256===endHashes.imageStateSha256&&startHashes.geometrySha256===endHashes.geometrySha256;
+              const fontsLoaded=endSnap.fontState.status==='loaded';
+              const imagesReady=endSnap.imageState.every(x=>x.complete&&(x.naturalWidth>0||x.naturalWidth===0));
+              const accepted=allPendingZero&&mutationDelta===0&&(layoutShiftDelta===0||layoutShiftDelta==='UNSUPPORTED')&&geometryStable&&stateStable&&fontsLoaded&&imagesReady;
+              const row={variant,viewport:v.n,label,attempt,accepted,pending,mutationBefore:before.m,mutationAfter:after.m,mutationDelta,mutations:after.mutations,layoutSupported:after.supported,layoutShiftBefore:before.l,layoutShiftAfter:after.l,layoutShiftDelta,layoutShifts:after.layout,geometrySamples,startHashes,endHashes};
+              attempts.push(row);allPendingSamples.push(row);allMutationSamples.push({variant,viewport:v.n,label,attempt,mutationDelta,mutations:after.mutations});allLayoutSamples.push({variant,viewport:v.n,label,attempt,layoutSupported:after.supported,layoutShiftDelta,layoutShifts:after.layout});
+              if(accepted)return{accepted:true,attempts,snapshot:endSnap,hashes:endHashes};
+            }
+            return{accepted:false,attempts,error:'NO_1000MS_QUIET_WINDOW'};
+          }
+
+          async function openAcceptedPage(browser,variant,v,label){
+            const origin=ORIGIN[variant],net={allowedLocal:0,blockedExternal:[],blockedTelemetry:[],blockedUnsafe:[]};
+            const ctx=await browser.newContext(contextOptions(v));
+            await installAudit(ctx);await installNetworkPolicy(ctx,origin,net);
+            const page=await ctx.newPage(),tracker=requestTracker(page,origin);
+            const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});
+            if(!res||!res.ok()){await ctx.close();return{accepted:false,error:'NAVIGATION_FAILED',net,tracker}}
+            await normalizePage(page,v);
+            const q=await quietWindow(page,tracker,origin,v,variant,label);
+            networkRecords.push({variant,viewport:v.n,label,policy:'local-safe-reads-allow; external-block; telemetry-block; unsafe-block',allowedLocalCount:net.allowedLocal,blockedExternalCount:net.blockedExternal.length,blockedTelemetryCount:net.blockedTelemetry.length,blockedUnsafeCount:net.blockedUnsafe.length,blockedExternal:net.blockedExternal,blockedTelemetry:net.blockedTelemetry,blockedUnsafe:net.blockedUnsafe,failedLocal:tracker.failedLocal,failedExternal:tracker.failedExternal});
+            if(!q.accepted||net.blockedUnsafe.length){await page.close();await ctx.close();return{accepted:false,error:net.blockedUnsafe.length?'UNSAFE_REQUEST_ATTEMPTED':q.error,net,tracker,quiet:q}}
+            const snap=q.snapshot,hashes=q.hashes;
+            allResourceManifests.push({variant,viewport:v.n,label,manifest:snap.resourceManifest});allResourceHashes.push({variant,viewport:v.n,label,sha256:hashes.resourceSetSha256});allFontHashes.push({variant,viewport:v.n,label,sha256:hashes.fontStateSha256,state:snap.fontState});allImageHashes.push({variant,viewport:v.n,label,sha256:hashes.imageStateSha256,state:snap.imageState});allGeometryHashes.push({variant,viewport:v.n,label,sha256:hashes.geometrySha256,state:snap.geometry});allRenderHashes.push({variant,viewport:v.n,label,sha256:hashes.renderStateSha256});
+            return{accepted:true,variant,viewport:v.n,label,page,ctx,tracker,net,snapshot:snap,hashes,quiet:q};
+          }
+
+          async function shotFromOpen(x,label){
+            const png=await x.page.screenshot({fullPage:true,animations:'disabled',caret:'hide'});
+            return{accepted:true,variant:x.variant,viewport:x.viewport,label,png,pngHash:H(png),snapshot:x.snapshot,hashes:x.hashes};
+          }
+
+          function compare(key,a,b){
+            const d=pdiff(a.png,b.png);
+            const row={key,a:{variant:a.variant,label:a.label,pngHash:a.pngHash,hashes:a.hashes},b:{variant:b.variant,label:b.label,pngHash:b.pngHash,hashes:b.hashes},diffPixels:d.diffPixels,maxChannelDelta:d.maxChannelDelta,diffRatio:d.diffRatio,boundingBox:d.boundingBox,pixelIdentical:d.pixelIdentical,renderStateSha256Equal:a.hashes.renderStateSha256===b.hashes.renderStateSha256,resourceSetSha256Equal:a.hashes.resourceSetSha256===b.hashes.resourceSetSha256,fontStateSha256Equal:a.hashes.fontStateSha256===b.hashes.fontStateSha256,imageStateSha256Equal:a.hashes.imageStateSha256===b.hashes.imageStateSha256,geometrySha256Equal:a.hashes.geometrySha256===b.hashes.geometrySha256,topColorPairs:d.pairs};
+            if(!d.pixelIdentical){
+              saveDiff(key,a,b,d);
+              const els=(a.snapshot.elements||[]).filter(e=>!(e.rect.right<d.boundingBox.minX||e.rect.left>d.boundingBox.maxX||e.rect.bottom<d.boundingBox.minY||e.rect.top>d.boundingBox.maxY));
+              allSelfDiffs.push(row);allSelfDiffElements.push({key,boundingBox:d.boundingBox,elements:els.slice(0,200)});allSelfDiffColors.push({key,topColorPairs:d.pairs});
+            }
+            return row;
+          }
+
+          async function quickSamePageCheck(x,v,label){
+            const before=await x.page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+            const g0=(await pageSnapshot(x.page,ORIGIN[x.variant],v));
+            const p0=x.tracker.pendingLocal;
+            await x.page.waitForTimeout(250);
+            const g1=(await pageSnapshot(x.page,ORIGIN[x.variant],v));
+            const after=await x.page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+            const h0=hashSnapshot(g0),h1=hashSnapshot(g1);
+            const ok=p0===0&&x.tracker.pendingLocal===0&&after.m===before.m&&(!after.supported||after.l===before.l)&&h0.resourceSetSha256===h1.resourceSetSha256&&h0.fontStateSha256===h1.fontStateSha256&&h0.imageStateSha256===h1.imageStateSha256&&h0.geometrySha256===h1.geometrySha256&&h0.renderStateSha256===h1.renderStateSha256;
+            return{label,ok,pendingLocalStart:p0,pendingLocalEnd:x.tracker.pendingLocal,mutationDelta:after.m-before.m,layoutShiftDelta:after.supported?after.l-before.l:'UNSUPPORTED',startHashes:h0,endHashes:h1};
+          }
+
+          function phaseIdentityStable(samples){
+            if(!samples.length||samples.some(x=>!x.accepted))return false;
+            const keys=['resourceSetSha256','fontStateSha256','imageStateSha256','geometrySha256','renderStateSha256'];
+            return keys.every(k=>samples.every(x=>x.hashes[k]===samples[0].hashes[k]));
+          }
+          function comparisonStable(comparisons){return comparisons.length>0&&comparisons.every(x=>x.pixelIdentical&&x.diffPixels===0&&x.maxChannelDelta===0&&x.diffRatio===0)}
+          function phasePass(phase){return phase.accepted===phase.required&&phaseIdentityStable(phase.samples)&&comparisonStable(phase.comparisons)}
+
+          async function samePagePhase(variant,v){
+            const b=await launch(),open=await openAcceptedPage(b,variant,v,variant+'-same-page');
+            const out={variant,viewport:v.n,required:5,accepted:0,samples:[],comparisons:[],interShotChecks:[]};
+            if(open.accepted){
+              const first=await shotFromOpen(open,variant+'-SP1');out.samples.push(first);out.accepted=1;
+              for(let i=2;i<=5;i++){
+                const qc=await quickSamePageCheck(open,v,variant+'-SP'+i);out.interShotChecks.push(qc);
+                if(!qc.ok)break;
+                open.snapshot=await pageSnapshot(open.page,ORIGIN[variant],v);open.hashes=hashSnapshot(open.snapshot);
+                const sh=await shotFromOpen(open,variant+'-SP'+i);out.samples.push(sh);out.accepted++;
+              }
+              for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-same-page-1-'+(i+1),out.samples[0],out.samples[i]));
+              await open.page.close();await open.ctx.close();
+            }else out.error=open.error;
+            await b.close();
+            out.pass=out.accepted===5&&out.interShotChecks.every(x=>x.ok)&&phaseIdentityStable(out.samples)&&out.comparisons.length===4&&comparisonStable(out.comparisons);
+            return out;
+          }
+
+          async function freshContextPhase(variant,v,count){
+            const b=await launch(),out={variant,viewport:v.n,required:count,accepted:0,samples:[],comparisons:[]};
+            for(let i=1;i<=count;i++){
+              const o=await openAcceptedPage(b,variant,v,variant+'-Q'+i);
+              if(!o.accepted){out.error=o.error;break}
+              const sh=await shotFromOpen(o,variant+'-Q'+i);out.samples.push(sh);out.accepted++;
+              await o.page.close();await o.ctx.close();
+            }
+            await b.close();
+            for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-context-1-'+(i+1),out.samples[0],out.samples[i]));
+            out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            return out;
+          }
+
+          async function oneFreshProcess(variant,v,label){
+            const b=await launch();
+            try{
+              const o=await openAcceptedPage(b,variant,v,label);
+              if(!o.accepted)return{accepted:false,error:o.error,variant,viewport:v.n,label};
+              const sh=await shotFromOpen(o,label);
+              await o.page.close();await o.ctx.close();return sh;
+            }finally{await b.close()}
+          }
+
+          async function freshProcessPhase(variant,v,count){
+            const out={variant,viewport:v.n,required:count,accepted:0,samples:[],comparisons:[]};
+            for(let i=1;i<=count;i++){
+              const sh=await oneFreshProcess(variant,v,variant+'-P'+i);
+              if(!sh.accepted){out.error=sh.error;break}
+              out.samples.push(sh);out.accepted++;
+            }
+            for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-process-1-'+(i+1),out.samples[0],out.samples[i]));
+            out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            return out;
+          }
+
+          const envBrowser=await launch();
+          const browserEnvironment={chromiumVersion:envBrowser.version(),playwrightVersion:'1.55.0',runnerOS:fs.readFileSync(path.join(OUT,'os.txt'),'utf8').trim(),runnerImageOS:fs.readFileSync(path.join(OUT,'runner-image-os.txt'),'utf8').trim(),runnerImageVersion:fs.readFileSync(path.join(OUT,'runner-image-version.txt'),'utf8').trim(),deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezone:'UTC',fontInventorySha256:H(fs.readFileSync(path.join(OUT,'fonts.txt'))),browserLaunchArgs:ARGS,headless:true,gpuSoftwareFlags:ARGS.filter(x=>/gpu|gl|software|swiftshader/i.test(x)),normalizationStyleSha256:H(Buffer.from(NORMALIZATION))};
+          await envBrowser.close();
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-browser-environment.json'),JSON.stringify(browserEnvironment,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-network-policy.json'),JSON.stringify({installedBeforeNavigation:true,sameOriginSafeReads:['GET','HEAD','OPTIONS'],externalReads:'BLOCK',telemetry:'BLOCK',mutatingRequests:'BLOCK',networkRecords},null,2));
+
+          const mobile=VIEWPORTS.mobile;
+          const samePage={M4:await samePagePhase('M4',mobile),M5:null};
+          const freshContext={M4:await freshContextPhase('M4',mobile,10),M5:null};
+          const freshProcess={M4:await freshProcessPhase('M4',mobile,5),M5:null};
+          samePage.M5=await samePagePhase('M5',mobile);
+          freshContext.M5=await freshContextPhase('M5',mobile,10);
+          freshProcess.M5=await freshProcessPhase('M5',mobile,5);
+
+          fs.writeFileSync(path.join(OUT,'folio-m4-same-page-stability.json'),JSON.stringify(samePage.M4,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-m5-same-page-stability.json'),JSON.stringify(samePage.M5,null,2));
+
+          const contextByViewport={mobile:{M4:freshContext.M4,M5:freshContext.M5}};
+          const processByViewport={mobile:{M4:freshProcess.M4,M5:freshProcess.M5}};
+          const mobilePass=samePage.M4.pass&&samePage.M5.pass&&freshContext.M4.pass&&freshContext.M5.pass&&freshProcess.M4.pass&&freshProcess.M5.pass;
+
+          let expanded=false;
+          if(mobilePass){
+            expanded=true;
+            for(const key of ['desktop','below760','above760']){
+              const v=VIEWPORTS[key];
+              contextByViewport[key]={M4:await freshContextPhase('M4',v,5),M5:await freshContextPhase('M5',v,5)};
+              processByViewport[key]={M4:await freshProcessPhase('M4',v,3),M5:await freshProcessPhase('M5',v,3)};
+            }
+          }
+
+          fs.writeFileSync(path.join(OUT,'folio-m4-fresh-context-stability.json'),JSON.stringify(Object.fromEntries(Object.entries(contextByViewport).map(([k,x])=>[k,x.M4])),null,2));
+          fs.writeFileSync(path.join(OUT,'folio-m5-fresh-context-stability.json'),JSON.stringify(Object.fromEntries(Object.entries(contextByViewport).map(([k,x])=>[k,x.M5])),null,2));
+          fs.writeFileSync(path.join(OUT,'folio-m4-fresh-process-stability.json'),JSON.stringify(Object.fromEntries(Object.entries(processByViewport).map(([k,x])=>[k,x.M4])),null,2));
+          fs.writeFileSync(path.join(OUT,'folio-m5-fresh-process-stability.json'),JSON.stringify(Object.fromEntries(Object.entries(processByViewport).map(([k,x])=>[k,x.M5])),null,2));
+
+          const matrix={primaryViewport:mobile.n,M4:{samePage:samePage.M4.pass?'STABLE':'NONDETERMINISTIC',freshContextSameProcess:freshContext.M4.pass?'STABLE':'NONDETERMINISTIC',freshProcess:freshProcess.M4.pass?'STABLE':'NONDETERMINISTIC'},M5:{samePage:samePage.M5.pass?'STABLE':'NONDETERMINISTIC',freshContextSameProcess:freshContext.M5.pass?'STABLE':'NONDETERMINISTIC',freshProcess:freshProcess.M5.pass?'STABLE':'NONDETERMINISTIC'}};
+          fs.writeFileSync(path.join(OUT,'folio-self-consistency-regime-matrix.json'),JSON.stringify(matrix,null,2));
+
+          const allViewport={};
+          let allSelfPass=mobilePass&&expanded;
+          if(expanded){
+            for(const key of ORDER){
+              const c=contextByViewport[key],p=processByViewport[key];
+              allViewport[VIEWPORTS[key].n]={M4:c.M4.pass&&p.M4.pass?'SELF-STABLE':'SELF-NONDETERMINISTIC',M5:c.M5.pass&&p.M5.pass?'SELF-STABLE':'SELF-NONDETERMINISTIC',freshContext:{M4:c.M4.pass,M5:c.M5.pass},freshProcess:{M4:p.M4.pass,M5:p.M5.pass}};
+              if(!c.M4.pass||!c.M5.pass||!p.M4.pass||!p.M5.pass)allSelfPass=false;
+            }
+          }else allSelfPass=false;
+          fs.writeFileSync(path.join(OUT,'folio-all-viewport-self-stability.json'),JSON.stringify({primarySelfStability:mobilePass?'PASS':'FAIL',expanded,allViewportSelfStability:allSelfPass?'PASS':'FAIL',viewports:allViewport},null,2));
+
+          let cross=null,crossPass=false;
+          if(allSelfPass){
+            cross={pairsPerViewport:5,viewports:{}};
+            crossPass=true;
+            for(const key of ORDER){
+              const v=VIEWPORTS[key];cross.viewports[v.n]=[];
+              for(let i=1;i<=5;i++){
+                const order=i%2===1?['M4','M5']:['M5','M4'];
+                const first=await oneFreshProcess(order[0],v,'cross-'+v.n+'-'+i+'-'+order[0]);
+                const second=await oneFreshProcess(order[1],v,'cross-'+v.n+'-'+i+'-'+order[1]);
+                if(!first.accepted||!second.accepted){cross.viewports[v.n].push({pair:i,order,accepted:false,error:first.error||second.error});crossPass=false;continue}
+                const a=first.variant==='M4'?first:second,b=first.variant==='M5'?first:second;
+                const cmp=compare('cross-'+v.n+'-'+i,a,b);
+                cross.viewports[v.n].push({pair:i,order,accepted:true,comparison:cmp});
+                if(!cmp.pixelIdentical)crossPass=false;
+              }
+            }
+            fs.writeFileSync(path.join(OUT,'folio-quiet-window-cross-variant-recheck.json'),JSON.stringify(cross,null,2));
+          }
+
+          function firstFailedComparison(){
+            const pools=[samePage.M4,samePage.M5,...Object.values(contextByViewport).flatMap(x=>[x.M4,x.M5]),...Object.values(processByViewport).flatMap(x=>[x.M4,x.M5])];
+            for(const p of pools){const z=(p.comparisons||[]).find(x=>!x.pixelIdentical);if(z)return{phase:p,comparison:z}}
+            return null;
+          }
+          const failed=firstFailedComparison();
+          let rootCause='Q9 — NO NONDETERMINISM REPRODUCED UNDER STRICT QUIET WINDOW',outcome='G — INCONCLUSIVE';
+          if(allSelfPass&&crossPass)outcome='A — SELF-CONSISTENCY STABILIZED; M4↔M5 PIXEL EQUIVALENCE PROVEN';
+          else if(allSelfPass&&!crossPass){outcome='B — SELF-CONSISTENCY STABILIZED; STABLE M4↔M5 VISUAL DIFFERENCE REMAINS';rootCause='Q9 — NO NONDETERMINISM REPRODUCED UNDER STRICT QUIET WINDOW'}
+          else{
+            const contextFail=!freshContext.M4.pass||!freshContext.M5.pass;
+            const processStable=freshProcess.M4.pass&&freshProcess.M5.pass;
+            if(contextFail&&processStable){rootCause='Q6 — SHARED BROWSER-PROCESS / CONTEXT CACHE NONDETERMINISM';outcome='D — SHARED BROWSER-PROCESS / CONTEXT NONDETERMINISM IDENTIFIED BUT NOT FULLY STABILIZED'}
+            else if(failed){
+              const c=failed.comparison;
+              if(!c.resourceSetSha256Equal){rootCause='Q1 — EXTERNAL / RESOURCE ASYNC NONDETERMINISM';outcome='C — RESOURCE / ASYNC NONDETERMINISM IDENTIFIED BUT NOT FULLY STABILIZED'}
+              else if(!c.fontStateSha256Equal){rootCause='Q4 — FONT / TEXT RENDER STATE NONDETERMINISM';outcome='G — INCONCLUSIVE'}
+              else if(!c.imageStateSha256Equal){rootCause='Q5 — IMAGE / MEDIA STATE NONDETERMINISM';outcome='C — RESOURCE / ASYNC NONDETERMINISM IDENTIFIED BUT NOT FULLY STABILIZED'}
+              else if(!c.geometrySha256Equal){rootCause='Q3 — LAYOUT-SHIFT / GEOMETRY NONDETERMINISM';outcome='F — INTERNAL DOM / LAYOUT INSTABILITY PERSISTS'}
+              else if(c.renderStateSha256Equal){rootCause='Q7 — BROWSER RASTER / COMPOSITOR NONDETERMINISM';outcome='E — BROWSER RASTER / COMPOSITOR NONDETERMINISM PERSISTS'}
+              else{rootCause='Q2 — INTERNAL DOM MUTATION NONDETERMINISM';outcome='F — INTERNAL DOM / LAYOUT INSTABILITY PERSISTS'}
+            }else{
+              const anyRejected=[samePage.M4,samePage.M5,freshContext.M4,freshContext.M5,freshProcess.M4,freshProcess.M5].some(x=>x.accepted<x.required);
+              rootCause=anyRejected?'Q10 — INCONCLUSIVE':'Q10 — INCONCLUSIVE';outcome='G — INCONCLUSIVE';
+            }
+          }
+
+          const crossRows=cross?Object.values(cross.viewports).flat():[];
+          const crossComparisons=crossRows.filter(x=>x.accepted).map(x=>x.comparison);
+          const summary={
+            outcome,rootCauseClassification:rootCause,
+            primaryViewport:mobile.n,
+            primary:{M4:{samePage:samePage.M4.pass?'SELF-STABLE':'FAIL',freshContext:freshContext.M4.pass?'SELF-STABLE':'FAIL',freshProcess:freshProcess.M4.pass?'SELF-STABLE':'FAIL'},M5:{samePage:samePage.M5.pass?'SELF-STABLE':'FAIL',freshContext:freshContext.M5.pass?'SELF-STABLE':'FAIL',freshProcess:freshProcess.M5.pass?'SELF-STABLE':'FAIL'}},
+            allViewportSelfStability:allSelfPass?'PASS':'NOT PROVEN',viewports:allViewport,
+            quietWindow:{pendingLocal:'0 continuously for 1000ms on accepted captures',mutationDelta:0,layoutShiftDelta:'0 or UNSUPPORTED',geometry:'stable',fonts:'loaded/stable',resourceSet:'stable',imageState:'stable'},
+            crossLegallyReached:!!cross,
+            crossPairs:crossComparisons.length,
+            crossPass,
+            allCrossDiffPixels:crossPass?0:null,
+            allCrossMaxChannelDelta:crossPass?0:null,
+            allCrossDiffRatio:crossPass?0:null,
+            pixelEquivalence:allSelfPass&&crossPass?'PROVEN UNDER SELF-STABLE QUIET-WINDOW HARNESS':allSelfPass?'FALSE OR NOT PROVEN':'NOT TESTABLE RELIABLY',
+            fifthRuleRole:'F3 — DEAD REDUNDANT FOLIO RESIDUE',
+            naturalMatchCount:0,reachableMarkerCreationPaths:0,m5BuiltFolioResidues:0,
+            fifthPathDisposition:allSelfPass&&crossPass?'P1 — SAFE FUTURE REMOVAL CANDIDATE':'NOT ADVANCED',
+            m5ContractStatus:allSelfPass&&crossPass?'READY FOR RE-AUTHORIZATION REVIEW':'NO',
+            implementationAuthorized:false,promotionAuthorized:false,deploymentAuthorized:false,
+            nextPossibleGate:allSelfPass&&crossPass?'FOLIO OPACITY M4 → M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW':allSelfPass?'STABLE M4↔M5 VISUAL CAUSALITY REVIEW':'SELF-CONSISTENCY FOLLOW-UP ONLY',
+            doNotMutateProduction:true
+          };
+          fs.writeFileSync(path.join(OUT,'folio-self-consistency-root-cause.json'),JSON.stringify({rootCauseClassification:rootCause,outcome,failedSample:failed?.comparison||null,regimeMatrix:matrix},null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-summary.json'),JSON.stringify(summary,null,2));
+
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-resource-manifests.json'),JSON.stringify(allResourceManifests,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-resource-hashes.json'),JSON.stringify(allResourceHashes,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-font-hashes.json'),JSON.stringify(allFontHashes,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-image-hashes.json'),JSON.stringify(allImageHashes,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-geometry-hashes.json'),JSON.stringify(allGeometryHashes,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-render-state-hashes.json'),JSON.stringify(allRenderHashes,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-mutation-samples.json'),JSON.stringify(allMutationSamples,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-layout-shift-samples.json'),JSON.stringify(allLayoutSamples,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-pending-request-samples.json'),JSON.stringify(allPendingSamples,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-self-diff-regions.json'),JSON.stringify(allSelfDiffs.map(x=>({key:x.key,diffPixels:x.diffPixels,maxChannelDelta:x.maxChannelDelta,diffRatio:x.diffRatio,boundingBox:x.boundingBox,renderStateSha256Equal:x.renderStateSha256Equal,resourceSetSha256Equal:x.resourceSetSha256Equal,fontStateSha256Equal:x.fontStateSha256Equal,imageStateSha256Equal:x.imageStateSha256Equal,geometrySha256Equal:x.geometrySha256Equal})),null,2));
+          fs.writeFileSync(path.join(OUT,'folio-self-diff-elements.json'),JSON.stringify(allSelfDiffElements,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-self-diff-pixel-colors.json'),JSON.stringify(allSelfDiffColors,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-network-policy.json'),JSON.stringify({installedBeforeNavigation:true,sameOriginSafeReads:['GET','HEAD','OPTIONS'],externalReads:'BLOCK',telemetry:'BLOCK',mutatingRequests:'BLOCK',mutatingDispatchCount:networkRecords.reduce((n,x)=>n+x.blockedUnsafeCount,0),captures:networkRecords},null,2));
+          JS
+
+          OUT="$OUT" M4="$M4" M5="$M5" node .quiet.mjs
+          rm -f .quiet.mjs
+          test -z "$(git status --porcelain)"
+      - name: Terminal refs and required evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/quiet"
+          mkdir -p "$OUT"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GH_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/main"|jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/commits/$MAIN")"
+          M4G="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/commits/$M4")"
+          GG="$(api "https://api.github.com/repos/$GITHUB_REPOSITORY/git/commits/$GH")"
+          test "$MAIN" = "$MAIN_SHA"; test "$M4" = "$M4_SHA"; test "$GH" = "$GH_SHA"
+          test "$(jq -r '.tree.sha'<<<"$MG")" = "$MAIN_TREE"
+          test "$(jq -r '.tree.sha'<<<"$M4G")" = "$M4_TREE"
+          test "$(jq -r '.tree.sha'<<<"$GG")" = "$GH_TREE"
+          jq -n --arg main "$MAIN" --arg m4 "$M4" --arg gh "$GH" --arg mt "$(jq -r '.tree.sha'<<<"$MG")" --arg m4t "$(jq -r '.tree.sha'<<<"$M4G")" --arg gt "$(jq -r '.tree.sha'<<<"$GG")" '{main:$main,blockedM4:$m4,ghPages:$gh,mainTree:$mt,m4Tree:$m4t,ghPagesTree:$gt,mainMoved:false,blockedImplementationRewritten:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' > "$OUT/folio-quiet-window-terminal-refs.json"
+
+          for F in \
+            folio-quiet-window-preflight.json \
+            folio-quiet-window-build-identities.json \
+            folio-quiet-window-browser-environment.json \
+            folio-quiet-window-network-policy.json \
+            folio-quiet-window-resource-manifests.json \
+            folio-quiet-window-resource-hashes.json \
+            folio-quiet-window-font-hashes.json \
+            folio-quiet-window-image-hashes.json \
+            folio-quiet-window-geometry-hashes.json \
+            folio-quiet-window-render-state-hashes.json \
+            folio-quiet-window-mutation-samples.json \
+            folio-quiet-window-layout-shift-samples.json \
+            folio-quiet-window-pending-request-samples.json \
+            folio-m4-same-page-stability.json \
+            folio-m5-same-page-stability.json \
+            folio-m4-fresh-context-stability.json \
+            folio-m5-fresh-context-stability.json \
+            folio-m4-fresh-process-stability.json \
+            folio-m5-fresh-process-stability.json \
+            folio-self-consistency-regime-matrix.json \
+            folio-self-diff-regions.json \
+            folio-self-diff-elements.json \
+            folio-self-diff-pixel-colors.json \
+            folio-self-consistency-root-cause.json \
+            folio-all-viewport-self-stability.json \
+            folio-quiet-window-summary.json \
+            folio-quiet-window-terminal-refs.json
+          do test -s "$OUT/$F"; done
+
+      - name: Upload quiet-window evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-self-consistency-quiet-window-resolution
+          path: ${{ runner.temp }}/quiet
+          if-no-files-found: error
+          retention-days: 90
