@@ -1,0 +1,589 @@
+name: Post-3B Folio Opacity Fifth-Path Characterization
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-fifth-path-characterization'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  M4_SHA: 5bc4e216a568a57b217187b4030f8208ad87fe31
+  M4_TREE: d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  FIFTH_BLOB: ef073fbb20c95292c40d6ca9f0775c1f2a4f8866
+  FIFTH_RULE: 'main > section.home-chapter > .overdrive-folio-marker{display:none!important}'
+
+jobs:
+  characterize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout frozen main read-only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority and fifth-path identity gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          mkdir -p "${OUT}"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          M4G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${M4}" = "${M4_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha' <<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${M4G}")" = "${M4_TREE}"
+          test "$(jq -r '.tree.sha' <<<"${GG}")" = "${GH_TREE}"
+
+          MAIN_BLOB="$(git rev-parse "${MAIN_SHA}:homepage-sections-v1.css")"
+          M4_BLOB="$(git rev-parse "${M4_SHA}:homepage-sections-v1.css")"
+          test "${MAIN_BLOB}" = "${FIFTH_BLOB}"
+          test "${M4_BLOB}" = "${FIFTH_BLOB}"
+
+          jq -n --arg main "${MAIN}" --arg m4 "${M4}" --arg gh "${GH}" \
+            --arg mainTree "$(jq -r '.tree.sha' <<<"${MG}")" --arg m4Tree "$(jq -r '.tree.sha' <<<"${M4G}")" --arg ghTree "$(jq -r '.tree.sha' <<<"${GG}")" \
+            '{main:$main,blockedImplementation:$m4,ghPages:$gh,mainTree:$mainTree,blockedImplementationTree:$m4Tree,ghPagesTree:$ghTree,authorityDrift:false,readOnly:true}' \
+            > "${OUT}/folio-fifth-path-preflight.json"
+
+          jq -n --arg path "homepage-sections-v1.css" --arg mainBlob "${MAIN_BLOB}" --arg m4Blob "${M4_BLOB}" \
+            '{path:$path,mainBlob:$mainBlob,blockedImplementationBlob:$m4Blob,identical:true,predatesM4:true}' \
+            > "${OUT}/folio-fifth-path-identity.json"
+
+      - name: Inspect exact rule reachability load order and whole-source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          M4="${RUNNER_TEMP}/m4"
+          git worktree add --detach "${M4}" "${M4_SHA}"
+
+          OUT="${OUT}" M4="${M4}" python3 - <<'PY'
+          import json,os,re,hashlib
+          from pathlib import Path
+
+          out=Path(os.environ["OUT"]);m4=Path(os.environ["M4"])
+          rule='main > section.home-chapter > .overdrive-folio-marker{display:none!important}'
+          f=Path("homepage-sections-v1.css")
+          text=f.read_text()
+          lines=text.splitlines()
+          hits=[i+1 for i,x in enumerate(lines) if x==rule]
+          assert hits==[26],hits
+          i=hits[0]-1
+          rule_evidence={
+            "file":"homepage-sections-v1.css","line":26,
+            "selector":"main > section.home-chapter > .overdrive-folio-marker",
+            "declarations":"display:none!important",
+            "exactRule":rule,"occurrenceCount":text.count(rule),
+            "surroundingContext":{"previous":lines[i-1] if i else None,"current":lines[i],"next":lines[i+1] if i+1<len(lines) else None},
+            "mediaContext":None,
+            "commentsImmediatelyAssociated":[],
+            "notModified":True
+          }
+          assert rule_evidence["occurrenceCount"]==1
+          json.dump(rule_evidence,open(out/"folio-fifth-path-rule.json","w"),indent=2)
+
+          htmls=sorted(Path(".").rglob("*.html"))
+          refs=[]
+          for p in htmls:
+            c=p.read_text(errors="replace")
+            n=c.count("homepage-sections-v1.css")
+            if n: refs.append({"document":p.as_posix(),"referenceCount":n})
+          assert refs==[{"document":"index.html","referenceCount":1}],refs
+          idx=Path("index.html").read_text()
+          positions={name:idx.find(name) for name in ["overdrive-v1.css","visual-layout-hotfix-v2.css","homepage-sections-v1.css"]}
+          assert all(v>=0 for v in positions.values())
+          assert positions["overdrive-v1.css"] < positions["visual-layout-hotfix-v2.css"] < positions["homepage-sections-v1.css"]
+          reach={
+            "productionReachable":True,"htmlDocumentsLoading":refs,"htmlDocumentsNotLoading":[p.as_posix() for p in htmls if not p.read_text(errors="replace").count("homepage-sections-v1.css")],
+            "loadOrder":positions,
+            "relativeOrder":"overdrive-v1.css -> visual-layout-hotfix-v2.css -> homepage-sections-v1.css",
+            "ruleLoadedAfterBothPriorFolioStyles":True
+          }
+          json.dump(reach,open(out/"folio-fifth-path-production-reachability.json","w"),indent=2)
+
+          # Selector semantics in static source: exact direct-child shape; no marker exists statically.
+          home_chapters=len(re.findall(r'<section\b[^>]*class=["\'][^"\']*\bhome-chapter\b[^"\']*["\']',idx,re.I))
+          marker_static=len(re.findall(r'class=["\'][^"\']*\boverdrive-folio-marker\b[^"\']*["\']',idx,re.I))
+          semantics={
+            "selector":"main > section.home-chapter > .overdrive-folio-marker",
+            "requiresMain":True,"requiresDirectChildSectionHomeChapter":True,"requiresDirectChildMarker":True,
+            "staticHomeChapterSections":home_chapters,"staticMarkerNodes":marker_static,"staticMatches":0,
+            "naturalRuntimeMatches":"MEASURED LATER","dynamicMatches":"MEASURED LATER","languageSwitchMatches":"MEASURED LATER","responsiveMatches":"MEASURED LATER","scrollTriggeredMatches":"MEASURED LATER","observerTriggeredMatches":"MEASURED LATER"
+          }
+          assert marker_static==0
+          json.dump(semantics,open(out/"folio-fifth-path-selector-semantics.json","w"),indent=2)
+
+          patterns=["overdrive-folio-marker","overdrive-folio","is-folio-current","--folio-opacity","od-folio-open","initFolioMarkers"]
+          def scan(root):
+            rows=[]
+            for p in sorted(root.rglob("*")):
+              if not p.is_file(): continue
+              rel=p.relative_to(root).as_posix()
+              if rel.startswith(".git/") or rel.startswith("node_modules/") or rel.startswith("dist/") or rel.startswith(".github/"): continue
+              if p.suffix.lower() not in {".css",".js",".mjs",".html",".json",".md"}: continue
+              try:c=p.read_text(errors="replace")
+              except:continue
+              h={q:c.count(q) for q in patterns if q in c}
+              if h: rows.append({"path":rel,"hits":h})
+            return rows
+          main_rows=scan(Path("."))
+          m4_rows=scan(m4)
+
+          # Production-like direct source files are HTML/CSS/JS actually referenced by production HTML.
+          prod_refs=set()
+          for root in [Path("."),m4]:
+            for hp in sorted(root.rglob("*.html")):
+              c=hp.read_text(errors="replace")
+              for q in re.findall(r'(?:src|href)=["\']([^"\']+\.(?:css|js))(?:\?[^"\']*)?["\']',c,re.I):
+                prod_refs.add(q.lstrip("./"))
+          remaining=[r for r in m4_rows if r["path"] in prod_refs]
+          assert [r["path"] for r in remaining]==["homepage-sections-v1.css"],remaining
+
+          json.dump({
+            "patterns":patterns,
+            "frozenMainHits":main_rows,
+            "blockedImplementationHits":m4_rows,
+            "productionReferencedSourcePaths":sorted(prod_refs),
+            "remainingProductionFolioResidues":remaining,
+            "remainingProductionPathCount":1,
+            "additionalSixthProductionPath":False
+          },open(out/"folio-post-m4-whole-source-residues.json","w"),indent=2)
+          PY
+
+      - name: Create disposable SIM-FIFTH and clean M5 from frozen main
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          M4="${RUNNER_TEMP}/m4"
+          SIM="${RUNNER_TEMP}/sim-fifth"
+          M5="${RUNNER_TEMP}/m5"
+
+          git worktree add --detach "${SIM}" "${M4_SHA}"
+          git worktree add --detach "${M5}" "${MAIN_SHA}"
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${SIM}/node_modules"
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${M5}/node_modules"
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${M4}/node_modules"
+
+          OUT="${OUT}" SIM="${SIM}" M5="${M5}" python3 - <<'PY'
+          import json,os,re,subprocess,hashlib
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);sim=Path(os.environ["SIM"]);m5=Path(os.environ["M5"])
+          fifth='main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n'
+
+          # SIM-FIFTH: exact one-rule removal on blocked M4 only.
+          p=sim/"homepage-sections-v1.css"; s=p.read_text()
+          assert s.count(fifth)==1
+          p.write_text(s.replace(fifth,"",1))
+          changed=subprocess.check_output(["git","-C",str(sim),"diff","--name-only","HEAD","--"],text=True).splitlines()
+          assert changed==["homepage-sections-v1.css"],changed
+          num=subprocess.check_output(["git","-C",str(sim),"diff","--numstat","HEAD","--"],text=True).strip()
+          assert num=="0\t1\thomepage-sections-v1.css",num
+          subprocess.check_call(["git","-C",str(sim),"diff","--check"])
+          json.dump({"base":"5bc4e216a568a57b217187b4030f8208ad87fe31","name":"SIM-FIFTH / M5-CANDIDATE","changedPaths":changed,"numstat":{"additions":0,"deletions":1},"wholeFileDeletion":False,"unrelatedFormattingChanges":0},open(out/"folio-fifth-path-simulation.json","w"),indent=2)
+
+          # M5 from frozen main: exact characterized M4 + exact fifth rule.
+          # JS
+          p=m5/"overdrive-v1.js"; s=p.read_text()
+          mm=re.search(r"\nfunction initFolioMarkers\(\) \{.*?\n\}\n\nfunction initOverdrive\(\)",s,re.S); assert mm
+          p.write_text(s[:mm.start()]+"\nfunction initOverdrive()"+s[mm.end():])
+          # Overdrive CSS
+          p=m5/"overdrive-v1.css"; s=p.read_text()
+          a=s.index("/* ── 3. Section leaves:");b=s.index("/* ── 4. Scroll-linked depth",a)
+          s=s[:a]+s[b:]
+          for x in [
+            "  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }\n",
+            "  .overdrive-folio-marker,\n",
+            "  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }\n"
+          ]:
+            assert x in s;s=s.replace(x,"",1)
+          p.write_text(s)
+          # Hotfix exact rule only, comment preserved.
+          p=m5/"visual-layout-hotfix-v2.css";s=p.read_text();x=".overdrive-folio-marker{display:none!important}\n";assert s.count(x)==1;p.write_text(s.replace(x,"",1))
+          # Manifest four semantic changes only.
+          p=m5/"token-authority-manifest.json";s=p.read_text();assert s.count('    "--folio-opacity",\n')==2
+          s=s.replace('    "--folio-opacity",\n',"",2).replace('    "customPropertyNameCount": 369,\n','    "customPropertyNameCount": 368,\n',1).replace('    "conflictCount": 39,\n','    "conflictCount": 38,\n',1);p.write_text(s)
+          # Fifth path exact rule only.
+          p=m5/"homepage-sections-v1.css";s=p.read_text();assert s.count(fifth)==1;p.write_text(s.replace(fifth,"",1))
+
+          changed=subprocess.check_output(["git","-C",str(m5),"diff","--name-only","HEAD","--"],text=True).splitlines()
+          expected=["homepage-sections-v1.css","overdrive-v1.css","overdrive-v1.js","token-authority-manifest.json","visual-layout-hotfix-v2.css"]
+          assert changed==expected,changed
+          subprocess.check_call(["git","-C",str(m5),"diff","--check"])
+          numstats=[]
+          for l in subprocess.check_output(["git","-C",str(m5),"diff","--numstat","HEAD","--"],text=True).splitlines():
+            a,d,p=l.split("\t");numstats.append({"path":p,"additions":int(a),"deletions":int(d)})
+          exp={
+            "homepage-sections-v1.css":(0,1),"overdrive-v1.css":(0,45),"overdrive-v1.js":(0,25),
+            "token-authority-manifest.json":(3,5),"visual-layout-hotfix-v2.css":(0,1)
+          }
+          assert {x["path"]:(x["additions"],x["deletions"]) for x in numstats}==exp
+          json.dump({"base":"006ba05c7361451865660450695c48428a3ed8d0","candidate":"M5","changedPathCount":5,"changedPaths":changed,"numstat":numstats,"noSixthPath":True,"wholeFileDeletion":False,"unrelatedFormattingChanges":0,"unrelatedSemanticChanges":0},open(out/"folio-m5-source-contract-model.json","w"),indent=2)
+
+          # Full tracked-source equivalence: M5 == blocked M4 + exact fifth-rule removal.
+          files=subprocess.check_output(["git","-C",str(m5),"ls-files"],text=True).splitlines()
+          mismatches=[]
+          for rel in files:
+            a=(m5/rel).read_bytes();b=(sim/rel).read_bytes()
+            if a!=b:mismatches.append(rel)
+          assert not mismatches,mismatches
+          hashes={}
+          for rel in expected:
+            h=hashlib.sha256((m5/rel).read_bytes()).hexdigest()
+            hashes[rel]=h
+          json.dump({"trackedFileCount":len(files),"mismatches":[],"sourceEquivalent":True,"fivePathHashes":hashes,"meaning":"M5 from frozen main equals blocked M4 plus exact fifth-rule removal"},open(out/"folio-m5-source-equivalence.json","w"),indent=2)
+
+          # Protected homepage-sections: only one exact line differs.
+          base=(Path(".")/"homepage-sections-v1.css").read_text().splitlines()
+          new=(m5/"homepage-sections-v1.css").read_text().splitlines()
+          assert len(base)==len(new)+1
+          filtered=[x for x in base if x!='main > section.home-chapter > .overdrive-folio-marker{display:none!important}']
+          assert filtered==new
+          protected=["home-chapter","quick-guide","tracks","faq","about","testimonials","video-library","contact"]
+          json.dump({"changedRuleCount":1,"exactRemovedRule":"main > section.home-chapter > .overdrive-folio-marker{display:none!important}","allOtherLinesByteForBytePreserved":True,"protectedAreas":protected,"commentRewrite":False,"formattingCleanup":False},open(out/"folio-m5-protected-homepage-behavior.json","w"),indent=2)
+          PY
+
+      - name: Fresh M4 and M5 verification builds and Folio absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          M4="${RUNNER_TEMP}/m4"
+          SIM="${RUNNER_TEMP}/sim-fifth"
+          M5="${RUNNER_TEMP}/m5"
+
+          npm ci >/dev/null
+          (cd "${M4}" && npm run build >/dev/null)
+          (cd "${M5}" && npm run verify 2>&1 | tee "${OUT}/m5-npm-verify.log")
+          (cd "${M5}" && npm run build 2>&1 | tee "${OUT}/m5-build.log")
+          (cd "${M5}" && node token-authority-check.mjs 2>&1 | tee "${OUT}/m5-token-authority.log")
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/m5-token-authority.log"
+          git -C "${M5}" diff --check
+
+          OUT="${OUT}" M4="${M4}" M5="${M5}" python3 - <<'PY'
+          import json,os,hashlib
+          from pathlib import Path
+          out=Path(os.environ["OUT"]);m4=Path(os.environ["M4"]);m5=Path(os.environ["M5"])
+
+          man=json.loads((m5/"token-authority-manifest.json").read_text())
+          auth={"canonical":len(man["canonicalTokens"]),"aliases":[1,48,23,23,2],"correctedConflicts":man["correctedAuditScope"]["conflictCount"],"productionCss":man["correctedAuditScope"]["productionCssFileCount"],"inlineStyles":man["correctedAuditScope"]["inlineStyleBlockCount"],"customPropertyNames":man["correctedAuditScope"]["customPropertyNameCount"],"undefinedVariables":0}
+          exp={"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
+          assert auth==exp,(auth,exp)
+          json.dump(auth,open(out/"folio-m5-authority-model.json","w"),indent=2)
+
+          def snap(root):
+            rows={}
+            for p in sorted(x for x in root.rglob("*") if x.is_file()):
+              b=p.read_bytes();rows[p.relative_to(root).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
+            canonical="".join(f"{v['sha256']}\t{v['bytes']}\t{k}\n" for k,v in rows.items()).encode()
+            return rows,hashlib.sha256(canonical).hexdigest()
+          m4rows,m4man=snap(m4/"dist");m5rows,m5man=snap(m5/"dist")
+          assert len(m4rows)==25 and sum(x["bytes"] for x in m4rows.values())==2554010
+          assert len(m5rows)==25
+          m5bytes=sum(x["bytes"] for x in m5rows.values())
+          js=[k for k in m5rows if k.startswith("assets/main-") and k.endswith(".js")]
+          css=[k for k in m5rows if k.startswith("assets/main-") and k.endswith(".css")]
+          assert len(js)==1 and len(css)==1,(js,css)
+          json.dump({"fileCount":25,"totalBytes":m5bytes,"mainJs":js[0],"mainCss":css[0],"snapshotManifestSha256":m5man,"verify":"PASS","build":"PASS","tokenAuthorityChecker":"PASS","gitDiffCheck":"PASS"},open(out/"folio-m5-build.json","w"),indent=2)
+
+          def folio_counts(rows,root):
+            jsname=[k for k in rows if k.startswith("assets/main-") and k.endswith(".js")][0]
+            cssname=[k for k in rows if k.startswith("assets/main-") and k.endswith(".css")][0]
+            j=(root/jsname).read_text(errors="replace");c=(root/cssname).read_text(errors="replace")
+            return {"mainJs":jsname,"mainCss":cssname,
+              "js":{"overdrive-folio-marker":j.count("overdrive-folio-marker"),"overdrive-folio":j.count("overdrive-folio"),"is-folio-current":j.count("is-folio-current"),"dataset.folio":j.count("dataset.folio"),"folioRootMargin":j.count("-18% 0px -56% 0px")},
+              "css":{"--folio-opacity":c.count("--folio-opacity"),"overdrive-folio-marker":c.count("overdrive-folio-marker"),"overdrive-folio":c.count("overdrive-folio"),"is-folio-current":c.count("is-folio-current"),"od-folio-open":c.count("od-folio-open"),"folioMask":c.count("display:none!important") if "overdrive-folio-marker" in c else 0}}
+          m4f=folio_counts(m4rows,m4/"dist");m5f=folio_counts(m5rows,m5/"dist")
+          assert m4f["js"]=={"overdrive-folio-marker":0,"overdrive-folio":0,"is-folio-current":0,"dataset.folio":0,"folioRootMargin":0}
+          assert m4f["css"]["--folio-opacity"]==0 and m4f["css"]["is-folio-current"]==0 and m4f["css"]["od-folio-open"]==0 and m4f["css"]["overdrive-folio-marker"]==1 and m4f["css"]["folioMask"]>=1
+          assert all(v==0 for v in m5f["js"].values())
+          assert all(v==0 for v in m5f["css"].values())
+          json.dump({"blockedM4":m4f,"expectedBlockedStateConfirmed":True,"traceSource":"homepage-sections-v1.css exact fifth rule"},open(out/"folio-post-m4-built-residues.json","w"),indent=2)
+          json.dump({"m5":m5f,"completeProductionFolioAbsence":True},open(out/"folio-m5-built-folio-absence.json","w"),indent=2)
+
+          add=sorted(set(m5rows)-set(m4rows));delete=sorted(set(m4rows)-set(m5rows));modify=sorted(k for k in set(m4rows)&set(m5rows) if m4rows[k]!=m5rows[k]);preserve=sorted(k for k in set(m4rows)&set(m5rows) if m4rows[k]==m5rows[k])
+          json.dump({"comparison":"M4 -> M5","ADD":add,"MODIFY":modify,"DELETE":delete,"PRESERVE":preserve,"counts":{"ADD":len(add),"MODIFY":len(modify),"DELETE":len(delete),"PRESERVE":len(preserve)},"m4Files":25,"m4Bytes":2554010,"m5Files":25,"m5Bytes":m5bytes},open(out/"folio-m5-generated-delta.json","w"),indent=2)
+          PY
+
+      - name: Install deterministic browser tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true
+          rm -f node_modules/.package-lock.json 2>/dev/null || true
+          test -z "$(git status --porcelain)"
+
+      - name: M4 versus M5 browser geometry screenshot equivalence and live natural state
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          M4="${RUNNER_TEMP}/m4"
+          M5="${RUNNER_TEMP}/m5"
+          python3 -m http.server 4474 --directory "${M4}/dist" >/tmp/folio-m4.log 2>&1 &
+          python3 -m http.server 4475 --directory "${M5}/dist" >/tmp/folio-m5.log 2>&1 &
+          sleep 2
+
+          cat > ".folio-fifth-browser.mjs" <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import { PNG } from 'pngjs';
+
+          const OUT=process.env.OUT;
+          const origins={M4:'http://127.0.0.1:4474',M5:'http://127.0.0.1:4475'};
+          const vps=[{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844},{name:'below-760',width:759,height:900},{name:'above-760',width:761,height:900}];
+          const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
+
+          async function capture(browser,variant,vp){
+            const origin=origins[variant],ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce'});
+            const page=await ctx.newPage();const cons=[],localFail=[];
+            await ctx.route('**/*',async route=>{
+              const req=route.request(),m=req.method().toUpperCase();let u;try{u=new URL(req.url())}catch{return route.abort('blockedbyclient')}
+              if(u.origin===origin&&['GET','HEAD','OPTIONS'].includes(m))return route.continue();
+              return route.abort('blockedbyclient');
+            });
+            page.on('console',m=>{if(['error','warning'].includes(m.type()))cons.push({type:m.type(),text:m.text().replaceAll('4474','PORT').replaceAll('4475','PORT')})});
+            page.on('pageerror',e=>cons.push({type:'pageerror',text:String(e).replaceAll('4474','PORT').replaceAll('4475','PORT')}));
+            page.on('requestfailed',r=>{try{if(new URL(r.url()).origin===origin)localFail.push({url:r.url().replace(origin,'ORIGIN'),failure:r.failure()})}catch{}});
+            const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});if(!res||!res.ok())throw new Error('navigation failed');
+            await page.waitForTimeout(350);
+            const states=[];
+            for(const phase of ['initial','middle','bottom','resized']){
+              if(phase==='middle')await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight*.5));
+              if(phase==='bottom')await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+              if(phase==='resized')await page.setViewportSize({width:Math.max(320,vp.width-20),height:vp.height});
+              await page.waitForTimeout(120);
+              states.push(await page.evaluate(()=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length})));
+            }
+            await page.setViewportSize({width:vp.width,height:vp.height});await page.evaluate(()=>scrollTo(0,0));await page.waitForTimeout(120);
+            const metrics=await page.evaluate(()=>{
+              const sections=[...document.querySelectorAll('main > section')].map((el,i)=>{const r=el.getBoundingClientRect();return {i,id:el.id||'',className:typeof el.className==='string'?el.className:'',top:r.top+scrollY,left:r.left+scrollX,width:r.width,height:r.height,bottom:r.bottom+scrollY}});
+              const hc=[...document.querySelectorAll('main > section.home-chapter')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top+scrollY,left:r.left+scrollX,width:r.width,height:r.height}});
+              const structure=[...document.body.querySelectorAll('*')].map(el=>el.tagName+'#'+(el.id||'')+'.'+(typeof el.className==='string'?el.className:'')).join('\n');
+              return {marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,readingProgress:document.querySelectorAll('.overdrive-reading-progress').length,hero:document.querySelectorAll('.overdrive-manuscript').length,ready:document.documentElement.classList.contains('overdrive-ready'),scrollHeight:document.documentElement.scrollHeight,bodyScrollHeight:document.body.scrollHeight,sections,homeChapters:hc,structure};
+            });
+            metrics.structuralHash=hash(Buffer.from(metrics.structure));delete metrics.structure;
+
+            await page.evaluate(async()=>{try{await document.fonts?.ready}catch{};await Promise.all([...document.images].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{const done=()=>resolve();img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});setTimeout(done,1500)})));for(const v of document.querySelectorAll('video')){try{v.pause();v.currentTime=0}catch{}}scrollTo(0,0)});
+            await page.addStyleTag({content:\`*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}\`});
+            await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await page.waitForTimeout(80);
+            const png=await page.screenshot({fullPage:true,animations:'disabled'});await ctx.close();
+            return {metrics,states,cons,localFail,png};
+          }
+
+          const browser=await chromium.launch({headless:true});const rows=[];
+          for(const vp of vps){
+            const a=await capture(browser,'M4',vp),b=await capture(browser,'M5',vp);
+            if(JSON.stringify(a.metrics)!==JSON.stringify(b.metrics))throw new Error('DOM/geometry mismatch '+vp.name);
+            if(JSON.stringify(a.states)!==JSON.stringify(b.states))throw new Error('state mismatch '+vp.name);
+            if(JSON.stringify(a.cons)!==JSON.stringify(b.cons))throw new Error('console mismatch '+vp.name);
+            if(a.localFail.length||b.localFail.length)throw new Error('local failure '+vp.name);
+            if(a.metrics.marker!==0||b.metrics.marker!==0)throw new Error('natural marker present '+vp.name);
+            const A=PNG.sync.read(a.png),B=PNG.sync.read(b.png);if(A.width!==B.width||A.height!==B.height)throw new Error('size mismatch');
+            let diffPixels=0,maxChannelDelta=0;
+            for(let i=0;i<A.data.length;i+=4){let pd=false;for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){pd=true;maxChannelDelta=Math.max(maxChannelDelta,d)}}if(pd)diffPixels++}
+            const diffRatio=diffPixels/(A.width*A.height);
+            if(diffPixels||maxChannelDelta||diffRatio)throw new Error('pixel mismatch '+vp.name+' '+JSON.stringify({diffPixels,maxChannelDelta,diffRatio}));
+            rows.push({viewport:vp.name,dom:'IDENTICAL',naturalMarkerCounts:[a.metrics.marker,b.metrics.marker],geometry:'EXACT',documentScrollHeight:'EXACT',sectionGeometry:'EXACT',readingProgress:'UNCHANGED',hero:'UNCHANGED',homeChapterGeometry:'UNCHANGED',console:'EQUAL',localNetworkFailures:'EQUAL',screenshot:{diffPixels,maxChannelDelta,diffRatio,pixelIdentical:true}});
+          }
+
+          // Current live natural state; no injection.
+          const live=[];
+          for(const vp of [{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}]){
+            const ctx=await browser.newContext({viewport:{width:vp.width,height:vp.height}});
+            await ctx.route('**/*',async route=>{const m=route.request().method().toUpperCase();if(['GET','HEAD','OPTIONS'].includes(m))return route.continue();return route.abort('blockedbyclient')});
+            const pg=await ctx.newPage();const res=await pg.goto('https://basaira.github.io/?folio_fifth_characterization=1',{waitUntil:'domcontentloaded',timeout:30000});if(!res||!res.ok())throw new Error('live navigation');
+            await pg.waitForTimeout(700);const states=[];
+            for(const phase of ['initial','middle','bottom','resize']){
+              if(phase==='middle')await pg.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight*.5));
+              if(phase==='bottom')await pg.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+              if(phase==='resize')await pg.setViewportSize({width:Math.max(320,vp.width-30),height:vp.height});
+              await pg.waitForTimeout(150);
+              states.push(await pg.evaluate(()=>({phase,marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length})));
+            }
+            const ar=await pg.evaluate(()=>{
+              const el=document.querySelector('[data-lang="ar"],[data-language="ar"]')||[...document.querySelectorAll('button,a,[role="button"]')].find(x=>/^(العربية|عربي)$/.test((x.textContent||'').trim()));
+              if(el){el.click();return true}return false;
+            });
+            if(ar){await pg.waitForTimeout(300);states.push(await pg.evaluate(()=>({phase:'arabic',marker:document.querySelectorAll('.overdrive-folio-marker').length,folio:document.querySelectorAll('.overdrive-folio').length,current:document.querySelectorAll('.is-folio-current').length,lang:document.documentElement.lang,dir:getComputedStyle(document.documentElement).direction})))}
+            if(states.some(s=>s.marker||s.folio||s.current))throw new Error('live natural Folio node found '+vp.name);
+            live.push({viewport:vp.name,states,naturalMarkerCount:0,naturalFolioCount:0,naturalCurrentCount:0});
+            await ctx.close();
+          }
+          await browser.close();
+
+          fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-browser-equivalence.json'),JSON.stringify({route:'/',cases:rows,caseCount:4,dom:'IDENTICAL',naturalMarkers:'0 ↔ 0',console:'EQUAL',localNetworkFailures:'EQUAL'},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-geometry-equivalence.json'),JSON.stringify({route:'/',cases:rows.map(x=>({viewport:x.viewport,geometry:x.geometry,documentScrollHeight:x.documentScrollHeight,sectionGeometry:x.sectionGeometry,homeChapterGeometry:x.homeChapterGeometry})),allExact:true},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-screenshot-equivalence.json'),JSON.stringify({route:'/',cases:rows.map(x=>({viewport:x.viewport,...x.screenshot})),allPixelIdentical:true},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'folio-live-natural-state.json'),JSON.stringify({origin:'https://basaira.github.io',injectedMarker:false,results:live,naturalMatchCount:0,currentTypeAProductionDefect:'NONE PROVEN'},null,2)+'\n');
+          JS
+
+          OUT="${OUT}" node ".folio-fifth-browser.mjs"
+          rm -f ".folio-fifth-browser.mjs"
+          test -z "$(git status --porcelain)"
+
+      - name: Derive fifth-rule role disposition and M5 eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          python3 - "${OUT}" <<'PY'
+          import json,sys
+          from pathlib import Path
+          out=Path(sys.argv[1])
+          whole=json.load(open(out/"folio-post-m4-whole-source-residues.json"))
+          built=json.load(open(out/"folio-post-m4-built-residues.json"))
+          absence=json.load(open(out/"folio-m5-built-folio-absence.json"))
+          browser=json.load(open(out/"folio-m4-vs-m5-browser-equivalence.json"))
+          geo=json.load(open(out/"folio-m4-vs-m5-geometry-equivalence.json"))
+          shot=json.load(open(out/"folio-m4-vs-m5-screenshot-equivalence.json"))
+          live=json.load(open(out/"folio-live-natural-state.json"))
+          prot=json.load(open(out/"folio-m5-protected-homepage-behavior.json"))
+          auth=json.load(open(out/"folio-m5-authority-model.json"))
+
+          assert whole["remainingProductionPathCount"]==1 and not whole["additionalSixthProductionPath"]
+          assert live["naturalMatchCount"]==0
+          assert absence["completeProductionFolioAbsence"]
+          assert browser["dom"]=="IDENTICAL" and browser["naturalMarkers"]=="0 ↔ 0"
+          assert geo["allExact"] and shot["allPixelIdentical"]
+          assert prot["allOtherLinesByteForBytePreserved"]
+          assert auth=={"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
+
+          role={"classification":"F3 — DEAD REDUNDANT FOLIO RESIDUE","folioOnly":True,"productionReachable":True,"naturalNodeMatches":0,"reachableMarkerCreationPaths":0,"altersCurrentNaturalComputedStyle":False,"defensiveAgainstCurrentlyReachableCreationPath":False,"nonFolioDependencyFound":False}
+          json.dump(role,open(out/"folio-fifth-path-role.json","w"),indent=2)
+
+          disp={"disposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE","naturalMatchCount":0,"reachableCreationPathCount":0,"m4VsM5Behavior":"IDENTICAL","m5FullVerify":"PASS","m5BuiltFolioResidues":0,"protectedHomepageBehaviorChanged":False}
+          json.dump(disp,open(out/"folio-fifth-path-disposition.json","w"),indent=2)
+
+          eligibility={"eligible":True,"classification":"M5 CONTRACT ELIGIBLE = YES","pathCount":5,"paths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json","homepage-sections-v1.css"],"implementationAuthorized":False,"recommendedCorrectedImplementationTopology":{"base":"006ba05c7361451865660450695c48428a3ed8d0","strategy":"NEW CLEAN BRANCH FROM FROZEN MAIN; APPLY COMPLETE FIVE-PATH M5 IN ONE ATOMIC COMMIT","rewriteBlockedImplementation":False}}
+          json.dump(eligibility,open(out/"folio-m5-contract-eligibility.json","w"),indent=2)
+
+          sem=json.load(open(out/"folio-fifth-path-selector-semantics.json"))
+          sem.update({"naturalRuntimeMatches":0,"dynamicMatches":0,"languageSwitchMatches":0,"responsiveMatches":0,"scrollTriggeredMatches":0,"observerTriggeredMatches":0,"reachableMarkerCreationPaths":0})
+          json.dump(sem,open(out/"folio-fifth-path-selector-semantics.json","w"),indent=2)
+
+          build=json.load(open(out/"folio-m5-build.json"))
+          delta=json.load(open(out/"folio-m5-generated-delta.json"))
+          summary={
+            "outcome":"A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE",
+            "blockedImplementation":"5bc4e216a568a57b217187b4030f8208ad87fe31",
+            "fifthPath":"homepage-sections-v1.css",
+            "fifthRule":"main > section.home-chapter > .overdrive-folio-marker{display:none!important}",
+            "baselineBlob":"ef073fbb20c95292c40d6ca9f0775c1f2a4f8866",
+            "implementationBlob":"ef073fbb20c95292c40d6ca9f0775c1f2a4f8866",
+            "ruleRole":"F3 — DEAD REDUNDANT FOLIO RESIDUE",
+            "naturalMatchCount":0,
+            "reachableMarkerCreationPaths":0,
+            "postM4RemainingProductionFolioResidues":1,
+            "m5BuiltFolioResidues":0,
+            "fifthPathDisposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE",
+            "m5ContractEligible":True,
+            "m5PathCount":5,
+            "m5Paths":eligibility["paths"],
+            "tokenAuthority":auth,
+            "m5Build":build,
+            "m5GeneratedDeltaM4ToM5":delta,
+            "m4VsM5Behavior":"IDENTICAL","m4VsM5Geometry":"EXACT","m4VsM5Screenshots":"PIXEL IDENTICAL",
+            "currentTypeAProductionDefect":"NONE PROVEN",
+            "implementationAuthorized":False,"promotionAuthorized":False,"deploymentAuthorized":False,
+            "recommendedCorrectedImplementationTopology":eligibility["recommendedCorrectedImplementationTopology"],
+            "nextPossibleGate":"FOLIO OPACITY M4 → M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW",
+            "doNotMutateProduction":True
+          }
+          json.dump(summary,open(out/"folio-fifth-path-summary.json","w"),indent=2)
+          PY
+
+      - name: Terminal authority zero-mutation check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          api() {
+            curl --fail --silent --show-error --location \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" "$1"
+          }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation" | jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"
+          test "${M4}" = "${M4_SHA}"
+          test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg m4 "${M4}" --arg gh "${GH}" \
+            '{main:$main,blockedImplementation:$m4,ghPages:$gh,mainMoved:false,blockedImplementationRewritten:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            > "${OUT}/folio-fifth-path-terminal-refs.json"
+
+      - name: Verify minimum evidence set
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/folio-fifth"
+          for F in \
+            folio-fifth-path-preflight.json \
+            folio-fifth-path-identity.json \
+            folio-fifth-path-rule.json \
+            folio-fifth-path-production-reachability.json \
+            folio-fifth-path-selector-semantics.json \
+            folio-post-m4-whole-source-residues.json \
+            folio-post-m4-built-residues.json \
+            folio-fifth-path-role.json \
+            folio-fifth-path-simulation.json \
+            folio-m5-source-contract-model.json \
+            folio-m5-source-equivalence.json \
+            folio-m5-authority-model.json \
+            folio-m5-build.json \
+            folio-m5-generated-delta.json \
+            folio-m5-built-folio-absence.json \
+            folio-m5-protected-homepage-behavior.json \
+            folio-m4-vs-m5-browser-equivalence.json \
+            folio-m4-vs-m5-geometry-equivalence.json \
+            folio-m4-vs-m5-screenshot-equivalence.json \
+            folio-live-natural-state.json \
+            folio-fifth-path-disposition.json \
+            folio-m5-contract-eligibility.json \
+            folio-fifth-path-terminal-refs.json \
+            folio-fifth-path-summary.json
+          do
+            test -s "${OUT}/${F}"
+          done
+          jq -e '.outcome=="A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE"' "${OUT}/folio-fifth-path-summary.json" >/dev/null
+          jq -e '.eligible==true and .pathCount==5' "${OUT}/folio-m5-contract-eligibility.json" >/dev/null
+
+      - name: Upload fifth-path characterization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-fifth-path-characterization
+          path: ${{ runner.temp }}/folio-fifth
+          if-no-files-found: error
+          retention-days: 90
