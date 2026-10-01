@@ -189,6 +189,7 @@ jobs:
             "builtJs":{"overdriveFolioMarker":js.count("overdrive-folio-marker"),"overdriveFolio":js.count("overdrive-folio"),"isFolioCurrent":js.count("is-folio-current"),"datasetFolio":js.count("dataset.folio"),"folioRootMargin":js.count("-18% 0px -56% 0px"),"overdriveReady":js.count("overdrive-ready"),"overdriveManuscript":js.count("overdrive-manuscript"),"overdriveReadingProgress":js.count("overdrive-reading-progress")},
             "builtCss":{"folioOpacity":css.count("--folio-opacity"),"overdriveFolioMarker":css.count("overdrive-folio-marker"),"isFolioCurrent":css.count("is-folio-current"),"odFolioOpen":css.count("od-folio-open"),"folioMask":css.count(".overdrive-folio-marker{display:none!important}")}
           }
+          print(json.dumps(runtime,indent=2))
           assert all(runtime["builtJs"][k]==0 for k in ["overdriveFolioMarker","overdriveFolio","isFolioCurrent","datasetFolio","folioRootMargin"])
           assert runtime["builtJs"]["overdriveReady"]>0 and runtime["builtJs"]["overdriveManuscript"]>0 and runtime["builtJs"]["overdriveReadingProgress"]>0
           assert all(v==0 for v in runtime["builtCss"].values())
