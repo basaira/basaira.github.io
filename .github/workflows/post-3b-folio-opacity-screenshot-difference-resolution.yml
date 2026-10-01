@@ -159,11 +159,11 @@ jobs:
           async function routeSafe(ctx,origin,net){
             await ctx.route('**/*',async route=>{
               const req=route.request(),m=req.method().toUpperCase(),url=req.url();let u;try{u=new URL(url)}catch{return route.abort('blockedbyclient')}
-              if(['GET','HEAD','OPTIONS'].includes(m)){net.allowedGets++;return route.continue()}
               const ro=/google\.firestore\.v1\.Firestore\/Listen\/channel/i.test(url)||/firestore\.googleapis\.com\/.*:(runQuery|batchGet)(\?|$)/i.test(url);
               const telemetry=/google-analytics\.com|googletagmanager\.com|google\.com\/g\/collect/.test(url);
-              if(ro){net.blockedReadOnly++;return route.abort('blockedbyclient')}
               if(telemetry){net.blockedTelemetry++;return route.abort('blockedbyclient')}
+              if(['GET','HEAD','OPTIONS'].includes(m)){net.allowedGets++;return route.continue()}
+              if(ro){net.blockedReadOnly++;return route.abort('blockedbyclient')}
               net.blockedUnsafe.push({method:m,url});return route.abort('blockedbyclient');
             });
           }
