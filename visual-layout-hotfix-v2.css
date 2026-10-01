@@ -17,7 +17,6 @@ main{overflow-x:clip}
 
 /* The folio ornament created a visible line/diamond floating inside large empty top padding.
    Keep the Overdrive reading edge, View Transitions and hero manuscript; remove this noisy cue. */
-.overdrive-folio-marker{display:none!important}
 
 /* ---------- Hero: content-led, centered, localized ---------- */
 #home,

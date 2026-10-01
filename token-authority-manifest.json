@@ -1176,7 +1176,6 @@
   ],
   "componentLocalExplicit": [
     "--mobile-drawer-hidden-x",
-    "--folio-opacity",
     "--od-reading-progress"
   ],
   "unresolved": [
@@ -1726,8 +1725,8 @@
     "includesInlineStyleBlocks": true,
     "productionCssFileCount": 51,
     "inlineStyleBlockCount": 1,
-    "customPropertyNameCount": 369,
-    "conflictCount": 39,
+    "customPropertyNameCount": 368,
+    "conflictCount": 38,
     "conflictTokens": [
       "--acq-layout-gutter",
       "--acq-layout-section",
@@ -1751,8 +1750,7 @@
       "--fo-surface",
       "--fo-surface-strong",
       "--fo-text",
-      "--folio-opacity",
-      "--home-journey-section",
+        "--home-journey-section",
       "--layout-gutter",
       "--layout-section",
       "--line",
