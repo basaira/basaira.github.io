@@ -316,10 +316,10 @@ jobs:
             j=(root/jsname).read_text(errors="replace");c=(root/cssname).read_text(errors="replace")
             return {"mainJs":jsname,"mainCss":cssname,
               "js":{"overdrive-folio-marker":j.count("overdrive-folio-marker"),"overdrive-folio":j.count("overdrive-folio"),"is-folio-current":j.count("is-folio-current"),"dataset.folio":j.count("dataset.folio"),"folioRootMargin":j.count("-18% 0px -56% 0px")},
-              "css":{"--folio-opacity":c.count("--folio-opacity"),"overdrive-folio-marker":c.count("overdrive-folio-marker"),"overdrive-folio":c.count("overdrive-folio"),"is-folio-current":c.count("is-folio-current"),"od-folio-open":c.count("od-folio-open"),"folioMask":c.count("display:none!important") if "overdrive-folio-marker" in c else 0}}
+              "css":{"--folio-opacity":c.count("--folio-opacity"),"overdrive-folio-marker":c.count("overdrive-folio-marker"),"overdrive-folio":c.count("overdrive-folio"),"is-folio-current":c.count("is-folio-current"),"od-folio-open":c.count("od-folio-open"),"folioMask":c.count("main>section.home-chapter>.overdrive-folio-marker{display:none!important}")}}
           m4f=folio_counts(m4rows,m4/"dist");m5f=folio_counts(m5rows,m5/"dist")
           assert m4f["js"]=={"overdrive-folio-marker":0,"overdrive-folio":0,"is-folio-current":0,"dataset.folio":0,"folioRootMargin":0}
-          assert m4f["css"]["--folio-opacity"]==0 and m4f["css"]["is-folio-current"]==0 and m4f["css"]["od-folio-open"]==0 and m4f["css"]["overdrive-folio-marker"]==1 and m4f["css"]["folioMask"]>=1
+          assert m4f["css"]["--folio-opacity"]==0 and m4f["css"]["is-folio-current"]==0 and m4f["css"]["od-folio-open"]==0 and m4f["css"]["overdrive-folio-marker"]==1 and m4f["css"]["folioMask"]==1
           assert all(v==0 for v in m5f["js"].values())
           assert all(v==0 for v in m5f["css"].values())
           json.dump({"blockedM4":m4f,"expectedBlockedStateConfirmed":True,"traceSource":"homepage-sections-v1.css exact fifth rule"},open(out/"folio-post-m4-built-residues.json","w"),indent=2)
