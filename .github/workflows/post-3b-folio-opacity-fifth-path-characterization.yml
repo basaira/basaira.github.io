@@ -408,11 +408,23 @@ jobs:
             if(a.localFail.length||b.localFail.length)throw new Error('local failure '+vp.name);
             if(a.metrics.marker!==0||b.metrics.marker!==0)throw new Error('natural marker present '+vp.name);
             const A=PNG.sync.read(a.png),B=PNG.sync.read(b.png);if(A.width!==B.width||A.height!==B.height)throw new Error('size mismatch');
-            let diffPixels=0,maxChannelDelta=0;
-            for(let i=0;i<A.data.length;i+=4){let pd=false;for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){pd=true;maxChannelDelta=Math.max(maxChannelDelta,d)}}if(pd)diffPixels++}
-            const diffRatio=diffPixels/(A.width*A.height);
-            if(diffPixels||maxChannelDelta||diffRatio)throw new Error('pixel mismatch '+vp.name+' '+JSON.stringify({diffPixels,maxChannelDelta,diffRatio}));
-            rows.push({viewport:vp.name,dom:'IDENTICAL',naturalMarkerCounts:[a.metrics.marker,b.metrics.marker],geometry:'EXACT',documentScrollHeight:'EXACT',sectionGeometry:'EXACT',readingProgress:'UNCHANGED',hero:'UNCHANGED',homeChapterGeometry:'UNCHANGED',console:'EQUAL',localNetworkFailures:'EQUAL',screenshot:{diffPixels,maxChannelDelta,diffRatio,pixelIdentical:true}});
+            let diffPixels=0,maxChannelDelta=0,minX=A.width,minY=A.height,maxX=-1,maxY=-1;
+            for(let i=0;i<A.data.length;i+=4){
+              let pd=false;
+              for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){pd=true;maxChannelDelta=Math.max(maxChannelDelta,d)}}
+              if(pd){
+                diffPixels++;
+                const px=i/4,x=px%A.width,y=Math.floor(px/A.width);
+                minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+              }
+            }
+            const diffRatio=diffPixels/(A.width*A.height),pixelIdentical=diffPixels===0&&maxChannelDelta===0&&diffRatio===0;
+            const bbox=pixelIdentical?null:{minX,minY,maxX,maxY,width:maxX-minX+1,height:maxY-minY+1};
+            if(!pixelIdentical){
+              fs.writeFileSync(path.join(OUT,'diagnostic-'+vp.name+'-m4.png'),a.png);
+              fs.writeFileSync(path.join(OUT,'diagnostic-'+vp.name+'-m5.png'),b.png);
+            }
+            rows.push({viewport:vp.name,dom:'IDENTICAL',naturalMarkerCounts:[a.metrics.marker,b.metrics.marker],geometry:'EXACT',documentScrollHeight:'EXACT',sectionGeometry:'EXACT',readingProgress:'UNCHANGED',hero:'UNCHANGED',homeChapterGeometry:'UNCHANGED',console:'EQUAL',localNetworkFailures:'EQUAL',screenshot:{diffPixels,maxChannelDelta,diffRatio,pixelIdentical,boundingBox:bbox}});
           }
 
           // Current live natural state; no injection.
@@ -442,7 +454,7 @@ jobs:
 
           fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-browser-equivalence.json'),JSON.stringify({route:'/',cases:rows,caseCount:4,dom:'IDENTICAL',naturalMarkers:'0 ↔ 0',console:'EQUAL',localNetworkFailures:'EQUAL'},null,2)+'\n');
           fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-geometry-equivalence.json'),JSON.stringify({route:'/',cases:rows.map(x=>({viewport:x.viewport,geometry:x.geometry,documentScrollHeight:x.documentScrollHeight,sectionGeometry:x.sectionGeometry,homeChapterGeometry:x.homeChapterGeometry})),allExact:true},null,2)+'\n');
-          fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-screenshot-equivalence.json'),JSON.stringify({route:'/',cases:rows.map(x=>({viewport:x.viewport,...x.screenshot})),allPixelIdentical:true},null,2)+'\n');
+          fs.writeFileSync(path.join(OUT,'folio-m4-vs-m5-screenshot-equivalence.json'),JSON.stringify({route:'/',cases:rows.map(x=>({viewport:x.viewport,...x.screenshot})),allPixelIdentical:rows.every(x=>x.screenshot.pixelIdentical),diagnosticPngsWritten:rows.filter(x=>!x.screenshot.pixelIdentical).map(x=>x.viewport)},null,2)+'\n');
           fs.writeFileSync(path.join(OUT,'folio-live-natural-state.json'),JSON.stringify({origin:'https://basaira.github.io',injectedMarker:false,results:live,naturalMatchCount:0,currentTypeAProductionDefect:'NONE PROVEN'},null,2)+'\n');
           JS
 
@@ -473,17 +485,19 @@ jobs:
           assert live["naturalMatchCount"]==0
           assert absence["completeProductionFolioAbsence"]
           assert browser["dom"]=="IDENTICAL" and browser["naturalMarkers"]=="0 ↔ 0"
-          assert geo["allExact"] and shot["allPixelIdentical"]
+          assert geo["allExact"]
           assert prot["allOtherLinesByteForBytePreserved"]
           assert auth=={"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCss":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0}
 
           role={"classification":"F3 — DEAD REDUNDANT FOLIO RESIDUE","folioOnly":True,"productionReachable":True,"naturalNodeMatches":0,"reachableMarkerCreationPaths":0,"altersCurrentNaturalComputedStyle":False,"defensiveAgainstCurrentlyReachableCreationPath":False,"nonFolioDependencyFound":False}
           json.dump(role,open(out/"folio-fifth-path-role.json","w"),indent=2)
 
-          disp={"disposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE","naturalMatchCount":0,"reachableCreationPathCount":0,"m4VsM5Behavior":"IDENTICAL","m5FullVerify":"PASS","m5BuiltFolioResidues":0,"protectedHomepageBehaviorChanged":False}
+          screenshots_exact=bool(shot["allPixelIdentical"])
+          disposition="P1 — SAFE FUTURE REMOVAL CANDIDATE" if screenshots_exact else "P4 — REQUIRES MORE CHARACTERIZATION"
+          disp={"disposition":disposition,"naturalMatchCount":0,"reachableCreationPathCount":0,"m4VsM5Behavior":"IDENTICAL" if screenshots_exact else "DOM/GEOMETRY IDENTICAL; SCREENSHOT DELTA PRESENT","m5FullVerify":"PASS","m5BuiltFolioResidues":0,"protectedHomepageBehaviorChanged":False,"screenshotsPixelIdentical":screenshots_exact}
           json.dump(disp,open(out/"folio-fifth-path-disposition.json","w"),indent=2)
 
-          eligibility={"eligible":True,"classification":"M5 CONTRACT ELIGIBLE = YES","pathCount":5,"paths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json","homepage-sections-v1.css"],"implementationAuthorized":False,"recommendedCorrectedImplementationTopology":{"base":"006ba05c7361451865660450695c48428a3ed8d0","strategy":"NEW CLEAN BRANCH FROM FROZEN MAIN; APPLY COMPLETE FIVE-PATH M5 IN ONE ATOMIC COMMIT","rewriteBlockedImplementation":False}}
+          eligibility={"eligible":screenshots_exact,"classification":"M5 CONTRACT ELIGIBLE = YES" if screenshots_exact else "M5 CONTRACT ELIGIBLE = NO","pathCount":5,"paths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json","homepage-sections-v1.css"],"implementationAuthorized":False,"recommendedCorrectedImplementationTopology":{"base":"006ba05c7361451865660450695c48428a3ed8d0","strategy":"NEW CLEAN BRANCH FROM FROZEN MAIN; APPLY COMPLETE FIVE-PATH M5 IN ONE ATOMIC COMMIT","rewriteBlockedImplementation":False} if screenshots_exact else None}
           json.dump(eligibility,open(out/"folio-m5-contract-eligibility.json","w"),indent=2)
 
           sem=json.load(open(out/"folio-fifth-path-selector-semantics.json"))
@@ -493,7 +507,7 @@ jobs:
           build=json.load(open(out/"folio-m5-build.json"))
           delta=json.load(open(out/"folio-m5-generated-delta.json"))
           summary={
-            "outcome":"A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE",
+            "outcome":"A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE" if screenshots_exact else "D — BEHAVIORAL EQUIVALENCE FAILED",
             "blockedImplementation":"5bc4e216a568a57b217187b4030f8208ad87fe31",
             "fifthPath":"homepage-sections-v1.css",
             "fifthRule":"main > section.home-chapter > .overdrive-folio-marker{display:none!important}",
@@ -504,18 +518,19 @@ jobs:
             "reachableMarkerCreationPaths":0,
             "postM4RemainingProductionFolioResidues":1,
             "m5BuiltFolioResidues":0,
-            "fifthPathDisposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE",
-            "m5ContractEligible":True,
+            "fifthPathDisposition":disposition,
+            "m5ContractEligible":screenshots_exact,
             "m5PathCount":5,
             "m5Paths":eligibility["paths"],
             "tokenAuthority":auth,
             "m5Build":build,
             "m5GeneratedDeltaM4ToM5":delta,
-            "m4VsM5Behavior":"IDENTICAL","m4VsM5Geometry":"EXACT","m4VsM5Screenshots":"PIXEL IDENTICAL",
+            "m4VsM5Behavior":"IDENTICAL" if screenshots_exact else "DOM/GEOMETRY IDENTICAL; SCREENSHOT DELTA PRESENT","m4VsM5Geometry":"EXACT","m4VsM5Screenshots":"PIXEL IDENTICAL" if screenshots_exact else "DIFFERENT",
             "currentTypeAProductionDefect":"NONE PROVEN",
             "implementationAuthorized":False,"promotionAuthorized":False,"deploymentAuthorized":False,
             "recommendedCorrectedImplementationTopology":eligibility["recommendedCorrectedImplementationTopology"],
-            "nextPossibleGate":"FOLIO OPACITY M4 → M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW",
+            "exactFinding":None if screenshots_exact else {"screenshotCases":[x for x in shot["cases"] if not x["pixelIdentical"]]},
+            "nextPossibleGate":"FOLIO OPACITY M4 → M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW" if screenshots_exact else "M4 ↔ M5 SCREENSHOT DIFFERENCE RESOLUTION",
             "doNotMutateProduction":True
           }
           json.dump(summary,open(out/"folio-fifth-path-summary.json","w"),indent=2)
@@ -577,8 +592,8 @@ jobs:
           do
             test -s "${OUT}/${F}"
           done
-          jq -e '.outcome=="A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE"' "${OUT}/folio-fifth-path-summary.json" >/dev/null
-          jq -e '.eligible==true and .pathCount==5' "${OUT}/folio-m5-contract-eligibility.json" >/dev/null
+          jq -e '.outcome=="A — FIFTH PATH SAFE; M5 CONTRACT ELIGIBLE" or .outcome=="D — BEHAVIORAL EQUIVALENCE FAILED"' "${OUT}/folio-fifth-path-summary.json" >/dev/null
+          jq -e '.pathCount==5' "${OUT}/folio-m5-contract-eligibility.json" >/dev/null
 
       - name: Upload fifth-path characterization evidence
         uses: actions/upload-artifact@v4
