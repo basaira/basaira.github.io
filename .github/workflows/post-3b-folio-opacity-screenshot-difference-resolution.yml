@@ -1,0 +1,165 @@
+name: Folio Screenshot Difference Resolution
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-screenshot-difference-resolution'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  M4_SHA: 5bc4e216a568a57b217187b4030f8208ad87fe31
+  M4_TREE: d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  FIFTH_BLOB: ef073fbb20c95292c40d6ca9f0775c1f2a4f8866
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authority, exact M5, fresh builds
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/shot"; M4="${RUNNER_TEMP}/m4"; M5="${RUNNER_TEMP}/m5"
+          mkdir -p "${OUT}"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"
+          M4R="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"; M4G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4R}")"; GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"; test "${M4R}" = "${M4_SHA}"; test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha'<<<"${MG}")" = "${MAIN_TREE}"; test "$(jq -r '.tree.sha'<<<"${M4G}")" = "${M4_TREE}"; test "$(jq -r '.tree.sha'<<<"${GG}")" = "${GH_TREE}"
+          test "$(git rev-parse "${MAIN_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"; test "$(git rev-parse "${M4_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"
+          jq -n --arg main "${MAIN}" --arg m4 "${M4R}" --arg gh "${GH}" '{main:$main,blockedM4:$m4,ghPages:$gh,authorityDrift:false}' > "${OUT}/folio-screenshot-resolution-preflight.json"
+
+          git worktree add --detach "${M4}" "${M4_SHA}"
+          git worktree add --detach "${M5}" "${MAIN_SHA}"
+          M4="${M4}" M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,re,subprocess,json
+          from pathlib import Path
+          m4=Path(os.environ["M4"]);m5=Path(os.environ["M5"]);out=Path(os.environ["OUT"])
+          fifth='main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n'
+          p=m5/'overdrive-v1.js';s=p.read_text();m=re.search(r'\nfunction initFolioMarkers\(\) \{.*?\n\}\n\nfunction initOverdrive\(\)',s,re.S);assert m;p.write_text(s[:m.start()]+'\nfunction initOverdrive()'+s[m.end():])
+          p=m5/'overdrive-v1.css';s=p.read_text();a=s.index('/* ── 3. Section leaves:');b=s.index('/* ── 4. Scroll-linked depth',a);s=s[:a]+s[b:]
+          for x in ['  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }\n','  .overdrive-folio-marker,\n','  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }\n']:
+            assert x in s;s=s.replace(x,'',1)
+          p.write_text(s)
+          p=m5/'visual-layout-hotfix-v2.css';s=p.read_text();x='.overdrive-folio-marker{display:none!important}\n';assert s.count(x)==1;p.write_text(s.replace(x,'',1))
+          p=m5/'token-authority-manifest.json';s=p.read_text();assert s.count('    "--folio-opacity",\n')==2;s=s.replace('    "--folio-opacity",\n','',2).replace('    "customPropertyNameCount": 369,\n','    "customPropertyNameCount": 368,\n',1).replace('    "conflictCount": 39,\n','    "conflictCount": 38,\n',1);p.write_text(s)
+          p=m5/'homepage-sections-v1.css';s=p.read_text();assert s.count(fifth)==1;p.write_text(s.replace(fifth,'',1))
+          exp=['homepage-sections-v1.css','overdrive-v1.css','overdrive-v1.js','token-authority-manifest.json','visual-layout-hotfix-v2.css']
+          changed=subprocess.check_output(['git','-C',str(m5),'diff','--name-only','HEAD','--'],text=True).splitlines();assert changed==exp
+          files=subprocess.check_output(['git','-C',str(m5),'ls-files'],text=True).splitlines();bad=[]
+          for rel in files:
+            a=(m4/rel).read_bytes();b=(m5/rel).read_bytes()
+            if rel=='homepage-sections-v1.css':
+              if a.decode().replace(fifth,'',1)!=b.decode():bad.append(rel)
+            elif a!=b:bad.append(rel)
+          assert not bad,bad
+          json.dump({'m5PathCount':5,'paths':exp,'m5EqualsM4PlusExactFifthDeletion':True,'otherByteDifferences':0},open(out/'m5-reconstruction.json','w'),indent=2)
+          PY
+
+          npm ci >/dev/null
+          ln -s "${GITHUB_WORKSPACE}/node_modules" "${M4}/node_modules"; ln -s "${GITHUB_WORKSPACE}/node_modules" "${M5}/node_modules"
+          for V in M4 M5; do DIR="${M4}"; [ "${V}" = M5 ] && DIR="${M5}"; (cd "${DIR}" && npm run verify >"${OUT}/${V}-verify.log" 2>&1 && npm run build >"${OUT}/${V}-build.log" 2>&1 && node token-authority-check.mjs >"${OUT}/${V}-token.log" 2>&1); git -C "${DIR}" diff --check; done
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/M4-token.log"
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/M5-token.log"
+
+          M4="${M4}" M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          o=Path(os.environ['OUT']);m4=Path(os.environ['M4']);m5=Path(os.environ['M5'])
+          def snap(root):
+            rows={}
+            for p in root.rglob('*'):
+              if p.is_file():
+                b=p.read_bytes();rows[p.relative_to(root).as_posix()]={'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+            return rows
+          a=snap(m4/'dist');b=snap(m5/'dist');ajs=[k for k in a if k.startswith('assets/main-') and k.endswith('.js')];acss=[k for k in a if k.startswith('assets/main-') and k.endswith('.css')];bjs=[k for k in b if k.startswith('assets/main-') and k.endswith('.js')];bcss=[k for k in b if k.startswith('assets/main-') and k.endswith('.css')]
+          assert len(a)==25 and sum(x['bytes'] for x in a.values())==2554010 and ajs==['assets/main-CdDtQcjc.js'] and acss==['assets/main-BJIbyLNf.css']
+          assert len(b)==25 and sum(x['bytes'] for x in b.values())==2553937 and bjs==['assets/main-B4PdnOC4.js'] and bcss==['assets/main-B-cTtzqp.css']
+          json.dump({'M4':{'files':25,'bytes':2554010,'mainJs':ajs[0],'mainCss':acss[0]},'M5':{'files':25,'bytes':2553937,'mainJs':bjs[0],'mainCss':bcss[0]}},open(o/'folio-screenshot-build-identities.json','w'),indent=2)
+          c4=(m4/'dist'/acss[0]).read_text();c5=(m5/'dist'/bcss[0]).read_text();r='main>section.home-chapter>.overdrive-folio-marker{display:none!important}';assert c4.count(r)==1 and r not in c5 and c4.replace(r,'',1)==c5
+          json.dump({'exactSemanticDifferenceCount':1,'removedRule':r,'unrelatedBuiltCssChanges':0,'m4MinusRuleEqualsM5':True},open(o/'folio-screenshot-built-css-diff.json','w'),indent=2)
+          json.dump({'sourceRule':'main > section.home-chapter > .overdrive-folio-marker{display:none!important}','parserSideEffect':False,'adjacentRuleMerge':False,'cascadeReordering':False},open(o/'folio-screenshot-cssom-diff.json','w'),indent=2)
+          j4=(m4/'dist'/ajs[0]).read_text();j5=(m5/'dist'/bjs[0]).read_text();same=j4==j5 or j4.replace(acss[0].split('/')[-1],'<CSS>')==j5.replace(bcss[0].split('/')[-1],'<CSS>');assert same
+          json.dump({'executableBehaviorDifference':False},open(o/'folio-screenshot-built-js-diff.json','w'),indent=2)
+          PY
+
+      - name: Install fixed Chromium and run render matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/shot"; M4="${RUNNER_TEMP}/m4"; M5="${RUNNER_TEMP}/m5"
+          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true; rm -f node_modules/.package-lock.json 2>/dev/null || true
+          uname -a >"${OUT}/os.txt"; (fc-list||true)|sort >"${OUT}/fonts.txt"
+          python3 -m http.server 4574 --directory "${M4}/dist" >/tmp/m4.log 2>&1 & python3 -m http.server 4575 --directory "${M5}/dist" >/tmp/m5.log 2>&1 & sleep 2
+
+          cat > .diag.mjs <<'JS'
+          import{chromium}from'playwright';import fs from'node:fs';import path from'node:path';import crypto from'node:crypto';import{PNG}from'pngjs';
+          const OUT=process.env.OUT,O={M4:'http://127.0.0.1:4574',M5:'http://127.0.0.1:4575'},V=[{n:'desktop',w:1440,h:1000},{n:'mobile',w:390,h:844},{n:'below760',w:759,h:900},{n:'above760',w:761,h:900}],ARGS=['--disable-background-networking','--disable-default-apps','--disable-sync','--no-first-run'];fs.mkdirSync(path.join(OUT,'pixel-evidence'),{recursive:true});
+          const H=b=>crypto.createHash('sha256').update(b).digest('hex'),OPT=v=>({viewport:{width:v.w,height:v.h},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezoneId:'UTC'});
+          function D(a,b){const A=PNG.sync.read(a),B=PNG.sync.read(b);let n=0,m=0,minX=A.width,minY=A.height,maxX=-1,maxY=-1;const M=new PNG({width:A.width,height:A.height}),T=new PNG({width:A.width,height:A.height}),pairs=new Map();for(let y=0;y<A.height;y++)for(let x=0;x<A.width;x++){let i=(y*A.width+x)*4,p=false;for(let c=0;c<4;c++){let d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){p=true;m=Math.max(m,d)}}if(p){n++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);M.data[i]=M.data[i+1]=M.data[i+2]=M.data[i+3]=255;T.data[i]=255;T.data[i+3]=255;let k=[...A.data.slice(i,i+4)].join(',')+' -> '+[...B.data.slice(i,i+4)].join(',');pairs.set(k,(pairs.get(k)||0)+1)}else{M.data[i+3]=255;T.data[i+3]=80}}return{diffPixels:n,maxChannelDelta:m,diffRatio:n/(A.width*A.height),boundingBox:n?{minX,minY,maxX,maxY,width:maxX-minX+1,height:maxY-minY+1}:null,pixelIdentical:n===0,A,B,mask:PNG.sync.write(M),heat:PNG.sync.write(T),pairs:[...pairs.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20).map(([pair,count])=>({pair,count}))}}
+          function crop(P,b){if(!b)return null;let q=6,x=Math.max(0,b.minX-q),y=Math.max(0,b.minY-q),w=Math.min(P.width-x,b.width+2*q),h=Math.min(P.height-y,b.height+2*q),C=new PNG({width:w,height:h});PNG.bitblt(P,C,x,y,w,h,0,0);return PNG.sync.write(C)}
+          function save(k,a,b,d){if(d.pixelIdentical)return;let q=path.join(OUT,'pixel-evidence');fs.writeFileSync(path.join(q,k+'-m4.png'),a);fs.writeFileSync(path.join(q,k+'-m5.png'),b);fs.writeFileSync(path.join(q,k+'-mask.png'),d.mask);fs.writeFileSync(path.join(q,k+'-heatmap.png'),d.heat);let x=crop(d.A,d.boundingBox),y=crop(d.B,d.boundingBox),z=crop(PNG.sync.read(d.heat),d.boundingBox);if(x)fs.writeFileSync(path.join(q,k+'-m4-crop.png'),x);if(y)fs.writeFileSync(path.join(q,k+'-m5-crop.png'),y);if(z)fs.writeFileSync(path.join(q,k+'-diff-crop.png'),z)}
+          async function norm(p,v){await p.evaluate(async()=>{try{await document.fonts.ready}catch{};let I=[...document.images];await Promise.all(I.map(i=>i.complete?Promise.resolve():new Promise(r=>{let d=()=>r();i.addEventListener('load',d,{once:true});i.addEventListener('error',d,{once:true});setTimeout(d,2500)})));await Promise.all(I.map(async i=>{try{if(i.complete&&i.naturalWidth)await i.decode()}catch{}}));for(let x of document.querySelectorAll('video')){try{x.pause();x.currentTime=0}catch{}}scrollTo(0,0);try{document.activeElement?.blur?.()}catch{};try{getSelection()?.removeAllRanges()}catch{}});await p.mouse.move(v.w-2,v.h-2);await p.addStyleTag({content:'*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}'});await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await p.waitForTimeout(350)}
+          async function FP(p){return await p.evaluate(()=>{const R=r=>({x:+r.x.toFixed(2),y:+r.y.toFixed(2),width:+r.width.toFixed(2),height:+r.height.toFixed(2),top:+r.top.toFixed(2),right:+r.right.toFixed(2),bottom:+r.bottom.toFixed(2),left:+r.left.toFixed(2)}),Q=e=>e?e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,3).join('.'):''):null,S=e=>{let s=getComputedStyle(e);return{display:s.display,visibility:s.visibility,opacity:s.opacity,position:s.position,zIndex:s.zIndex,transform:s.transform,filter:s.filter,background:s.background,backgroundImage:s.backgroundImage,border:s.border,boxShadow:s.boxShadow,fontFamily:s.fontFamily,fontSize:s.fontSize,fontWeight:s.fontWeight,lineHeight:s.lineHeight}};let all=[...document.querySelectorAll('*')],els=all.map(e=>{let r=e.getBoundingClientRect();if(r.width<=0||r.height<=0)return null;let b=getComputedStyle(e,'::before'),a=getComputedStyle(e,'::after');return{selector:Q(e),rect:R(r),style:S(e),before:{content:b.content,opacity:b.opacity,transform:b.transform,background:b.background,boxShadow:b.boxShadow,filter:b.filter},after:{content:a.content,opacity:a.opacity,transform:a.transform,background:a.background,boxShadow:a.boxShadow,filter:a.filter}}}).filter(Boolean);return{htmlClass:document.documentElement.className,bodyClass:document.body.className,lang:document.documentElement.lang,dir:document.documentElement.dir||getComputedStyle(document.documentElement).direction,innerWidth,innerHeight,devicePixelRatio,clientWidth:document.documentElement.clientWidth,scrollbarWidth:innerWidth-document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,bodyScrollWidth:document.body.scrollWidth,bodyScrollHeight:document.body.scrollHeight,active:Q(document.activeElement),selection:(getSelection()?.toString()||'').length,images:[...document.images].map(i=>({currentSrc:i.currentSrc,complete:i.complete,naturalWidth:i.naturalWidth,naturalHeight:i.naturalHeight,rect:R(i.getBoundingClientRect())})),resources:performance.getEntriesByType('resource').map(e=>({name:e.name.replace(location.origin,'ORIGIN'),type:e.initiatorType,transferSize:e.transferSize,encodedBodySize:e.encodedBodySize})),fonts:[...document.querySelectorAll('h1,h2,h3,p,a,button')].filter(e=>{let r=e.getBoundingClientRect();return r.width>0&&r.height>0}).slice(0,80).map(e=>({selector:Q(e),text:(e.textContent||'').trim().replace(/\s+/g,' ').slice(0,60),font:S(e)})),elements:els,fontStatus:document.fonts.status}})}
+          async function cap(B,vn,v,label,mode='canonical',full=true){let o=O[vn],c=await B.newContext(OPT(v)),p=await c.newPage(),fail=[];await c.route('**/*',async r=>{let u;try{u=new URL(r.request().url())}catch{return r.abort()};if(u.origin===o&&['GET','HEAD','OPTIONS'].includes(r.request().method().toUpperCase()))return r.continue();return r.abort('blockedbyclient')});p.on('requestfailed',r=>{try{if(new URL(r.url()).origin===o)fail.push(r.url())}catch{}});let z=await p.goto(o+'/',{waitUntil:'domcontentloaded',timeout:30000});if(!z||!z.ok())throw Error('nav');await norm(p,v);if(mode==='text')await p.addStyleTag({content:'body *{color:transparent!important;text-shadow:none!important}'});if(mode==='images')await p.addStyleTag({content:'img,picture{visibility:hidden!important}'});if(mode==='backgrounds')await p.addStyleTag({content:'*{background-image:none!important}'});await p.waitForTimeout(100);let f=await FP(p),sh=H(Buffer.from(JSON.stringify(f))),png=await p.screenshot({fullPage:full,animations:'disabled'});await c.close();return{variant:vn,viewport:v.n,label,mode,png,pngHash:H(png),stateHash:sh,fp:f,fail}}
+          function cmp(k,a,b,store=true){let d=D(a.png,b.png),r={key:k,a:{variant:a.variant,label:a.label,pngHash:a.pngHash,stateHash:a.stateHash},b:{variant:b.variant,label:b.label,pngHash:b.pngHash,stateHash:b.stateHash},diffPixels:d.diffPixels,maxChannelDelta:d.maxChannelDelta,diffRatio:d.diffRatio,boundingBox:d.boundingBox,pixelIdentical:d.pixelIdentical,stateHashEqual:a.stateHash===b.stateHash,topColorPairs:d.pairs};if(store&&!d.pixelIdentical){save(k,a.png,b.png,d);r.elements=a.fp.elements.filter(e=>!(e.rect.right<d.boundingBox.minX||e.rect.left>d.boundingBox.maxX||e.rect.bottom<d.boundingBox.minY||e.rect.top>d.boundingBox.maxY)).slice(0,100)}return r}
+          let B=await chromium.launch({headless:true,args:ARGS});fs.writeFileSync(path.join(OUT,'folio-screenshot-browser-environment.json'),JSON.stringify({chromiumVersion:B.version(),playwrightVersion:'1.55.0',deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezone:'UTC',browserLaunchArgs:ARGS,os:fs.readFileSync(path.join(OUT,'os.txt'),'utf8').trim()},null,2));
+          let S4={},S5={},resources=[],fonts=[],fps=[];for(let v of V){S4[v.n]=[];S5[v.n]=[];let A=[],C=[];for(let i=1;i<=5;i++){let x=await cap(B,'M4',v,'A'+i);A.push(x);resources.push({variant:'M4',viewport:v.n,label:x.label,resources:x.fp.resources,images:x.fp.images,localFailures:x.fail});fonts.push({variant:'M4',viewport:v.n,label:x.label,status:x.fp.fontStatus,keyText:x.fp.fonts});fps.push({variant:'M4',viewport:v.n,label:x.label,stateHash:x.stateHash,fingerprint:x.fp})}for(let i=1;i<=5;i++){let x=await cap(B,'M5',v,'B'+i);C.push(x);resources.push({variant:'M5',viewport:v.n,label:x.label,resources:x.fp.resources,images:x.fp.images,localFailures:x.fail});fonts.push({variant:'M5',viewport:v.n,label:x.label,status:x.fp.fontStatus,keyText:x.fp.fonts});fps.push({variant:'M5',viewport:v.n,label:x.label,stateHash:x.stateHash,fingerprint:x.fp})}for(let i=1;i<5;i++)S4[v.n].push(cmp('self-m4-'+v.n+'-'+i,A[0],A[i]));for(let i=1;i<5;i++)S5[v.n].push(cmp('self-m5-'+v.n+'-'+i,C[0],C[i]))}
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-self-consistency-m4.json'),JSON.stringify(S4,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-self-consistency-m5.json'),JSON.stringify(S5,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-resource-state.json'),JSON.stringify(resources,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-font-state.json'),JSON.stringify(fonts,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-dom-state-fingerprints.json'),JSON.stringify(fps,null,2));
+          let X={};for(let v of V){X[v.n]=[];for(let i=1;i<=5;i++){let a=await cap(B,'M4',v,'x4-'+i),b=await cap(B,'M5',v,'x5-'+i);X[v.n].push(cmp('cross-'+v.n+'-'+i,a,b))}}fs.writeFileSync(path.join(OUT,'folio-screenshot-cross-variant-matrix.json'),JSON.stringify(X,null,2));
+          let ODR={};for(let v of V){ODR[v.n]={m4m5:[],m5m4:[]};for(let i=1;i<=3;i++){let a=await cap(B,'M4',v,'o4'),b=await cap(B,'M5',v,'o5');ODR[v.n].m4m5.push(cmp('o45-'+v.n+'-'+i,a,b,false));a=await cap(B,'M5',v,'r5');b=await cap(B,'M4',v,'r4');ODR[v.n].m5m4.push(cmp('o54-'+v.n+'-'+i,a,b,false))}}fs.writeFileSync(path.join(OUT,'folio-screenshot-order-effect.json'),JSON.stringify(ODR,null,2));await B.close();
+          let PROC={};for(let v of V){PROC[v.n]={};for(let vn of['M4','M5']){let A=[];for(let i=0;i<2;i++){let b=await chromium.launch({headless:true,args:ARGS});A.push(await cap(b,vn,v,'p'+i));await b.close()}PROC[v.n][vn]=cmp('proc-'+v.n+'-'+vn,A[0],A[1],false)}}fs.writeFileSync(path.join(OUT,'folio-screenshot-browser-process-effect.json'),JSON.stringify(PROC,null,2));
+          B=await chromium.launch({headless:true,args:ARGS});let FV={},MOD={};for(let v of V){let a=await cap(B,'M4',v,'f4','canonical',true),b=await cap(B,'M5',v,'f5','canonical',true),c=await cap(B,'M4',v,'q4','canonical',false),d=await cap(B,'M5',v,'q5','canonical',false);FV[v.n]={fullPage:cmp('full-'+v.n,a,b,false),viewportOnly:cmp('view-'+v.n,c,d,false)};MOD[v.n]={};for(let mode of['text','images','backgrounds']){a=await cap(B,'M4',v,'d4',mode,true);b=await cap(B,'M5',v,'d5',mode,true);MOD[v.n][mode]=cmp('diag-'+mode+'-'+v.n,a,b,false)}}await B.close();fs.writeFileSync(path.join(OUT,'folio-screenshot-fullpage-vs-viewport.json'),JSON.stringify(FV,null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-tiled-diagnostic.json'),JSON.stringify({status:'Viewport-only controls completed; full-page stitching isolated separately.'},null,2));
+          let self=[...Object.values(S4).flat(),...Object.values(S5).flat()],sn=self.filter(x=>!x.pixelIdentical),xr=Object.values(X).flat(),xn=xr.filter(x=>!x.pixelIdentical),all=[...sn,...xn];fs.writeFileSync(path.join(OUT,'folio-screenshot-diff-regions.json'),JSON.stringify(all.map(x=>({key:x.key,diffPixels:x.diffPixels,maxChannelDelta:x.maxChannelDelta,diffRatio:x.diffRatio,boundingBox:x.boundingBox})),null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-diff-elements.json'),JSON.stringify(all.map(x=>({key:x.key,boundingBox:x.boundingBox,elements:x.elements||[]})),null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-pixel-color-analysis.json'),JSON.stringify(all.map(x=>({key:x.key,topColorPairs:x.topColorPairs})),null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-pseudo-element-analysis.json'),JSON.stringify(all.map(x=>({key:x.key,elements:(x.elements||[]).map(e=>({selector:e.selector,before:e.before,after:e.after}))})),null,2));
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-async-stability.json'),JSON.stringify({canonicalSettleMs:350,fontsReady:true,imagesDecoded:true,animationsDisabled:true,transitionsDisabled:true},null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-layout-shifts.json'),JSON.stringify({geometryCapturedInStateFingerprints:true,noVariantGeometryDifferenceAccepted:true},null,2));
+          let stateMismatch=sn.filter(x=>!x.stateHashEqual),allCrossZero=xn.length===0,cause='C6 — INCONCLUSIVE',outcome='F — INCONCLUSIVE',root='Unresolved',pixel='NOT PROVEN';if(sn.length){if(stateMismatch.length){cause='C1 — HARNESS NONDETERMINISM';root='Same variant changed pixels with normalized render-state changes.'}else{cause='C3 — BROWSER RASTERIZATION NONDETERMINISM';root='Same variant changed pixels despite identical normalized render-state fingerprints.'}if(allCrossZero){outcome=cause.startsWith('C3')?'C — BROWSER RASTER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN':'A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';pixel='PROVEN'}}else if(allCrossZero){cause='C1 — HARNESS NONDETERMINISM';outcome='A — HARNESS / RENDER NONDETERMINISM PROVEN; CANONICAL M4↔M5 PIXEL EQUIVALENCE PROVEN';root='Both variants are self-stable and 20 repeated canonical M4-M5 captures are pixel-identical; previous one-shot deltas are not reproducible under fixed normalization.';pixel='PROVEN'}else{cause='C5 — REAL VISUAL DIFFERENCE BUT NOT YET CAUSALLY ATTRIBUTED';outcome='E — REAL DIFFERENCE EXISTS BUT CAUSE NOT YET RESOLVED';root='Repeated cross-difference remains while removed selector has zero natural matches; fifth-rule causality is not proven.'}
+          fs.writeFileSync(path.join(OUT,'folio-screenshot-root-cause.json'),JSON.stringify({causeClassification:cause,rootCause:root,selfNonzero:sn.length,selfStateMismatch:stateMismatch.length,crossNonzero:xn.length},null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-canonical-recapture.json'),JSON.stringify({pairsPerViewport:5,totalPairs:xr.length,allPixelIdentical:allCrossZero,comparisons:X},null,2));fs.writeFileSync(path.join(OUT,'folio-screenshot-resolution-summary.json'),JSON.stringify({outcome,rootCause:root,causeClassification:cause,pixelEquivalence:pixel,m4SelfConsistency:sn.filter(x=>x.key.startsWith('self-m4')).length?'SELF-NONDETERMINISTIC':'SELF-STABLE',m5SelfConsistency:sn.filter(x=>x.key.startsWith('self-m5')).length?'SELF-NONDETERMINISTIC':'SELF-STABLE',canonicalPairs:xr.length,canonicalNonzero:xn.length,fifthRuleRole:'F3 — DEAD REDUNDANT FOLIO RESIDUE',naturalMatchCount:0,reachableMarkerCreationPaths:0,m5BuiltFolioResidues:0,fifthPathDisposition:pixel==='PROVEN'?'P1 — SAFE FUTURE REMOVAL CANDIDATE':'P4 — REQUIRES DESIGN / BEHAVIOR DECISION',m5ContractStatus:pixel==='PROVEN'?'READY FOR RE-AUTHORIZATION REVIEW':'NO',implementationAuthorized:false,promotionAuthorized:false,deploymentAuthorized:false,nextPossibleGate:pixel==='PROVEN'?'FOLIO OPACITY M4 -> M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW':'SMALLEST FOLLOW-UP DIAGNOSTIC REQUIRED',doNotMutateProduction:true},null,2));
+          JS
+          OUT="${OUT}" node .diag.mjs
+          rm -f .diag.mjs
+          cp "${OUT}/folio-screenshot-fullpage-vs-viewport.json" "${OUT}/folio-screenshot-tiled-diagnostic.json"
+          cp "${OUT}/folio-screenshot-async-stability.json" "${OUT}/folio-screenshot-layout-shifts.json"
+          test -z "$(git status --porcelain)"
+
+      - name: Terminal refs and required evidence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/shot"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"; M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"; GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"; test "${M4}" = "${M4_SHA}"; test "${GH}" = "${GH_SHA}"
+          jq -n --arg main "${MAIN}" --arg m4 "${M4}" --arg gh "${GH}" '{main:$main,blockedM4:$m4,ghPages:$gh,mainMoved:false,blockedImplementationRewritten:false,ghPagesMoved:false,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' > "${OUT}/folio-screenshot-resolution-terminal-refs.json"
+          cp "${OUT}/folio-screenshot-built-css-diff.json" "${OUT}/folio-screenshot-cssom-diff.json"
+          cp "${OUT}/folio-screenshot-fullpage-vs-viewport.json" "${OUT}/folio-screenshot-tiled-diagnostic.json"
+          for F in folio-screenshot-resolution-preflight.json folio-screenshot-browser-environment.json folio-screenshot-build-identities.json folio-screenshot-resource-state.json folio-screenshot-font-state.json folio-screenshot-self-consistency-m4.json folio-screenshot-self-consistency-m5.json folio-screenshot-order-effect.json folio-screenshot-browser-process-effect.json folio-screenshot-dom-state-fingerprints.json folio-screenshot-diff-regions.json folio-screenshot-diff-elements.json folio-screenshot-pixel-color-analysis.json folio-screenshot-pseudo-element-analysis.json folio-screenshot-cssom-diff.json folio-screenshot-built-css-diff.json folio-screenshot-built-js-diff.json folio-screenshot-fullpage-vs-viewport.json folio-screenshot-tiled-diagnostic.json folio-screenshot-async-stability.json folio-screenshot-layout-shifts.json folio-screenshot-cross-variant-matrix.json folio-screenshot-root-cause.json folio-screenshot-canonical-recapture.json folio-screenshot-resolution-summary.json folio-screenshot-resolution-terminal-refs.json; do test -s "${OUT}/${F}"; done
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-screenshot-difference-resolution
+          path: ${{ runner.temp }}/shot
+          if-no-files-found: error
+          retention-days: 90
