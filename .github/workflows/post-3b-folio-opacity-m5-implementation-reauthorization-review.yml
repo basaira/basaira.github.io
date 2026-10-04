@@ -194,7 +194,7 @@ jobs:
               assert x["pending"][0]["offsetMs"]==0 and x["pending"][-1]["offsetMs"]==1000 and all(p["pendingLocal"]==0 for p in x["pending"])
               assert x["mutationDelta"]==0 and (not x["layoutSupported"] or x["layoutShiftDelta"]==0)
               for h in ["resourceSetSha256","fontStateSha256","imageStateSha256","geometrySha256"]: assert x["startHashes"][h]==x["endHashes"][h]
-          assert all(x["blockedUnsafeCount"]==0 for x in L("folio-quiet-window-network-policy.json"))
+          net=L("folio-quiet-window-network-policy.json"); assert net["installedBeforeNavigation"] and net["mutatingDispatchCount"]==0 and all(x["blockedUnsafeCount"]==0 for x in net["captures"])
           t=L("folio-quiet-window-terminal-refs.json"); assert not t["mainMoved"] and not t["blockedImplementationRewritten"] and not t["ghPagesMoved"] and t["noPromotion"] and t["noDeployment"] and t["noFirebaseMutation"] and t["noBackendMutation"]
           json.dump({"valid":True,"run":36941048301,"artifact":11201076085,"digest":"sha256:3c0986ee18bd71899e3df4eeaf2cf8bdaea3d91e9bc6a15708388ae8d1e0cd17","selfConsistency":"PASS","quietWindowContract":"PASS","rootCause":"Q9 — NO NONDETERMINISM REPRODUCED UNDER STRICT QUIET WINDOW"},open(o/"folio-m5-reauth-quiet-window-authority.json","w"),indent=2)
           json.dump({"valid":True,"legallyReachedAfterSelfStability":True,"pairs":20,"pixelIdentical":20,"allDiffPixels":0,"allMaxChannelDelta":0,"allDiffRatio":0,"pixelEquivalence":"PROVEN"},open(o/"folio-m5-reauth-pixel-equivalence.json","w"),indent=2)
