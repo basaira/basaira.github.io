@@ -136,7 +136,7 @@ jobs:
           total=sum(x["bytes"] for x in rows.values())
           assert len(rows)==25 and total==2553937 and js==["assets/main-B4PdnOC4.js"] and css==["assets/main-B-cTtzqp.css"]
           J=(d/js[0]).read_text(); C=(d/css[0]).read_text()
-          for x in ["overdrive-folio-marker","is-folio-current","dataset.folio"]: assert x not in J,x
+          for x in ["overdrive-folio-marker","is-folio-current","dataset.folio","-18% 0px -56% 0px"]: assert x not in J,x
           for x in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]: assert x not in C,x
           json.dump({"pass":True,"canonical":106,"aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},"correctedConflicts":38,"productionCSS":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},open(o/"folio-m5-reauth-authority-model.json","w"),indent=2)
           json.dump({"pass":True,"files":25,"bytes":2553937,"mainJs":js[0],"mainCss":css[0],"npmCi":"PASS","verify":"PASS","build":"PASS","tokenAuthorityCheck":"PASS","diffCheck":"PASS"},open(o/"folio-m5-reauth-build.json","w"),indent=2)
@@ -202,7 +202,18 @@ jobs:
 
           HTTP="$(curl --retry 4 --retry-all-errors --max-time 30 -sS -o "${OUT}/live.html" -w '%{http_code}' https://basaira.github.io/ || true)"
           test "${HTTP}" = 200
-          jq -n '{status:"NONE PROVEN",liveRootHttp:200,scope:"fresh live-root availability; dormant Folio residue not treated as user-visible Type-A"}' > "${OUT}/folio-m5-reauth-type-a.json"
+          ISSUES="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100")"
+          ISSUES="${ISSUES}" OUT="${OUT}" python3 - <<'PY'
+          import os,json,re
+          rows=json.loads(os.environ["ISSUES"]); hits=[]
+          for i in rows:
+              if "pull_request" in i: continue
+              t=(i.get("title") or "")+"\n"+(i.get("body") or "")
+              if re.search(r"\btype[- ]?a\b|critical production|production defect",t,re.I):
+                  hits.append({"number":i["number"],"title":i["title"]})
+          assert not hits,hits
+          json.dump({"status":"NONE PROVEN","liveRootHttp":200,"trackedOpenTypeAIndicators":[],"scope":"fresh live-root availability plus open-issue review; dormant Folio residue not treated as user-visible Type-A"},open(os.environ["OUT"]+"/folio-m5-reauth-type-a.json","w"),indent=2)
+          PY
           jq -n --arg b "${MAIN_SHA}" '{pass:true,futureBranch:"basair/post-3b-folio-opacity-m5-implementation",base:$b,cleanFromFrozenMain:true,exactFiveProductionPaths:true,blockedM4Preserved:true}' > "${OUT}/folio-m5-reauth-future-branch-contract.json"
           jq -n --arg p "${MAIN_SHA}" '{pass:true,commitCount:1,parent:$p,mergeCommit:false,atomicFivePathCommit:true,suggestedMessage:"Post-3B: remove dormant Folio subsystem completely"}' > "${OUT}/folio-m5-reauth-future-commit-contract.json"
 
