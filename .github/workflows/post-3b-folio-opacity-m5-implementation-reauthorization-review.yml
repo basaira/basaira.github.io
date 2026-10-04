@@ -140,7 +140,7 @@ jobs:
           for x in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]: assert x not in C,x
           json.dump({"pass":True,"canonical":106,"aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},"correctedConflicts":38,"productionCSS":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},open(o/"folio-m5-reauth-authority-model.json","w"),indent=2)
           json.dump({"pass":True,"files":25,"bytes":2553937,"mainJs":js[0],"mainCss":css[0],"npmCi":"PASS","verify":"PASS","build":"PASS","tokenAuthorityCheck":"PASS","diffCheck":"PASS"},open(o/"folio-m5-reauth-build.json","w"),indent=2)
-          json.dump({"pass":True,"builtFolioResidues":0,"js":{"overdriveFolioMarker":0,"isFolioCurrent":0,"datasetFolio":0},"css":{"folioOpacity":0,"overdriveFolioMarker":0,"isFolioCurrent":0,"odFolioOpen":0,"folioMasks":0}},open(o/"folio-m5-reauth-built-folio-absence.json","w"),indent=2)
+          json.dump({"pass":True,"builtFolioResidues":0,"js":{"overdriveFolioMarker":0,"isFolioCurrent":0,"datasetFolio":0,"folioObserverRootMarginSignature":0},"css":{"folioOpacity":0,"overdriveFolioMarker":0,"isFolioCurrent":0,"odFolioOpen":0,"folioMasks":0}},open(o/"folio-m5-reauth-built-folio-absence.json","w"),indent=2)
           json.dump({"pass":True,"sourceEquivalentToBlockedM4ExceptExactFifthDeletion":True,"protected":["initManuscriptHero","initReadingProgress","initOverdrive","overdrive-ready","overdrive-manuscript","overdrive-reading-progress","DOMContentLoaded","non-Folio Overdrive CSS","homepage unrelated selectors","visual-layout unrelated hotfixes","unrelated manifest records","--layout-section-compact"]},open(o/"folio-m5-reauth-protected-behavior.json","w"),indent=2)
           PY
 
