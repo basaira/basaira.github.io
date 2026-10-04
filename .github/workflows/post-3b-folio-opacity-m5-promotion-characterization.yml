@@ -1,0 +1,151 @@
+name: Post-3B M5 promotion characterization evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-characterization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out frozen main
+        uses: actions/checkout@v4
+        with:
+          ref: 006ba05c7361451865660450695c48428a3ed8d0
+          path: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out exact M5 candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243
+          path: m5
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out historical M4 for source comparison
+        uses: actions/checkout@v4
+        with:
+          ref: 5bc4e216a568a57b217187b4030f8208ad87fe31
+          path: m4
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify frozen refs, topology, and source delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C main rev-parse HEAD)" = "006ba05c7361451865660450695c48428a3ed8d0"
+          test "$(git -C m5 rev-parse HEAD)" = "2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243"
+          test "$(git -C m5 rev-parse HEAD^{tree})" = "09aa7bd7325e7c078cc817f0790402a5667a3644"
+          test "$(git -C m5 rev-parse HEAD^)" = "006ba05c7361451865660450695c48428a3ed8d0"
+          test "$(git -C m4 rev-parse HEAD)" = "5bc4e216a568a57b217187b4030f8208ad87fe31"
+          test "$(git -C m4 rev-parse HEAD^{tree})" = "d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65"
+          test "$(git -C main rev-parse HEAD^{tree})" = "2c0350c3bb50988842481a7bb28aa81c5d8e50ad"
+          git -C m5 diff --check 006ba05c7361451865660450695c48428a3ed8d0 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243
+          python3 - <<'PY'
+          import subprocess
+          repo="m5"
+          base="006ba05c7361451865660450695c48428a3ed8d0"
+          head="2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243"
+          expected={
+            "homepage-sections-v1.css":(0,1),
+            "overdrive-v1.css":(0,45),
+            "overdrive-v1.js":(0,25),
+            "token-authority-manifest.json":(3,5),
+            "visual-layout-hotfix-v2.css":(0,1),
+          }
+          rows=subprocess.check_output(["git","-C",repo,"diff","--numstat",base,head],text=True).splitlines()
+          actual={}
+          for row in rows:
+            add,delete,path=row.split("\t")
+            actual[path]=(int(add),int(delete))
+          assert actual==expected,(actual,expected)
+          assert subprocess.check_output(["git","-C",repo,"diff","--name-status",base,head],text=True).count("\n")==5
+          for p in ["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json"]:
+            a=subprocess.check_output(["git","-C","m4","show",f"HEAD:{p}"])
+            b=subprocess.check_output(["git","-C","m5","show",f"HEAD:{p}"])
+            assert a==b,p
+          a=subprocess.check_output(["git","-C","m4","show","HEAD:homepage-sections-v1.css"])
+          b=subprocess.check_output(["git","-C","m5","show","HEAD:homepage-sections-v1.css"])
+          rule=b"main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n"
+          assert a.count(rule)==1 and a.replace(rule,b"",1)==b
+          print("Authority, direct-parent topology, exact five-path numstat, and M4/M5 source model PASS")
+          PY
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Re-run candidate verification and deterministic build
+        working-directory: m5
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          git diff --check
+          python3 - <<'PY'
+          import json,pathlib
+          root=pathlib.Path("dist")
+          files=[p for p in root.rglob("*") if p.is_file()]
+          total=sum(p.stat().st_size for p in files)
+          assert len(files)==25,(len(files),total)
+          assert total==2553937,total
+          assert (root/"assets/main-B4PdnOC4.js").is_file()
+          assert (root/"assets/main-B-cTtzqp.css").is_file()
+          manifest=json.loads(pathlib.Path("token-authority-manifest.json").read_text())
+          scope=manifest["correctedAuditScope"]
+          assert len(manifest["canonicalTokens"])==106
+          assert scope["productionCssFileCount"]==51
+          assert scope["inlineStyleBlockCount"]==1
+          assert scope["customPropertyNameCount"]==368
+          assert scope["conflictCount"]==38
+          print("M5 build identity and token manifest metrics PASS")
+          PY
+
+      - name: Check Folio subsystem absence
+        working-directory: m5
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! rg -n 'initFolioMarkers|overdrive-folio-marker|is-folio-current|od-folio-open|dataset\.folio|--folio-opacity' overdrive-v1.js overdrive-v1.css homepage-sections-v1.css visual-layout-hotfix-v2.css token-authority-manifest.json
+          ! rg -n 'overdrive-folio-marker|is-folio-current|od-folio-open|dataset\.folio|--folio-opacity|-18% 0px -56% 0px' dist/assets/main-B4PdnOC4.js dist/assets/main-B-cTtzqp.css
+          echo "Source and built Folio absence PASS"
+
+      - name: Write static evidence summary
+        if: success()
+        working-directory: m5
+        shell: bash
+        run: |
+          mkdir -p promotion-evidence
+          cat > promotion-evidence/static-summary.json <<'JSON'
+          {
+            "main": "006ba05c7361451865660450695c48428a3ed8d0",
+            "m5": "2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243",
+            "topology": "direct-parent fast-forward only",
+            "changedPaths": 5,
+            "buildFiles": 25,
+            "buildBytes": 2553937,
+            "mainJs": "assets/main-B4PdnOC4.js",
+            "mainCss": "assets/main-B-cTtzqp.css",
+            "contentsPermission": "read-only",
+            "promotionPerformed": false,
+            "deploymentPerformed": false
+          }
+          JSON
+
+      - name: Upload static evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: folio-m5-promotion-static-evidence
+          path: m5/promotion-evidence/static-summary.json
+          if-no-files-found: error
