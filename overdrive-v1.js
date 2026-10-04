@@ -29,31 +29,6 @@ function initReadingProgress() {
   document.querySelectorAll(".overdrive-reading-progress").forEach((node) => node.remove());
 }
 
-function initFolioMarkers() {
-  const sections = Array.from(document.querySelectorAll("main > section")).filter(function (section) {
-    return section.id && section.id !== "home";
-  });
-
-  sections.forEach(function (section, index) {
-    section.classList.add("overdrive-folio");
-    if (section.querySelector(":scope > .overdrive-folio-marker")) return;
-    const marker = document.createElement("span");
-    marker.className = "overdrive-folio-marker";
-    marker.dataset.folio = String(index + 1).padStart(2, "0");
-    marker.setAttribute("aria-hidden", "true");
-    section.prepend(marker);
-  });
-
-  if (!("IntersectionObserver" in window)) return;
-  const observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      entry.target.classList.toggle("is-folio-current", entry.isIntersecting && entry.intersectionRatio > .12);
-    });
-  }, { rootMargin: "-18% 0px -56% 0px", threshold: [0, .12, .4] });
-
-  sections.forEach(function (section) { observer.observe(section); });
-}
-
 function initOverdrive() {
   initManuscriptHero();
   initReadingProgress();

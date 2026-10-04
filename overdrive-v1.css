@@ -90,48 +90,6 @@ html[dir="rtl"] .overdrive-reading-progress__bar { transform-origin: right cente
   @keyframes od-reading-progress { to { transform: scaleX(1); } }
 }
 
-/* ── 3. Section leaves: one restrained folio marker per major section ─ */
-main > section.overdrive-folio { position: relative; isolation: isolate; }
-.overdrive-folio-marker {
-  --folio-opacity: .52;
-  position: absolute;
-  inset-block-start: clamp(.9rem,1.8vw,1.5rem);
-  inset-inline-start: 50%;
-  width: min(24rem,52vw);
-  height: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, transparent, rgba(138,109,20,.38) 32%, rgba(15,106,78,.24) 50%, rgba(138,109,20,.38) 68%, transparent);
-  opacity: var(--folio-opacity);
-  pointer-events: none;
-  z-index: 3;
-}
-.overdrive-folio-marker::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: .48rem;
-  aspect-ratio: 1;
-  border: 1px solid rgba(138,109,20,.48);
-  background: color-mix(in srgb, #fffaf0 86%, #d4af37 14%);
-  transform: translate(-50%,-50%) rotate(45deg);
-  box-shadow: 0 0 0 4px rgba(255,250,240,.68);
-}
-.overdrive-folio.is-folio-current .overdrive-folio-marker { --folio-opacity: .82; }
-
-@supports (animation-timeline: view()) {
-  .overdrive-folio-marker {
-    opacity: 0;
-    transform: translateX(-50%) scaleX(.25);
-    animation: od-folio-open 1ms linear both;
-    animation-timeline: view(block);
-    animation-range: entry 5% entry 62%;
-  }
-  @keyframes od-folio-open {
-    to { opacity: .72; transform: translateX(-50%) scaleX(1); }
-  }
-}
-
 /* ── 4. Scroll-linked depth lives only in decoration ───────────────── */
 @supports (animation-timeline: scroll()) {
   #home .overdrive-manuscript {
@@ -208,13 +166,11 @@ main > section.overdrive-folio { position: relative; isolation: isolate; }
 
 @media (max-width: 760px) {
   #home .overdrive-manuscript::after { inset: .65rem; border-radius: 1.4rem; opacity: .58; }
-  .overdrive-folio-marker { width: min(15rem,62vw); inset-block-start: .72rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   #home .overdrive-manuscript,
   #home .overdrive-manuscript::before,
-  .overdrive-folio-marker,
   .overdrive-reading-progress__bar,
   .video-card__media {
     animation: none !important;
@@ -222,6 +178,5 @@ main > section.overdrive-folio { position: relative; isolation: isolate; }
   }
   #home .overdrive-manuscript { transform: none !important; opacity: 1 !important; }
   #home .overdrive-manuscript::before { transform: none !important; }
-  .overdrive-folio-marker { opacity: .55 !important; transform: translateX(-50%) !important; }
   .video-card:is(:hover,:focus-visible) .video-card__media { transform: none !important; }
 }

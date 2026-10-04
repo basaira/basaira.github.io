@@ -23,7 +23,6 @@ main > section.home-chapter{
   scroll-margin-top:7rem;
   padding-block:var(--home-journey-section)!important;
 }
-main > section.home-chapter > .overdrive-folio-marker{display:none!important}
 .homepage-chapter-marker{
   position:absolute;
   inset-block-start:clamp(1.05rem,2vw,1.5rem);
