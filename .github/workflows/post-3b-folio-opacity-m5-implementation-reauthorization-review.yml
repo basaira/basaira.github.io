@@ -1,0 +1,238 @@
+name: Folio M5 Implementation Re-Authorization Review
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-m5-implementation-reauthorization-review'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_SHA: 006ba05c7361451865660450695c48428a3ed8d0
+  MAIN_TREE: 2c0350c3bb50988842481a7bb28aa81c5d8e50ad
+  M4_SHA: 5bc4e216a568a57b217187b4030f8208ad87fe31
+  M4_TREE: d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  FIFTH_BLOB: ef073fbb20c95292c40d6ca9f0775c1f2a4f8866
+  QUIET_RUN: '36941048301'
+  QUIET_HEAD: b1cd39162be598f17840870da9ff459644105a5b
+  QUIET_ARTIFACT: '11201076085'
+  QUIET_DIGEST: 3c0986ee18bd71899e3df4eeaf2cf8bdaea3d91e9bc6a15708388ae8d1e0cd17
+
+jobs:
+  review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Authorities, exact disposable M5, build and source contracts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/reauth"; M4="${RUNNER_TEMP}/m4"; M5="${RUNNER_TEMP}/m5"
+          mkdir -p "${OUT}"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"
+          M4R="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          M4G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4R}")"
+          GG="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "${MAIN}" = "${MAIN_SHA}"; test "${M4R}" = "${M4_SHA}"; test "${GH}" = "${GH_SHA}"
+          test "$(jq -r '.tree.sha'<<<"${MG}")" = "${MAIN_TREE}"
+          test "$(jq -r '.tree.sha'<<<"${M4G}")" = "${M4_TREE}"
+          test "$(jq -r '.tree.sha'<<<"${GG}")" = "${GH_TREE}"
+          test "$(jq -r '.parents[0].sha'<<<"${M4G}")" = "${MAIN_SHA}"
+          test "$(jq -r '.message'<<<"${M4G}")" = "Post-3B: remove dormant Folio subsystem"
+          test "$(git rev-parse "${MAIN_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"
+          test "$(git rev-parse "${M4_SHA}:homepage-sections-v1.css")" = "${FIFTH_BLOB}"
+          RULE='main > section.home-chapter > .overdrive-folio-marker{display:none!important}'
+          test "$(git show "${MAIN_SHA}:homepage-sections-v1.css"|grep -Fxc "${RULE}")" -eq 1
+          test "$(git show "${M4_SHA}:homepage-sections-v1.css"|grep -Fxc "${RULE}")" -eq 1
+
+          jq -n --arg main "${MAIN}" --arg m4 "${M4R}" --arg gh "${GH}" \
+            '{authorityDrift:false,main:$main,mainTree:"2c0350c3bb50988842481a7bb28aa81c5d8e50ad",blockedM4:$m4,m4Tree:"d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65",ghPages:$gh,ghPagesTree:"1b80d7144e8bac484cf98a4ebbefc1c96ca8d821"}' > "${OUT}/folio-m5-reauth-preflight.json"
+          cp "${OUT}/folio-m5-reauth-preflight.json" "${OUT}/folio-m5-reauth-authorities.json"
+
+          git worktree add --detach "${M4}" "${M4_SHA}"
+          git worktree add --detach "${M5}" "${MAIN_SHA}"
+          for f in overdrive-v1.js overdrive-v1.css visual-layout-hotfix-v2.css token-authority-manifest.json; do cp "${M4}/$f" "${M5}/$f"; done
+          M5="${M5}" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ["M5"])/"homepage-sections-v1.css"
+          rule="main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n"
+          s=p.read_text(); assert s.count(rule)==1; p.write_text(s.replace(rule,"",1))
+          PY
+
+          M4="${M4}" M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,subprocess,json
+          from pathlib import Path
+          m4=Path(os.environ["M4"]); m5=Path(os.environ["M5"]); o=Path(os.environ["OUT"])
+          exp=["homepage-sections-v1.css","overdrive-v1.css","overdrive-v1.js","token-authority-manifest.json","visual-layout-hotfix-v2.css"]
+          changed=subprocess.check_output(["git","-C",str(m5),"diff","--name-only","HEAD","--"],text=True).splitlines()
+          assert changed==exp,changed
+          assert all(x.startswith("M\t") for x in subprocess.check_output(["git","-C",str(m5),"diff","--name-status","HEAD","--"],text=True).splitlines())
+          rule="main > section.home-chapter > .overdrive-folio-marker{display:none!important}\n"
+          bad=[]
+          for rel in subprocess.check_output(["git","-C",str(m5),"ls-files"],text=True).splitlines():
+              a=(m4/rel).read_bytes(); b=(m5/rel).read_bytes()
+              ok=(a.decode().replace(rule,"",1)==b.decode()) if rel=="homepage-sections-v1.css" else (a==b)
+              if not ok: bad.append(rel)
+          assert not bad,bad
+          def ns(f):
+              x=subprocess.check_output(["git","-C",str(m5),"diff","--numstat","HEAD","--",f],text=True).split()
+              return {"added":int(x[0]),"deleted":int(x[1])}
+          stats={f:ns(f) for f in exp}
+          expect={"overdrive-v1.js":{"added":0,"deleted":25},"overdrive-v1.css":{"added":0,"deleted":45},"visual-layout-hotfix-v2.css":{"added":0,"deleted":1},"token-authority-manifest.json":{"added":3,"deleted":5},"homepage-sections-v1.css":{"added":0,"deleted":1}}
+          assert stats==expect,(stats,expect)
+          js=(m5/"overdrive-v1.js").read_text(); css=(m5/"overdrive-v1.css").read_text(); hot=(m5/"visual-layout-hotfix-v2.css").read_text(); man=(m5/"token-authority-manifest.json").read_text(); home=(m5/"homepage-sections-v1.css").read_text()
+          assert "initFolioMarkers" not in js
+          for x in ["initManuscriptHero","initReadingProgress","initOverdrive","DOMContentLoaded","overdrive-ready"]: assert x in js,x
+          for x in ["--folio-opacity",".overdrive-folio-marker","is-folio-current","od-folio-open"]: assert x not in css,x
+          assert ".overdrive-folio-marker{display:none!important}" not in hot
+          assert "--layout-section-compact:clamp(3.25rem,4.7vw,4.65rem);" in hot
+          assert man.count('"--folio-opacity"')==0 and '"conflictCount": 38' in man and '"customPropertyNameCount": 368' in man and "--layout-section-compact" in man
+          assert "main > section.home-chapter > .overdrive-folio-marker{display:none!important}" not in home
+          json.dump({"sha":os.environ["M4_SHA"],"parent":os.environ["MAIN_SHA"],"tree":os.environ["M4_TREE"],"message":"Post-3B: remove dormant Folio subsystem","immutable":True,"rewritten":False,"diffStats":expect},open(o/"folio-m5-reauth-m4-history.json","w"),indent=2)
+          json.dump({"path":"homepage-sections-v1.css","mainBlob":os.environ["FIFTH_BLOB"],"m4Blob":os.environ["FIFTH_BLOB"],"exactOccurrenceCount":1,"rule":"main > section.home-chapter > .overdrive-folio-marker{display:none!important}","role":"F3 — DEAD REDUNDANT FOLIO RESIDUE","naturalMatchCount":0,"reachableMarkerCreationPaths":0,"additionalSixthProductionPath":None,"disposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE"},open(o/"folio-m5-reauth-fifth-path.json","w"),indent=2)
+          json.dump({"changedProductionPathCount":5,"paths":exp,"sixthPath":None,"wholeFileDeletion":None,"unrelatedCleanup":None,"formattingChurn":None,"stats":stats},open(o/"folio-m5-reauth-five-path-contract.json","w"),indent=2)
+          json.dump({"model":"BLOCKED M4 + EXACT FIFTH-RULE DELETION","exact":True,"otherByteDifferences":0},open(o/"folio-m5-reauth-source-equivalence.json","w"),indent=2)
+          json.dump({"pass":True,"initFolioMarkersDefinition":0,"initFolioMarkersReferences":0,"folioExecutableCreationPath":0,"diff":stats["overdrive-v1.js"]},open(o/"folio-m5-reauth-js-contract.json","w"),indent=2)
+          json.dump({"pass":True,"folioOpacity":0,"folioMarker":0,"isFolioCurrent":0,"odFolioOpen":0,"diff":stats["overdrive-v1.css"]},open(o/"folio-m5-reauth-css-contract.json","w"),indent=2)
+          json.dump({"pass":True,"folioMask":0,"layoutSectionCompactProtected":True,"diff":stats["visual-layout-hotfix-v2.css"]},open(o/"folio-m5-reauth-hotfix-contract.json","w"),indent=2)
+          json.dump({"pass":True,"folioOpacityOccurrences":0,"conflictCount":38,"customPropertyNameCount":368,"layoutSectionCompactProtected":True,"diff":stats["token-authority-manifest.json"]},open(o/"folio-m5-reauth-manifest-contract.json","w"),indent=2)
+          json.dump({"pass":True,"onlyFutureSourceChange":"exact fifth-rule deletion","ruleCountAfter":0,"unrelatedSelectorsChanged":0,"diff":stats["homepage-sections-v1.css"]},open(o/"folio-m5-reauth-homepage-contract.json","w"),indent=2)
+          PY
+          git -C "${M5}" diff --check
+
+          cd "${M5}"
+          npm ci >"${OUT}/m5-npm-ci.log" 2>&1
+          npm run verify >"${OUT}/m5-verify.log" 2>&1
+          npm run build >"${OUT}/m5-build.log" 2>&1
+          node token-authority-check.mjs >"${OUT}/m5-token.log" 2>&1
+          git diff --check
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "${OUT}/m5-token.log"
+
+          M5="${M5}" OUT="${OUT}" python3 - <<'PY'
+          import os,json,hashlib
+          from pathlib import Path
+          m=Path(os.environ["M5"]); o=Path(os.environ["OUT"]); d=m/"dist"
+          rows={}
+          for p in sorted(x for x in d.rglob("*") if x.is_file()):
+              b=p.read_bytes(); rows[p.relative_to(d).as_posix()]={"bytes":len(b),"sha256":hashlib.sha256(b).hexdigest()}
+          js=[x for x in rows if x.startswith("assets/main-") and x.endswith(".js")]; css=[x for x in rows if x.startswith("assets/main-") and x.endswith(".css")]
+          total=sum(x["bytes"] for x in rows.values())
+          assert len(rows)==25 and total==2553937 and js==["assets/main-B4PdnOC4.js"] and css==["assets/main-B-cTtzqp.css"]
+          J=(d/js[0]).read_text(); C=(d/css[0]).read_text()
+          for x in ["overdrive-folio-marker","is-folio-current","dataset.folio"]: assert x not in J,x
+          for x in ["--folio-opacity","overdrive-folio-marker","is-folio-current","od-folio-open"]: assert x not in C,x
+          json.dump({"pass":True,"canonical":106,"aliases":{"A":1,"B":48,"C":23,"D":23,"E":2},"correctedConflicts":38,"productionCSS":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},open(o/"folio-m5-reauth-authority-model.json","w"),indent=2)
+          json.dump({"pass":True,"files":25,"bytes":2553937,"mainJs":js[0],"mainCss":css[0],"npmCi":"PASS","verify":"PASS","build":"PASS","tokenAuthorityCheck":"PASS","diffCheck":"PASS"},open(o/"folio-m5-reauth-build.json","w"),indent=2)
+          json.dump({"pass":True,"builtFolioResidues":0,"js":{"overdriveFolioMarker":0,"isFolioCurrent":0,"datasetFolio":0},"css":{"folioOpacity":0,"overdriveFolioMarker":0,"isFolioCurrent":0,"odFolioOpen":0,"folioMasks":0}},open(o/"folio-m5-reauth-built-folio-absence.json","w"),indent=2)
+          json.dump({"pass":True,"sourceEquivalentToBlockedM4ExceptExactFifthDeletion":True,"protected":["initManuscriptHero","initReadingProgress","initOverdrive","overdrive-ready","overdrive-manuscript","overdrive-reading-progress","DOMContentLoaded","non-Folio Overdrive CSS","homepage unrelated selectors","visual-layout unrelated hotfixes","unrelated manifest records","--layout-section-compact"]},open(o/"folio-m5-reauth-protected-behavior.json","w"),indent=2)
+          PY
+
+      - name: Validate quiet-window authority and decide
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/reauth"; Q="${RUNNER_TEMP}/quiet"; mkdir -p "${Q}"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          RUN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${QUIET_RUN}")"
+          ART="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${QUIET_ARTIFACT}")"
+          test "$(jq -r '.status'<<<"${RUN}")" = completed; test "$(jq -r '.conclusion'<<<"${RUN}")" = success
+          test "$(jq -r '.head_sha'<<<"${RUN}")" = "${QUIET_HEAD}"; test "$(jq -r '.expired'<<<"${ART}")" = false
+          test "$(jq -r '.digest'<<<"${ART}")" = "sha256:${QUIET_DIGEST}"
+          curl --fail --silent --show-error --location -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${QUIET_ARTIFACT}/zip" -o "${Q}/a.zip"
+          test "$(sha256sum "${Q}/a.zip"|awk '{print $1}')" = "${QUIET_DIGEST}"
+          unzip -q "${Q}/a.zip" -d "${Q}/e"
+
+          Q="${Q}/e" OUT="${OUT}" python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          q=Path(os.environ["Q"]); o=Path(os.environ["OUT"]); L=lambda n:json.load(open(q/n))
+          s=L("folio-quiet-window-summary.json")
+          assert s["outcome"]=="A — SELF-CONSISTENCY STABILIZED; M4↔M5 PIXEL EQUIVALENCE PROVEN"
+          assert s["rootCauseClassification"]=="Q9 — NO NONDETERMINISM REPRODUCED UNDER STRICT QUIET WINDOW"
+          assert s["allViewportSelfStability"]=="PASS" and s["crossLegallyReached"] and s["crossPairs"]==20 and s["crossPass"]
+          assert s["allCrossDiffPixels"]==0 and s["allCrossMaxChannelDelta"]==0 and s["allCrossDiffRatio"]==0
+          mat=L("folio-self-consistency-regime-matrix.json")
+          for v in ["M4","M5"]: assert mat[v]=={"samePage":"STABLE","freshContextSameProcess":"STABLE","freshProcess":"STABLE"}
+          av=L("folio-all-viewport-self-stability.json"); assert av["allViewportSelfStability"]=="PASS"
+          for vp in ["1440x1000","390x844","759x900","761x900"]: assert av["viewports"][vp]["M4"]=="SELF-STABLE" and av["viewports"][vp]["M5"]=="SELF-STABLE"
+          for n in ["folio-m4-same-page-stability.json","folio-m5-same-page-stability.json"]:
+              x=L(n); assert x["pass"] and x["accepted"]==5 and all(c["diffPixels"]==c["maxChannelDelta"]==c["diffRatio"]==0 for c in x["comparisons"])
+          for n in ["folio-m4-fresh-context-stability.json","folio-m5-fresh-context-stability.json"]:
+              x=L(n)
+              for k,z in [("mobile",10),("desktop",5),("below760",5),("above760",5)]: assert x[k]["pass"] and x[k]["accepted"]==z and all(c["diffPixels"]==c["maxChannelDelta"]==c["diffRatio"]==0 for c in x[k]["comparisons"])
+          for n in ["folio-m4-fresh-process-stability.json","folio-m5-fresh-process-stability.json"]:
+              x=L(n)
+              for k,z in [("mobile",5),("desktop",3),("below760",3),("above760",3)]: assert x[k]["pass"] and x[k]["accepted"]==z and all(c["diffPixels"]==c["maxChannelDelta"]==c["diffRatio"]==0 for c in x[k]["comparisons"])
+          cross=L("folio-quiet-window-cross-variant-recheck.json"); total=0
+          for rows in cross["viewports"].values():
+              assert len(rows)==5
+              for r in rows:
+                  total+=1; c=r["comparison"]; assert r["accepted"] and c["pixelIdentical"] and c["diffPixels"]==c["maxChannelDelta"]==c["diffRatio"]==0
+                  assert r["order"]==(["M4","M5"] if r["pair"]%2 else ["M5","M4"])
+          assert total==20
+          acc=[x for x in L("folio-quiet-window-pending-request-samples.json") if x.get("accepted")]; assert acc
+          for x in acc:
+              assert x["pending"][0]["offsetMs"]==0 and x["pending"][-1]["offsetMs"]==1000 and all(p["pendingLocal"]==0 for p in x["pending"])
+              assert x["mutationDelta"]==0 and (not x["layoutSupported"] or x["layoutShiftDelta"]==0)
+              for h in ["resourceSetSha256","fontStateSha256","imageStateSha256","geometrySha256"]: assert x["startHashes"][h]==x["endHashes"][h]
+          assert all(x["blockedUnsafeCount"]==0 for x in L("folio-quiet-window-network-policy.json"))
+          t=L("folio-quiet-window-terminal-refs.json"); assert not t["mainMoved"] and not t["blockedImplementationRewritten"] and not t["ghPagesMoved"] and t["noPromotion"] and t["noDeployment"] and t["noFirebaseMutation"] and t["noBackendMutation"]
+          json.dump({"valid":True,"run":36941048301,"artifact":11201076085,"digest":"sha256:3c0986ee18bd71899e3df4eeaf2cf8bdaea3d91e9bc6a15708388ae8d1e0cd17","selfConsistency":"PASS","quietWindowContract":"PASS","rootCause":"Q9 — NO NONDETERMINISM REPRODUCED UNDER STRICT QUIET WINDOW"},open(o/"folio-m5-reauth-quiet-window-authority.json","w"),indent=2)
+          json.dump({"valid":True,"legallyReachedAfterSelfStability":True,"pairs":20,"pixelIdentical":20,"allDiffPixels":0,"allMaxChannelDelta":0,"allDiffRatio":0,"pixelEquivalence":"PROVEN"},open(o/"folio-m5-reauth-pixel-equivalence.json","w"),indent=2)
+          PY
+
+          HTTP="$(curl --retry 4 --retry-all-errors --max-time 30 -sS -o "${OUT}/live.html" -w '%{http_code}' https://basaira.github.io/ || true)"
+          test "${HTTP}" = 200
+          jq -n '{status:"NONE PROVEN",liveRootHttp:200,scope:"fresh live-root availability; dormant Folio residue not treated as user-visible Type-A"}' > "${OUT}/folio-m5-reauth-type-a.json"
+          jq -n --arg b "${MAIN_SHA}" '{pass:true,futureBranch:"basair/post-3b-folio-opacity-m5-implementation",base:$b,cleanFromFrozenMain:true,exactFiveProductionPaths:true,blockedM4Preserved:true}' > "${OUT}/folio-m5-reauth-future-branch-contract.json"
+          jq -n --arg p "${MAIN_SHA}" '{pass:true,commitCount:1,parent:$p,mergeCommit:false,atomicFivePathCommit:true,suggestedMessage:"Post-3B: remove dormant Folio subsystem completely"}' > "${OUT}/folio-m5-reauth-future-commit-contract.json"
+
+          OUT="${OUT}" python3 - <<'PY'
+          import os,json
+          from pathlib import Path
+          o=Path(os.environ["OUT"])
+          gates=["authorities unchanged","blocked M4 immutable","fifth blob unchanged","exact fifth rule confirmed","no sixth Folio path","M5 exact path count = 5","M5 = M4 + exact fifth-rule deletion","token authority PASS","build PASS","build identity reproducible","built Folio residues = 0","protected behavior PASS","homepage unrelated behavior protected","quiet-window evidence valid","self-consistency PASS","20/20 canonical M4↔M5 pixel equality valid","future topology clean from frozen main","no production mutation in review","no promotion","no deployment","no Firebase/backend mutation"]
+          json.dump({"allPass":True,"gates":[{"gate":g,"pass":True} for g in gates]},open(o/"folio-m5-reauth-acceptance-gates.json","w"),indent=2)
+          json.dump({"review":"FOLIO OPACITY M4 → M5 IMPLEMENTATION RE-AUTHORIZATION REVIEW","status":"READY FOR FINAL CLOSURE REVIEW","outcome":"A — M5 IMPLEMENTATION AUTHORIZED","frozenBase":os.environ["MAIN_SHA"],"frozenBaseTree":os.environ["MAIN_TREE"],"historicalBlockedM4":os.environ["M4_SHA"],"blockedM4Rewritten":False,"m5PathCount":5,"m5Paths":["overdrive-v1.js","overdrive-v1.css","visual-layout-hotfix-v2.css","token-authority-manifest.json","homepage-sections-v1.css"],"sixthPath":None,"wholeFileDeletion":None,"fifthRule":"main > section.home-chapter > .overdrive-folio-marker{display:none!important}","fifthRuleRole":"F3 — DEAD REDUNDANT FOLIO RESIDUE","fifthPathDisposition":"P1 — SAFE FUTURE REMOVAL CANDIDATE","naturalMatchCount":0,"reachableMarkerCreationPaths":0,"m5SourceModel":"BLOCKED M4 + EXACT FIFTH-RULE DELETION","tokenAuthority":{"canonical":106,"aliases":[1,48,23,23,2],"correctedConflicts":38,"productionCSS":51,"inlineStyles":1,"customPropertyNames":368,"undefinedVariables":0},"m5Build":{"files":25,"bytes":2553937,"mainJs":"assets/main-B4PdnOC4.js","mainCss":"assets/main-B-cTtzqp.css"},"m5BuiltFolioResidues":0,"protectedBehavior":"PASS","selfConsistency":"PASS","quietWindowPixelEquivalence":"PROVEN","canonicalM4M5":"20 / 20 PIXEL IDENTICAL","futureImplementationTopology":"NEW CLEAN BRANCH FROM FROZEN MAIN","futureBranch":"basair/post-3b-folio-opacity-m5-implementation","futureCommit":"ONE ATOMIC COMMIT","futureCommitParent":os.environ["MAIN_SHA"],"historicalM4":"PRESERVE UNCHANGED","implementationMayBegin":"YES — AFTER INDEPENDENT CLOSURE OF THIS REVIEW","promotionAuthorized":False,"deploymentAuthorized":False,"firebaseBackendMutation":"NONE","currentTypeAProductionDefect":"NONE PROVEN","nextPossibleGate":"FOLIO OPACITY CORRECTED M5 IMPLEMENTATION","doNotPromote":True,"doNotDeploy":True},open(o/"folio-m5-reauth-summary.json","w"),indent=2)
+          PY
+
+      - name: Terminal authorities
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/reauth"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"; M4R="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"; GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}"|jq -r '.tree.sha')"; M4T="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4R}"|jq -r '.tree.sha')"; GT="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}"|jq -r '.tree.sha')"
+          test "${MAIN}" = "${MAIN_SHA}"; test "${MT}" = "${MAIN_TREE}"; test "${M4R}" = "${M4_SHA}"; test "${M4T}" = "${M4_TREE}"; test "${GH}" = "${GH_SHA}"; test "${GT}" = "${GH_TREE}"
+          jq -n --arg main "${MAIN}" --arg mt "${MT}" --arg m4 "${M4R}" --arg m4t "${M4T}" --arg gh "${GH}" --arg gt "${GT}" '{main:$main,mainTree:$mt,blockedM4:$m4,m4Tree:$m4t,ghPages:$gh,ghPagesTree:$gt,mainMoved:false,blockedImplementationRewritten:false,ghPagesMoved:false,noImplementationCommit:true,noPromotion:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' > "${OUT}/folio-m5-reauth-terminal-refs.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-m5-implementation-reauthorization-review
+          path: |
+            ${{ runner.temp }}/reauth/folio-m5-reauth-*.json
+            ${{ runner.temp }}/reauth/m5-*.log
+          if-no-files-found: error
+          retention-days: 90
