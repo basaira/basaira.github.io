@@ -72,12 +72,12 @@ jobs:
 
           git diff --numstat "$OLD_MAIN" "$MAIN_SHA" -- | sort > "$OUT/actual-numstat.txt"
           cat > "$OUT/expected-numstat.txt" <<'EOF'
-0	1	homepage-sections-v1.css
-0	1	visual-layout-hotfix-v2.css
-0	25	overdrive-v1.js
-0	45	overdrive-v1.css
-3	5	token-authority-manifest.json
-EOF
+          0	1	homepage-sections-v1.css
+          0	1	visual-layout-hotfix-v2.css
+          0	25	overdrive-v1.js
+          0	45	overdrive-v1.css
+          3	5	token-authority-manifest.json
+          EOF
           sort -o "$OUT/expected-numstat.txt" "$OUT/expected-numstat.txt"
           diff -u "$OUT/expected-numstat.txt" "$OUT/actual-numstat.txt"
           test "$(git diff --name-only "$OLD_MAIN" "$MAIN_SHA" -- | wc -l)" = 5
