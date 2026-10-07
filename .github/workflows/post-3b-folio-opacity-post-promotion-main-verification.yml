@@ -404,12 +404,14 @@ jobs:
           }
           
           function hashSnapshot(s){
+            const domFingerprint=(s.elements||[]).map(e=>({selector:e.selector,text:e.text}));
             return{
               resourceSetSha256:hashObj(s.resourceManifest),
               fontStateSha256:hashObj(s.fontState),
               imageStateSha256:hashObj(s.imageState),
               geometrySha256:hashObj(s.geometry),
-              renderStateSha256:hashObj({render:s.render,resourceSetSha256:hashObj(s.resourceManifest),fontStateSha256:hashObj(s.fontState),imageStateSha256:hashObj(s.imageState),geometrySha256:hashObj(s.geometry)})
+              domSha256:hashObj(domFingerprint),
+              renderStateSha256:hashObj({render:s.render,resourceSetSha256:hashObj(s.resourceManifest),fontStateSha256:hashObj(s.fontState),imageStateSha256:hashObj(s.imageState),geometrySha256:hashObj(s.geometry),domSha256:hashObj(domFingerprint)})
             };
           }
           
