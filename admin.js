@@ -412,7 +412,9 @@
     }
 
     async function loadContent() {
+      const revision = authRevision;
       const snap = await getDoc(publicRef);
+      if (revision !== authRevision || !isAdmin) return;
       contentCache = normalizeContent(snap.exists() ? snap.data() : {});
       renderStats();
       renderTexts();
@@ -784,20 +786,31 @@
       if (!item) { showStatus("اختر نصًا من فهرس الموقع أولًا.", "error"); return; }
       if (!value || value.length > 12000) { showStatus("النص فارغ أو يتجاوز الحد المسموح.", "error"); return; }
 
-      const texts = { ...(contentCache.texts || {}) };
       const original = String(item.text || "").trim();
-      if (value === original) delete texts[id];
-      else texts[id] = value;
-
-      const batch = writeBatch(db);
-      batch.set(publicRef, { texts }, { merge: true });
-      appendAuditToBatch(batch, value === original ? "text.restore" : "text.update", "content", id, {
-        lang: item.lang || "", section: item.section || "global"
+      const revision = authRevision;
+      const baseline = Object.prototype.hasOwnProperty.call(contentCache.texts, id)
+        ? contentCache.texts[id] : null;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        const current = Object.prototype.hasOwnProperty.call(live.texts, id) ? live.texts[id] : null;
+        if (current !== baseline) throw new Error("عدّل مدير آخر هذا النص؛ أعد تحميله قبل الكتابة.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
+        const texts = {...live.texts};
+        if (value === original) delete texts[id];
+        else texts[id] = value;
+        tx.set(publicRef, { texts }, { merge: true });
+        appendAuditToBatch(tx, value === original ? "text.restore" : "text.update", "content", id,
+          {lang: item.lang || "", section: item.section || "global"});
       });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
+      try {
+        await Promise.all([loadContent(), loadAudit()]);
+      } catch (error) {
+        showStatus("حُفظ النص وسجل التدقيق، لكن تعذر تحديث البيانات المعروضة؛ أعد التحميل.", "warning");
+        return;
+      }
       fillTextForm(id);
-      showStatus(value === original ? "النص مطابق للأصل؛ أزيل التعديل من Firestore." : "تم حفظ النص بأمان.", "success");
+      showStatus(value === original ? "استُعيد النص الأصلي بنجاح." : "تم حفظ النص وتسجيل العملية.", "success");
     }
 
     async function deleteText() {
@@ -810,13 +823,20 @@
         return;
       }
       if (!confirm("استعادة النص الأصلي وإزالة التعديل المحفوظ في Firestore؟")) return;
-      const texts = { ...(contentCache.texts || {}) };
-      delete texts[id];
-      const batch = writeBatch(db);
-      batch.set(publicRef, { texts }, { merge: true });
-      appendAuditToBatch(batch, "text.restore", "content", id, { lang: item.lang || "", section: item.section || "global" });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
+      const revision = authRevision;
+      const baseline = contentCache.texts[id];
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (live.texts[id] !== baseline) throw new Error("تغيّر النص بواسطة مدير آخر؛ حدّث القائمة.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الاستعادة.");
+        const texts = {...live.texts};
+        delete texts[id];
+        tx.set(publicRef, { texts }, { merge: true });
+        appendAuditToBatch(tx, "text.restore", "content", id, {lang: item.lang || "", section: item.section || "global"});
+      });
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("تمت الاستعادة، لكن فشل تحديث العرض. أعد التحميل.", "warning"); return; }
       fillTextForm(id);
       showStatus("تمت استعادة النص الأصلي.", "success");
     }
