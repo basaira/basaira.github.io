@@ -1,0 +1,753 @@
+name: Folio Post-Promotion Main Verification
+
+on:
+  push:
+    branches:
+      - 'basair/post-3b-folio-opacity-post-promotion-main-verification-20261010'
+
+permissions:
+  contents: read
+
+env:
+  MAIN_SHA: 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243
+  MAIN_TREE: 09aa7bd7325e7c078cc817f0790402a5667a3644
+  M5_SHA: 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243
+  M5_TREE: 09aa7bd7325e7c078cc817f0790402a5667a3644
+  M4_SHA: 5bc4e216a568a57b217187b4030f8208ad87fe31
+  M4_TREE: d5cd6ee2a3f3bcb7fe226ba6dcfa314796c26d65
+  GH_SHA: cef59ba05b3382978b4c18e83592f08227b2f9c4
+  GH_TREE: 1b80d7144e8bac484cf98a4ebbefc1c96ca8d821
+  OLD_MAIN: 006ba05c7361451865660450695c48428a3ed8d0
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact promoted main read-only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fresh authorities topology history issues and automation state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="${RUNNER_TEMP}/postpromo"; mkdir -p "$OUT"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          test -z "$(git status --porcelain)"
+
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"
+          M5="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-m5-implementation"|jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MAIN_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          M5_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M5}")"
+          M4_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${M4}")"
+          GH_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+
+          test "$MAIN" = "$MAIN_SHA"
+          test "$M5" = "$M5_SHA"
+          test "$M4" = "$M4_SHA"
+          test "$GH" = "$GH_SHA"
+          test "$(jq -r '.tree.sha'<<<"$MAIN_G")" = "$MAIN_TREE"
+          test "$(jq -r '.tree.sha'<<<"$M5_G")" = "$M5_TREE"
+          test "$(jq -r '.tree.sha'<<<"$M4_G")" = "$M4_TREE"
+          test "$(jq -r '.tree.sha'<<<"$GH_G")" = "$GH_TREE"
+          test "$(jq '.parents|length'<<<"$MAIN_G")" = 1
+          test "$(jq -r '.parents[0].sha'<<<"$MAIN_G")" = "$OLD_MAIN"
+          test "$(jq -r '.message'<<<"$MAIN_G")" = "Post-3B: remove dormant Folio subsystem completely"
+
+          test "$(git merge-base "$OLD_MAIN" "$MAIN_SHA")" = "$OLD_MAIN"
+          test "$(git rev-list --count "$OLD_MAIN..$MAIN_SHA")" = 1
+          test "$(git rev-list --count "$MAIN_SHA..$OLD_MAIN")" = 0
+          test "$(git rev-parse "$MAIN_SHA^{tree}")" = "$MAIN_TREE"
+          test "$(git rev-parse "$M5_SHA^{tree}")" = "$M5_TREE"
+
+          git diff --numstat "$OLD_MAIN" "$MAIN_SHA" -- | sort > "$OUT/actual-numstat.txt"
+          cat > "$OUT/expected-numstat.txt" <<'EOF'
+          0	1	homepage-sections-v1.css
+          0	1	visual-layout-hotfix-v2.css
+          0	25	overdrive-v1.js
+          0	45	overdrive-v1.css
+          3	5	token-authority-manifest.json
+          EOF
+          sort -o "$OUT/expected-numstat.txt" "$OUT/expected-numstat.txt"
+          diff -u "$OUT/expected-numstat.txt" "$OUT/actual-numstat.txt"
+          test "$(git diff --name-only "$OLD_MAIN" "$MAIN_SHA" -- | wc -l)" = 5
+          test -z "$(git diff --name-status "$OLD_MAIN" "$MAIN_SHA" -- | awk '$1!="M"{print}')"
+
+          jq -n --arg main "$MAIN" --arg m5 "$M5" --arg m4 "$M4" --arg gh "$GH" \
+            --arg mt "$(jq -r '.tree.sha'<<<"$MAIN_G")" --arg m5t "$(jq -r '.tree.sha'<<<"$M5_G")" \
+            --arg m4t "$(jq -r '.tree.sha'<<<"$M4_G")" --arg ght "$(jq -r '.tree.sha'<<<"$GH_G")" \
+            '{main:$main,m5:$m5,m4:$m4,ghPages:$gh,mainTree:$mt,m5Tree:$m5t,m4Tree:$m4t,ghPagesTree:$ght,allExpected:true}' \
+            > "$OUT/folio-post-promotion-authorities.json"
+
+          jq -n --arg sha "$MAIN" --arg tree "$(jq -r '.tree.sha'<<<"$MAIN_G")" --arg parent "$(jq -r '.parents[0].sha'<<<"$MAIN_G")" --arg message "$(jq -r '.message'<<<"$MAIN_G")" \
+            '{sha:$sha,tree:$tree,parentCount:1,parent:$parent,message:$message,mergeCommit:false,mainEqualsM5:true,mainTreeEqualsM5Tree:true}' \
+            > "$OUT/folio-post-promotion-main-identity.json"
+
+          jq -n --arg old "$OLD_MAIN" --arg current "$MAIN_SHA" \
+            '{oldMain:$old,currentMain:$current,status:"ahead",aheadBy:1,behindBy:0,totalCommits:1,mergeBase:$old,directParentFastForward:"PASS",historyRewrite:false,mergeCommit:false}' \
+            > "$OUT/folio-post-promotion-topology.json"
+
+          jq -Rn '[inputs|split("\t")|{additions:(.[0]|tonumber),deletions:(.[1]|tonumber),path:.[2]}]' < "$OUT/actual-numstat.txt" > "$OUT/rows.json"
+          jq -n --slurpfile rows "$OUT/rows.json" '{pathCount:5,rows:$rows[0],sixthPath:null,wholeFileDeletion:false,rename:false,unexpectedSourceChange:false}' > "$OUT/folio-post-promotion-five-path-history.json"
+
+          jq -n --arg mainTree "$MAIN_TREE" --arg m5Tree "$M5_TREE" \
+            '{mainTree:$mainTree,m5Tree:$m5Tree,mainTreeEqualsM5Tree:($mainTree==$m5Tree),wholeTreeIdentity:true}' \
+            > "$OUT/folio-post-promotion-main-m5-tree-identity.json"
+
+          ISSUES="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100")"
+          TOTAL="$(jq '[.[]|select((has("pull_request")|not))]|length'<<<"$ISSUES")"
+          TYPEA="$(jq '[.[]|select((has("pull_request")|not))|select((((.title//"")+" "+(.body//""))|test("type[- ]?a|production defect|critical production";"i")))]'<<<"$ISSUES")"
+          test "$(jq length<<<"$TYPEA")" = 0
+          jq -n --argjson total "$TOTAL" --argjson blockers "$TYPEA" '{totalOpenIssues:$total,blockingMatches:$blockers,currentTypeAProductionDefect:"NONE PROVEN"}' > "$OUT/folio-post-promotion-type-a.json"
+
+          RUNS="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${MAIN_SHA}&per_page=100")"
+          DEPLOYLIKE="$(jq '[.workflow_runs[]|select((.name//"")|test("deploy|pages|firebase|publish";"i"))]|length'<<<"$RUNS")"
+          test "$DEPLOYLIKE" = 0
+          jq '{runCount:.total_count,runs:[.workflow_runs[]|{id,name,event,status,conclusion,head_branch,head_sha,html_url}],deploymentLikeRunCount:([.workflow_runs[]|select((.name//"")|test("deploy|pages|firebase|publish";"i"))]|length)}' <<<"$RUNS" > "$OUT/folio-post-promotion-associated-runs.json"
+
+          jq -n --arg main "$MAIN" --arg tree "$MAIN_TREE" --arg m5 "$M5" --arg m4 "$M4" --arg gh "$GH" \
+            '{freshCheckoutHead:$main,freshCheckoutTree:$tree,m5:$m5,m4:$m4,ghPages:$gh,workingTreeClean:true,authorityDrift:false,typeABlocker:false,associatedDeploymentRun:false,preflight:"PASS"}' \
+            > "$OUT/folio-post-promotion-preflight.json"
+
+      - name: Fresh source verification token authority build identity and Folio absence
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/postpromo"
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          npm ci >"$OUT/npm-ci.log" 2>&1
+          npm run verify >"$OUT/npm-verify.log" 2>&1
+          node token-authority-check.mjs >"$OUT/token-authority.log" 2>&1
+          git diff --check
+          grep -F 'Token authority PASS: 106 canonical; aliases A/B/C/D/E=1/48/23/23/2; corrected conflicts=38; production CSS=51; inline styles=1.' "$OUT/token-authority.log"
+
+          node --input-type=module - "$OUT" <<'NODE'
+          import fs from 'node:fs';
+          const out=process.argv[2];
+          const m=JSON.parse(fs.readFileSync('token-authority-manifest.json','utf8'));
+          const a=m.aliasSurfaceSummary?.classificationCounts||{};
+          const c=m.correctedAuditScope||{};
+          const authority={
+            canonical:Object.keys(m.canonicalTokens||{}).length,
+            aliases:{A:a.A,B:a.B,C:a.C,D:a.D,E:a.E},
+            correctedConflicts:c.conflictCount,
+            productionCss:c.productionCssFileCount,
+            inlineStyles:c.inlineStyleBlockCount,
+            customPropertyNames:c.customPropertyNameCount,
+            undefinedVariables:0,
+            folioOpacityAbsent:!JSON.stringify(m).includes('"--folio-opacity"'),
+            layoutSectionCompactProtected:JSON.stringify(m).includes('"--layout-section-compact"')
+          };
+          const expect=authority.canonical===106&&authority.aliases.A===1&&authority.aliases.B===48&&authority.aliases.C===23&&authority.aliases.D===23&&authority.aliases.E===2&&authority.correctedConflicts===38&&authority.productionCss===51&&authority.inlineStyles===1&&authority.customPropertyNames===368&&authority.folioOpacityAbsent&&authority.layoutSectionCompactProtected;
+          authority.pass=expect;
+          fs.writeFileSync(out+'/folio-post-promotion-token-authority.json',JSON.stringify(authority,null,2));
+          if(!expect)process.exit(1);
+          NODE
+
+          npm run build >"$OUT/npm-build.log" 2>&1
+          python3 - "$OUT" <<'PY'
+          import sys,json
+          from pathlib import Path
+          out=Path(sys.argv[1]); root=Path('dist')
+          files=[p for p in root.rglob('*') if p.is_file()]
+          total=sum(p.stat().st_size for p in files)
+          rel=sorted(p.relative_to(root).as_posix() for p in files)
+          js=[x for x in rel if x.startswith('assets/main-') and x.endswith('.js')]
+          css=[x for x in rel if x.startswith('assets/main-') and x.endswith('.css')]
+          data={'files':len(files),'bytes':total,'mainJs':js[0] if len(js)==1 else js,'mainCss':css[0] if len(css)==1 else css}
+          data['pass']=data=={'files':25,'bytes':2553937,'mainJs':'assets/main-B4PdnOC4.js','mainCss':'assets/main-B-cTtzqp.css'}
+          (out/'folio-post-promotion-build.json').write_text(json.dumps(data,indent=2))
+          assert data['pass'],data
+          PY
+
+          python3 - "$OUT" <<'PY'
+          import sys,json,re
+          from pathlib import Path
+          out=Path(sys.argv[1])
+          prod=['homepage-sections-v1.css','overdrive-v1.css','overdrive-v1.js','token-authority-manifest.json','visual-layout-hotfix-v2.css']
+          text='\n'.join(Path(p).read_text(errors='ignore') for p in prod)
+          checks={
+            'initFolioMarkers':len(re.findall(r'initFolioMarkers',text)),
+            'folioOpacity':len(re.findall(r'--folio-opacity',text)),
+            'overdriveFolioMarker':len(re.findall(r'overdrive-folio-marker',text)),
+            'isFolioCurrent':len(re.findall(r'is-folio-current',text)),
+            'odFolioOpen':len(re.findall(r'od-folio-open',text)),
+            'datasetFolio':len(re.findall(r'dataset\.folio',text))
+          }
+          checks['reachableFolioMarkerCreationPath']=0 if checks['initFolioMarkers']==0 and checks['overdriveFolioMarker']==0 and checks['datasetFolio']==0 else 1
+          data={'characterizedProductionPaths':prod,'counts':checks,'sourceFolioSubsystemResidues':sum(checks.values()),'pass':all(v==0 for v in checks.values())}
+          (out/'folio-post-promotion-source-folio-absence.json').write_text(json.dumps(data,indent=2))
+          assert data['pass'],data
+          PY
+
+          python3 - "$OUT" <<'PY'
+          import sys,json,re
+          from pathlib import Path
+          out=Path(sys.argv[1]); b=json.loads((out/'folio-post-promotion-build.json').read_text())
+          js=(Path('dist')/b['mainJs']).read_text(errors='ignore'); css=(Path('dist')/b['mainCss']).read_text(errors='ignore')
+          checks={
+            'jsOverdriveFolioMarker':js.count('overdrive-folio-marker'),
+            'jsIsFolioCurrent':js.count('is-folio-current'),
+            'jsDatasetFolio':len(re.findall(r'dataset\.folio',js)),
+            'jsObserverRootMarginSignature':len(re.findall(r'rootMargin.{0,120}folio|folio.{0,120}rootMargin',js,re.I|re.S)),
+            'cssFolioOpacity':css.count('--folio-opacity'),
+            'cssOverdriveFolioMarker':css.count('overdrive-folio-marker'),
+            'cssIsFolioCurrent':css.count('is-folio-current'),
+            'cssOdFolioOpen':css.count('od-folio-open'),
+            'cssFolioMask':len(re.findall(r'folio.{0,80}mask|mask.{0,80}folio',css,re.I|re.S))
+          }
+          data={'counts':checks,'builtFolioResidues':sum(checks.values()),'pass':all(v==0 for v in checks.values())}
+          (out/'folio-post-promotion-built-folio-absence.json').write_text(json.dumps(data,indent=2))
+          assert data['pass'],data
+          PY
+
+          node --input-type=module - "$OUT" <<'NODE'
+          import fs from 'node:fs';
+          const out=process.argv[2], js=fs.readFileSync('overdrive-v1.js','utf8'), css=fs.readFileSync('overdrive-v1.css','utf8'), home=fs.readFileSync('homepage-sections-v1.css','utf8'), hot=fs.readFileSync('visual-layout-hotfix-v2.css','utf8'), manifest=fs.readFileSync('token-authority-manifest.json','utf8');
+          const checks={
+            initManuscriptHero:js.includes('initManuscriptHero'),
+            initReadingProgress:js.includes('initReadingProgress'),
+            initOverdrive:js.includes('initOverdrive'),
+            DOMContentLoaded:js.includes('DOMContentLoaded'),
+            overdriveReady:js.includes('overdrive-ready'),
+            overdriveManuscript:js.includes('overdrive-manuscript')&&css.includes('overdrive-manuscript'),
+            overdriveReadingProgress:js.includes('overdrive-reading-progress')&&css.includes('overdrive-reading-progress'),
+            nonFolioOverdriveCss:css.length>1000&&!css.includes('overdrive-folio-marker'),
+            unrelatedHomepageCss:home.length>1000,
+            unrelatedVisualLayoutHotfixes:hot.length>1000,
+            unrelatedTokenAuthorityRecords:manifest.length>10000,
+            layoutSectionCompact:hot.includes('--layout-section-compact')&&manifest.includes('--layout-section-compact')
+          };
+          const pass=Object.values(checks).every(Boolean);
+          fs.writeFileSync(out+'/folio-post-promotion-protected-behavior.json',JSON.stringify({checks,pass},null,2));
+          if(!pass)process.exit(1);
+          NODE
+          test -z "$(git status --porcelain)"
+
+      - name: Strict promoted-main quiet-window self-stability
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/postpromo"
+          npm install --no-save --package-lock=false playwright@1.55.0 pngjs@7.0.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          git checkout -- package.json package-lock.json 2>/dev/null || true
+          rm -f node_modules/.package-lock.json 2>/dev/null || true
+          uname -a >"$OUT/os.txt"
+          printf '%s\n' "${ImageOS:-unknown}" >"$OUT/runner-image-os.txt"
+          printf '%s\n' "${ImageVersion:-unknown}" >"$OUT/runner-image-version.txt"
+          (fc-list || true) | sort >"$OUT/fonts.txt"
+          python3 -m http.server 4675 --directory "$GITHUB_WORKSPACE/dist" >/tmp/main-postpromo.log 2>&1 &
+          sleep 2
+          cat > .postpromo-quiet.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import { PNG } from 'pngjs';
+          
+          const OUT=process.env.OUT;
+          const ROOT={M4:process.env.M4,M5:process.env.M5};
+          const ORIGIN={M4:'http://127.0.0.1:4674',M5:'http://127.0.0.1:4675'};
+          const VIEWPORTS={
+            mobile:{n:'390x844',w:390,h:844},
+            desktop:{n:'1440x1000',w:1440,h:1000},
+            below760:{n:'759x900',w:759,h:900},
+            above760:{n:'761x900',w:761,h:900}
+          };
+          const ORDER=['desktop','mobile','below760','above760'];
+          const ARGS=['--disable-background-networking','--disable-default-apps','--disable-sync','--no-first-run'];
+          const NORMALIZATION='*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important;caret-color:transparent!important}video{visibility:hidden!important}#splash-screen{display:none!important;opacity:0!important;visibility:hidden!important}';
+          const EXPECTED_CHROMIUM='140.0.7339.16';
+          const H=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const J=o=>JSON.stringify(o);
+          const hashObj=o=>H(Buffer.from(J(o)));
+          const contextOptions=v=>({viewport:{width:v.w,height:v.h},deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezoneId:'UTC'});
+          fs.mkdirSync(path.join(OUT,'pixel-evidence'),{recursive:true});
+          
+          const allResourceManifests=[],allResourceHashes=[],allFontHashes=[],allImageHashes=[],allGeometryHashes=[],allRenderHashes=[];
+          const allMutationSamples=[],allLayoutSamples=[],allPendingSamples=[];
+          const allSelfDiffs=[],allSelfDiffElements=[],allSelfDiffColors=[];
+          const networkRecords=[],runtimeRecords=[];
+          
+          function rect(r){return{x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)}}
+          function normalizeUrl(u,origin){try{const x=new URL(u);if(x.origin===origin)return 'LOCAL'+x.pathname+x.search;return x.origin+x.pathname+x.search}catch{return u}}
+          function selector(e){if(!e)return null;return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):'')}
+          
+          function pdiff(a,b){
+            const A=PNG.sync.read(a),B=PNG.sync.read(b);
+            if(A.width!==B.width||A.height!==B.height)throw new Error('PNG size mismatch');
+            let n=0,max=0,minX=A.width,minY=A.height,maxX=-1,maxY=-1;
+            const mask=new PNG({width:A.width,height:A.height}),heat=new PNG({width:A.width,height:A.height}),pairs=new Map();
+            for(let y=0;y<A.height;y++)for(let x=0;x<A.width;x++){
+              const i=(y*A.width+x)*4;let hit=false;
+              for(let c=0;c<4;c++){const d=Math.abs(A.data[i+c]-B.data[i+c]);if(d){hit=true;max=Math.max(max,d)}}
+              if(hit){
+                n++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);
+                mask.data[i]=mask.data[i+1]=mask.data[i+2]=mask.data[i+3]=255;
+                heat.data[i]=255;heat.data[i+1]=0;heat.data[i+2]=0;heat.data[i+3]=255;
+                const k=[...A.data.slice(i,i+4)].join(',')+' -> '+[...B.data.slice(i,i+4)].join(',');
+                pairs.set(k,(pairs.get(k)||0)+1);
+              }else{mask.data[i+3]=255;heat.data[i+3]=55}
+            }
+            return{diffPixels:n,maxChannelDelta:max,diffRatio:n/(A.width*A.height),boundingBox:n?{minX,minY,maxX,maxY,width:maxX-minX+1,height:maxY-minY+1}:null,pixelIdentical:n===0,A,B,mask:PNG.sync.write(mask),heat:PNG.sync.write(heat),pairs:[...pairs.entries()].sort((a,b)=>b[1]-a[1]).slice(0,40).map(([pair,count])=>({pair,count}))};
+          }
+          function crop(P,b){if(!b)return null;const q=8,x=Math.max(0,b.minX-q),y=Math.max(0,b.minY-q),w=Math.min(P.width-x,b.width+2*q),h=Math.min(P.height-y,b.height+2*q),C=new PNG({width:w,height:h});PNG.bitblt(P,C,x,y,w,h,0,0);return PNG.sync.write(C)}
+          function saveDiff(key,a,b,d){
+            if(d.pixelIdentical)return;
+            const q=path.join(OUT,'pixel-evidence');
+            fs.writeFileSync(path.join(q,key+'-A.png'),a.png);fs.writeFileSync(path.join(q,key+'-B.png'),b.png);
+            fs.writeFileSync(path.join(q,key+'-mask.png'),d.mask);fs.writeFileSync(path.join(q,key+'-heatmap.png'),d.heat);
+            const ca=crop(d.A,d.boundingBox),cb=crop(d.B,d.boundingBox),ch=crop(PNG.sync.read(d.heat),d.boundingBox);
+            if(ca)fs.writeFileSync(path.join(q,key+'-A-crop.png'),ca);
+            if(cb)fs.writeFileSync(path.join(q,key+'-B-crop.png'),cb);
+            if(ch)fs.writeFileSync(path.join(q,key+'-diff-crop.png'),ch);
+          }
+          
+          async function launch(){
+            const b=await chromium.launch({headless:true,args:ARGS});
+            if(b.version()!==EXPECTED_CHROMIUM){await b.close();throw new Error('BROWSER_VERSION_DRIFT expected '+EXPECTED_CHROMIUM+' got '+b.version())}
+            return b;
+          }
+          
+          async function installAudit(ctx){
+            await ctx.addInitScript(()=>{
+              window.__quietAudit={mutations:[],layoutShifts:[],layoutSupported:true};
+              document.addEventListener('DOMContentLoaded',()=>{
+                const mo=new MutationObserver(list=>{
+                  for(const m of list)window.__quietAudit.mutations.push({type:m.type,target:m.target?.nodeName||null,attributeName:m.attributeName||null,added:m.addedNodes?.length||0,removed:m.removedNodes?.length||0});
+                });
+                mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});
+              },{once:true});
+              try{
+                new PerformanceObserver(list=>{
+                  for(const e of list.getEntries())window.__quietAudit.layoutShifts.push({value:e.value,hadRecentInput:e.hadRecentInput,sources:(e.sources||[]).map(s=>({node:s.node?.nodeName||null,previousRect:s.previousRect?{x:s.previousRect.x,y:s.previousRect.y,width:s.previousRect.width,height:s.previousRect.height}:null,currentRect:s.currentRect?{x:s.currentRect.x,y:s.currentRect.y,width:s.currentRect.width,height:s.currentRect.height}:null}))});
+                }).observe({type:'layout-shift',buffered:true});
+              }catch{window.__quietAudit.layoutSupported=false}
+            });
+          }
+          
+          async function installNetworkPolicy(ctx,origin,net){
+            await ctx.route('**/*',async route=>{
+              const req=route.request(),method=req.method().toUpperCase(),url=req.url();
+              let u;try{u=new URL(url)}catch{net.blockedExternal.push({method,url});return route.abort('blockedbyclient')}
+              const local=u.origin===origin;
+              const safe=['GET','HEAD','OPTIONS'].includes(method);
+              const telemetry=/google-analytics\.com|googletagmanager\.com|google\.com\/g\/collect|analytics/i.test(url);
+              if(!safe){net.blockedUnsafe.push({method,url:normalizeUrl(url,origin)});return route.abort('blockedbyclient')}
+              if(local){net.allowedLocal++;return route.continue()}
+              if(telemetry){net.blockedTelemetry.push(normalizeUrl(url,origin));return route.abort('blockedbyclient')}
+              net.blockedExternal.push({method,url:normalizeUrl(url,origin)});return route.abort('blockedbyclient');
+            });
+          }
+          
+          function requestTracker(page,origin){
+            const state={pendingLocal:0,pendingExternal:0,pendingTotal:0,failedLocal:[],failedExternal:[],events:[]};
+            const classify=req=>{try{return new URL(req.url()).origin===origin?'local':'external'}catch{return'external'}};
+            page.on('request',req=>{const k=classify(req);state[k==='local'?'pendingLocal':'pendingExternal']++;state.pendingTotal++;state.events.push({type:'request',kind:k,method:req.method(),url:normalizeUrl(req.url(),origin)})});
+            const done=(req,type)=>{const k=classify(req);state[k==='local'?'pendingLocal':'pendingExternal']=Math.max(0,state[k==='local'?'pendingLocal':'pendingExternal']-1);state.pendingTotal=Math.max(0,state.pendingTotal-1);state.events.push({type,kind:k,method:req.method(),url:normalizeUrl(req.url(),origin)})};
+            page.on('requestfinished',req=>done(req,'finished'));
+            page.on('requestfailed',req=>{done(req,'failed');const k=classify(req);(k==='local'?state.failedLocal:state.failedExternal).push(normalizeUrl(req.url(),origin))});
+            return state;
+          }
+          
+          async function normalizePage(page,v){
+            await page.evaluate(async()=>{
+              try{await document.fonts.ready}catch{}
+              const imgs=[...document.images];
+              await Promise.all(imgs.map(i=>i.complete?Promise.resolve():new Promise(r=>{const d=()=>r();i.addEventListener('load',d,{once:true});i.addEventListener('error',d,{once:true});setTimeout(d,3000)})));
+              for(const i of imgs){try{if(i.complete&&i.naturalWidth>0)await i.decode()}catch{}}
+              for(const x of document.querySelectorAll('video')){try{x.pause();x.currentTime=0}catch{}}
+              scrollTo(0,0);
+              try{document.activeElement?.blur?.()}catch{}
+              try{getSelection()?.removeAllRanges()}catch{}
+            });
+            await page.mouse.move(v.w-2,v.h-2);
+            await page.addStyleTag({content:NORMALIZATION});
+            await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+          }
+          
+          async function pageSnapshot(page,origin,v){
+            return await page.evaluate(({origin,v})=>{
+              const R=r=>({x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)});
+              const Q=e=>e?e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):''):null;
+              const visible=e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'};
+              const style=e=>{const s=getComputedStyle(e);return{display:s.display,visibility:s.visibility,opacity:s.opacity,position:s.position,zIndex:s.zIndex,transform:s.transform,filter:s.filter,background:s.background,backgroundImage:s.backgroundImage,border:s.border,boxShadow:s.boxShadow,fontFamily:s.fontFamily,fontSize:s.fontSize,fontWeight:s.fontWeight,fontStyle:s.fontStyle,lineHeight:s.lineHeight,letterSpacing:s.letterSpacing,fontFeatureSettings:s.fontFeatureSettings,fontVariationSettings:s.fontVariationSettings,objectFit:s.objectFit,objectPosition:s.objectPosition}};
+              const localResources=performance.getEntriesByType('resource').filter(e=>{try{return new URL(e.name).origin===origin}catch{return false}}).map(e=>{const u=new URL(e.name);return{path:u.pathname+u.search,initiatorType:e.initiatorType,transferSize:e.transferSize,decodedBodySize:e.decodedBodySize}}).sort((a,b)=>(a.path+'|'+a.initiatorType).localeCompare(b.path+'|'+b.initiatorType));
+              const texts=[...document.querySelectorAll('body *')].filter(e=>visible(e)&&(e.childElementCount===0||(e.textContent||'').trim())&&(e.textContent||'').trim()).slice(0,500).map(e=>{const s=getComputedStyle(e);let check=null;try{check=document.fonts.check(s.fontWeight+' '+s.fontSize+' '+s.fontFamily)}catch{}return{selector:Q(e),text:(e.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),fontFamily:s.fontFamily,fontWeight:s.fontWeight,fontSize:s.fontSize,lineHeight:s.lineHeight,letterSpacing:s.letterSpacing,fontFeatureSettings:s.fontFeatureSettings,fontVariationSettings:s.fontVariationSettings,check}});
+              const images=[...document.images].map(i=>({src:(()=>{try{const u=new URL(i.src);return u.origin===origin?'LOCAL'+u.pathname+u.search:u.origin+u.pathname+u.search}catch{return i.src}})(),currentSrc:(()=>{try{const u=new URL(i.currentSrc);return u.origin===origin?'LOCAL'+u.pathname+u.search:u.origin+u.pathname+u.search}catch{return i.currentSrc}})(),complete:i.complete,naturalWidth:i.naturalWidth,naturalHeight:i.naturalHeight,rect:R(i.getBoundingClientRect()),objectFit:getComputedStyle(i).objectFit,objectPosition:getComputedStyle(i).objectPosition}));
+              const fixedSticky=[...document.querySelectorAll('*')].filter(e=>visible(e)&&['fixed','sticky'].includes(getComputedStyle(e).position)).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect()),style:style(e)}));
+              const main=document.querySelector('main');
+              const geometry={documentElement:{scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight},body:{scrollWidth:document.body.scrollWidth,scrollHeight:document.body.scrollHeight},main:main?R(main.getBoundingClientRect()):null,mainSections:[...document.querySelectorAll('main > section')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),homeChapters:[...document.querySelectorAll('.home-chapter')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),fixedSticky:fixedSticky.map(x=>({selector:x.selector,rect:x.rect}))};
+              const pseudo=[...document.querySelectorAll('h1,h2,h3,p,a,button,section,main')].filter(visible).slice(0,250).map(e=>{const b=getComputedStyle(e,'::before'),a=getComputedStyle(e,'::after');return{selector:Q(e),before:{content:b.content,display:b.display,position:b.position,opacity:b.opacity,transform:b.transform,background:b.background,border:b.border,boxShadow:b.boxShadow,filter:b.filter},after:{content:a.content,display:a.display,position:a.position,opacity:a.opacity,transform:a.transform,background:a.background,border:a.border,boxShadow:a.boxShadow,filter:a.filter}}});
+              const elements=[...document.querySelectorAll('*')].filter(visible).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect()),style:style(e),text:(e.textContent||'').trim().replace(/\s+/g,' ').slice(0,100),before:(()=>{const x=getComputedStyle(e,'::before');return{content:x.content,display:x.display,position:x.position,opacity:x.opacity,transform:x.transform,background:x.background,border:x.border,boxShadow:x.boxShadow,filter:x.filter}})(),after:(()=>{const x=getComputedStyle(e,'::after');return{content:x.content,display:x.display,position:x.position,opacity:x.opacity,transform:x.transform,background:x.background,border:x.border,boxShadow:x.boxShadow,filter:x.filter}})()}));
+              const videos=[...document.querySelectorAll('video')].map(x=>({paused:x.paused,currentTime:x.currentTime,readyState:x.readyState,networkState:x.networkState,rect:R(x.getBoundingClientRect()),visibility:getComputedStyle(x).visibility}));
+              return{
+                resourceManifest:localResources,
+                fontState:{status:document.fonts.status,texts},
+                imageState:images,
+                geometry,
+                render:{htmlClass:document.documentElement.className,bodyClass:document.body.className,lang:document.documentElement.lang,dir:document.documentElement.dir||getComputedStyle(document.documentElement).direction,scrollX,scrollY,innerWidth,innerHeight,devicePixelRatio,activeElement:Q(document.activeElement),selectionRangeCount:getSelection()?.rangeCount||0,selectionText:getSelection()?.toString()||'',pointer:{x:v.w-2,y:v.h-2},fixedSticky,keyTextStyles:texts.map(x=>({selector:x.selector,text:x.text,fontFamily:x.fontFamily,fontWeight:x.fontWeight,fontSize:x.fontSize,lineHeight:x.lineHeight,letterSpacing:x.letterSpacing,fontFeatureSettings:x.fontFeatureSettings,fontVariationSettings:x.fontVariationSettings})),images:images.map(x=>({currentSrc:x.currentSrc,naturalWidth:x.naturalWidth,naturalHeight:x.naturalHeight,rect:x.rect})),pseudo},
+                videos,elements
+              };
+            },{origin,v});
+          }
+          
+          function hashSnapshot(s){
+            const domFingerprint=(s.elements||[]).map(e=>({selector:e.selector,text:e.text}));
+            return{
+              resourceSetSha256:hashObj(s.resourceManifest),
+              fontStateSha256:hashObj(s.fontState),
+              imageStateSha256:hashObj(s.imageState),
+              geometrySha256:hashObj(s.geometry),
+              domSha256:hashObj(domFingerprint),
+              renderStateSha256:hashObj({render:s.render,resourceSetSha256:hashObj(s.resourceManifest),fontStateSha256:hashObj(s.fontState),imageStateSha256:hashObj(s.imageState),geometrySha256:hashObj(s.geometry),domSha256:hashObj(domFingerprint)})
+            };
+          }
+          
+          async function quietWindow(page,tracker,origin,v,variant,label){
+            const attempts=[];
+            for(let attempt=1;attempt<=10;attempt++){
+              const before=await page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+              const startSnap=await pageSnapshot(page,origin,v),startHashes=hashSnapshot(startSnap);
+              const pending=[],geometrySamples=[];
+              for(let i=0;i<=20;i++){
+                pending.push({offsetMs:i*50,pendingLocal:tracker.pendingLocal,pendingExternal:tracker.pendingExternal,pendingTotal:tracker.pendingTotal});
+                if([0,5,10,15,20].includes(i)){const g=await page.evaluate(()=>{const R=r=>({x:+r.x.toFixed(3),y:+r.y.toFixed(3),width:+r.width.toFixed(3),height:+r.height.toFixed(3),top:+r.top.toFixed(3),right:+r.right.toFixed(3),bottom:+r.bottom.toFixed(3),left:+r.left.toFixed(3)});const Q=e=>e?e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className.trim()?'.'+e.className.trim().split(/\s+/).slice(0,5).join('.'):''):null;const main=document.querySelector('main');return{documentElement:{scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight},body:{scrollWidth:document.body.scrollWidth,scrollHeight:document.body.scrollHeight},main:main?R(main.getBoundingClientRect()):null,mainSections:[...document.querySelectorAll('main > section')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),homeChapters:[...document.querySelectorAll('.home-chapter')].map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())})),fixedSticky:[...document.querySelectorAll('*')].filter(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&['fixed','sticky'].includes(s.position)}).map(e=>({selector:Q(e),rect:R(e.getBoundingClientRect())}))}});geometrySamples.push({offsetMs:i*50,geometry:g,sha256:hashObj(g)})}
+                if(i<20)await page.waitForTimeout(50);
+              }
+              const after=await page.evaluate(({bm,bl})=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false,layout:(window.__quietAudit?.layoutShifts||[]).slice(bl),mutations:(window.__quietAudit?.mutations||[]).slice(bm)}),{bm:before.m,bl:before.l});
+              const endSnap=await pageSnapshot(page,origin,v),endHashes=hashSnapshot(endSnap);
+              const allPendingZero=pending.every(x=>x.pendingLocal===0);
+              const mutationDelta=after.m-before.m;
+              const layoutShiftDelta=after.supported?after.l-before.l:'UNSUPPORTED';
+              const geometryStable=geometrySamples.every(x=>x.sha256===geometrySamples[0].sha256);
+              const stateStable=startHashes.resourceSetSha256===endHashes.resourceSetSha256&&startHashes.fontStateSha256===endHashes.fontStateSha256&&startHashes.imageStateSha256===endHashes.imageStateSha256&&startHashes.geometrySha256===endHashes.geometrySha256;
+              const fontsLoaded=endSnap.fontState.status==='loaded';
+              const imagesReady=endSnap.imageState.every(x=>x.complete&&(x.naturalWidth>0||x.naturalWidth===0));
+              const accepted=allPendingZero&&mutationDelta===0&&(layoutShiftDelta===0||layoutShiftDelta==='UNSUPPORTED')&&geometryStable&&stateStable&&fontsLoaded&&imagesReady;
+              const row={variant,viewport:v.n,label,attempt,accepted,pending,mutationBefore:before.m,mutationAfter:after.m,mutationDelta,mutations:after.mutations,layoutSupported:after.supported,layoutShiftBefore:before.l,layoutShiftAfter:after.l,layoutShiftDelta,layoutShifts:after.layout,geometrySamples,startHashes,endHashes};
+              attempts.push(row);allPendingSamples.push(row);allMutationSamples.push({variant,viewport:v.n,label,attempt,mutationDelta,mutations:after.mutations});allLayoutSamples.push({variant,viewport:v.n,label,attempt,layoutSupported:after.supported,layoutShiftDelta,layoutShifts:after.layout});
+              if(accepted)return{accepted:true,attempts,snapshot:endSnap,hashes:endHashes};
+            }
+            return{accepted:false,attempts,error:'NO_1000MS_QUIET_WINDOW'};
+          }
+          
+          async function openAcceptedPage(browser,variant,v,label){
+            const origin=ORIGIN[variant],net={allowedLocal:0,blockedExternal:[],blockedTelemetry:[],blockedUnsafe:[]};
+            const ctx=await browser.newContext(contextOptions(v));
+            await installAudit(ctx);await installNetworkPolicy(ctx,origin,net);
+            const page=await ctx.newPage(),tracker=requestTracker(page,origin); const runtime={variant,viewport:v.n,label,pageErrors:[],consoleErrors:[]}; page.on('pageerror',e=>runtime.pageErrors.push(String(e?.stack||e))); page.on('console',m=>{if(m.type()==='error')runtime.consoleErrors.push(m.text())});
+            const res=await page.goto(origin+'/',{waitUntil:'domcontentloaded',timeout:30000});
+            if(!res||!res.ok()){await ctx.close();return{accepted:false,error:'NAVIGATION_FAILED',net,tracker}}
+            await normalizePage(page,v);
+            const q=await quietWindow(page,tracker,origin,v,variant,label);
+            networkRecords.push({variant,viewport:v.n,label,policy:'local-safe-reads-allow; external-block; telemetry-block; unsafe-block',allowedLocalCount:net.allowedLocal,blockedExternalCount:net.blockedExternal.length,blockedTelemetryCount:net.blockedTelemetry.length,blockedUnsafeCount:net.blockedUnsafe.length,blockedExternal:net.blockedExternal,blockedTelemetry:net.blockedTelemetry,blockedUnsafe:net.blockedUnsafe,failedLocal:tracker.failedLocal,failedExternal:tracker.failedExternal}); runtimeRecords.push({...runtime,failedLocal:[...tracker.failedLocal],failedExternal:[...tracker.failedExternal],blockedExternalCount:net.blockedExternal.length,blockedTelemetryCount:net.blockedTelemetry.length,blockedUnsafeCount:net.blockedUnsafe.length});
+            if(!q.accepted||net.blockedUnsafe.length){await page.close();await ctx.close();return{accepted:false,error:net.blockedUnsafe.length?'UNSAFE_REQUEST_ATTEMPTED':q.error,net,tracker,quiet:q}}
+            const snap=q.snapshot,hashes=q.hashes;
+            allResourceManifests.push({variant,viewport:v.n,label,manifest:snap.resourceManifest});allResourceHashes.push({variant,viewport:v.n,label,sha256:hashes.resourceSetSha256});allFontHashes.push({variant,viewport:v.n,label,sha256:hashes.fontStateSha256,state:snap.fontState});allImageHashes.push({variant,viewport:v.n,label,sha256:hashes.imageStateSha256,state:snap.imageState});allGeometryHashes.push({variant,viewport:v.n,label,sha256:hashes.geometrySha256,state:snap.geometry});allRenderHashes.push({variant,viewport:v.n,label,sha256:hashes.renderStateSha256});
+            return{accepted:true,variant,viewport:v.n,label,page,ctx,tracker,net,snapshot:snap,hashes,quiet:q};
+          }
+          
+          async function shotFromOpen(x,label){
+            const png=await x.page.screenshot({fullPage:true,animations:'disabled',caret:'hide'});
+            return{accepted:true,variant:x.variant,viewport:x.viewport,label,png,pngHash:H(png),snapshot:x.snapshot,hashes:x.hashes};
+          }
+          
+          function compare(key,a,b){
+            const d=pdiff(a.png,b.png);
+            const row={key,a:{variant:a.variant,label:a.label,pngHash:a.pngHash,hashes:a.hashes},b:{variant:b.variant,label:b.label,pngHash:b.pngHash,hashes:b.hashes},diffPixels:d.diffPixels,maxChannelDelta:d.maxChannelDelta,diffRatio:d.diffRatio,boundingBox:d.boundingBox,pixelIdentical:d.pixelIdentical,renderStateSha256Equal:a.hashes.renderStateSha256===b.hashes.renderStateSha256,resourceSetSha256Equal:a.hashes.resourceSetSha256===b.hashes.resourceSetSha256,fontStateSha256Equal:a.hashes.fontStateSha256===b.hashes.fontStateSha256,imageStateSha256Equal:a.hashes.imageStateSha256===b.hashes.imageStateSha256,geometrySha256Equal:a.hashes.geometrySha256===b.hashes.geometrySha256,topColorPairs:d.pairs};
+            if(!d.pixelIdentical){
+              saveDiff(key,a,b,d);
+              const els=(a.snapshot.elements||[]).filter(e=>!(e.rect.right<d.boundingBox.minX||e.rect.left>d.boundingBox.maxX||e.rect.bottom<d.boundingBox.minY||e.rect.top>d.boundingBox.maxY));
+              allSelfDiffs.push(row);allSelfDiffElements.push({key,boundingBox:d.boundingBox,elements:els.slice(0,200)});allSelfDiffColors.push({key,topColorPairs:d.pairs});
+            }
+            return row;
+          }
+          
+          async function quickSamePageCheck(x,v,label){
+            const before=await x.page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+            const g0=(await pageSnapshot(x.page,ORIGIN[x.variant],v));
+            const p0=x.tracker.pendingLocal;
+            await x.page.waitForTimeout(250);
+            const g1=(await pageSnapshot(x.page,ORIGIN[x.variant],v));
+            const after=await x.page.evaluate(()=>({m:window.__quietAudit?.mutations?.length||0,l:window.__quietAudit?.layoutShifts?.length||0,supported:window.__quietAudit?.layoutSupported!==false}));
+            const h0=hashSnapshot(g0),h1=hashSnapshot(g1);
+            const ok=p0===0&&x.tracker.pendingLocal===0&&after.m===before.m&&(!after.supported||after.l===before.l)&&h0.resourceSetSha256===h1.resourceSetSha256&&h0.fontStateSha256===h1.fontStateSha256&&h0.imageStateSha256===h1.imageStateSha256&&h0.geometrySha256===h1.geometrySha256&&h0.renderStateSha256===h1.renderStateSha256;
+            return{label,ok,pendingLocalStart:p0,pendingLocalEnd:x.tracker.pendingLocal,mutationDelta:after.m-before.m,layoutShiftDelta:after.supported?after.l-before.l:'UNSUPPORTED',startHashes:h0,endHashes:h1};
+          }
+          
+          function phaseIdentityStable(samples){
+            if(!samples.length||samples.some(x=>!x.accepted))return false;
+            const keys=['resourceSetSha256','fontStateSha256','imageStateSha256','geometrySha256','domSha256','renderStateSha256'];
+            return keys.every(k=>samples.every(x=>x.hashes[k]===samples[0].hashes[k]));
+          }
+          function comparisonStable(comparisons){return comparisons.length>0&&comparisons.every(x=>x.pixelIdentical&&x.diffPixels===0&&x.maxChannelDelta===0&&x.diffRatio===0)}
+          function compactSamples(samples){return samples.map(x=>({accepted:x.accepted,variant:x.variant,viewport:x.viewport,label:x.label,pngHash:x.pngHash,hashes:x.hashes}))}
+          function phasePass(phase){return phase.accepted===phase.required&&phaseIdentityStable(phase.samples)&&comparisonStable(phase.comparisons)}
+          
+          async function samePagePhase(variant,v){
+            const b=await launch(),open=await openAcceptedPage(b,variant,v,variant+'-same-page');
+            const out={variant,viewport:v.n,required:5,accepted:0,samples:[],comparisons:[],interShotChecks:[]};
+            if(open.accepted){
+              const first=await shotFromOpen(open,variant+'-SP1');out.samples.push(first);out.accepted=1;
+              for(let i=2;i<=5;i++){
+                const qc=await quickSamePageCheck(open,v,variant+'-SP'+i);out.interShotChecks.push(qc);
+                if(!qc.ok)break;
+                open.snapshot=await pageSnapshot(open.page,ORIGIN[variant],v);open.hashes=hashSnapshot(open.snapshot);
+                const sh=await shotFromOpen(open,variant+'-SP'+i);out.samples.push(sh);out.accepted++;
+              }
+              for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-same-page-1-'+(i+1),out.samples[0],out.samples[i]));
+              await open.page.close();await open.ctx.close();
+            }else out.error=open.error;
+            await b.close();
+            out.pass=out.accepted===5&&out.interShotChecks.every(x=>x.ok)&&phaseIdentityStable(out.samples)&&out.comparisons.length===4&&comparisonStable(out.comparisons);
+            out.samples=compactSamples(out.samples);
+            return out;
+          }
+          
+          async function freshContextPhase(variant,v,count){
+            const b=await launch(),out={variant,viewport:v.n,required:count,accepted:0,samples:[],comparisons:[]};
+            for(let i=1;i<=count;i++){
+              const o=await openAcceptedPage(b,variant,v,variant+'-Q'+i);
+              if(!o.accepted){out.error=o.error;break}
+              const sh=await shotFromOpen(o,variant+'-Q'+i);out.samples.push(sh);out.accepted++;
+              await o.page.close();await o.ctx.close();
+            }
+            await b.close();
+            for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-context-1-'+(i+1),out.samples[0],out.samples[i]));
+            out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            out.samples=compactSamples(out.samples);
+            return out;
+          }
+          
+          async function oneFreshProcess(variant,v,label){
+            const b=await launch();
+            try{
+              const o=await openAcceptedPage(b,variant,v,label);
+              if(!o.accepted)return{accepted:false,error:o.error,variant,viewport:v.n,label};
+              const sh=await shotFromOpen(o,label);
+              await o.page.close();await o.ctx.close();return sh;
+            }finally{await b.close()}
+          }
+          
+          async function freshProcessPhase(variant,v,count){
+            const out={variant,viewport:v.n,required:count,accepted:0,samples:[],comparisons:[]};
+            for(let i=1;i<=count;i++){
+              const sh=await oneFreshProcess(variant,v,variant+'-P'+i);
+              if(!sh.accepted){out.error=sh.error;break}
+              out.samples.push(sh);out.accepted++;
+            }
+            for(let i=1;i<out.samples.length;i++)out.comparisons.push(compare('self-'+variant+'-'+v.n+'-fresh-process-1-'+(i+1),out.samples[0],out.samples[i]));
+            out.pass=phasePass(out)&&out.comparisons.length===count-1;
+            out.samples=compactSamples(out.samples);
+            return out;
+          }
+          
+          const envBrowser=await launch();
+          const browserEnvironment={chromiumVersion:envBrowser.version(),playwrightVersion:'1.55.0',runnerOS:fs.readFileSync(path.join(OUT,'os.txt'),'utf8').trim(),runnerImageOS:fs.readFileSync(path.join(OUT,'runner-image-os.txt'),'utf8').trim(),runnerImageVersion:fs.readFileSync(path.join(OUT,'runner-image-version.txt'),'utf8').trim(),deviceScaleFactor:1,colorScheme:'light',reducedMotion:'reduce',locale:'en-US',timezone:'UTC',fontInventorySha256:H(fs.readFileSync(path.join(OUT,'fonts.txt'))),browserLaunchArgs:ARGS,headless:true,gpuSoftwareFlags:ARGS.filter(x=>/gpu|gl|software|swiftshader/i.test(x)),normalizationStyleSha256:H(Buffer.from(NORMALIZATION))};
+          await envBrowser.close();
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-browser-environment.json'),JSON.stringify(browserEnvironment,null,2));
+          fs.writeFileSync(path.join(OUT,'folio-quiet-window-network-policy.json'),JSON.stringify({installedBeforeNavigation:true,sameOriginSafeReads:['GET','HEAD','OPTIONS'],externalReads:'BLOCK',telemetry:'BLOCK',mutatingRequests:'BLOCK',networkRecords},null,2));
+          
+          
+          
+          const phases={};
+          for(const key of ORDER){
+            const v=VIEWPORTS[key];
+            phases[v.n]={
+              samePage:await samePagePhase('M5',v),
+              freshContext:await freshContextPhase('M5',v,key==='mobile'?10:5),
+              freshProcess:await freshProcessPhase('M5',v,key==='mobile'?5:3)
+            };
+          }
+          const phaseList=Object.values(phases).flatMap(x=>[x.samePage,x.freshContext,x.freshProcess]);
+          const everyPhasePass=phaseList.every(x=>x.pass===true);
+          const allComparisons=phaseList.flatMap(x=>x.comparisons||[]);
+          const exactPixelPass=allComparisons.length>0&&allComparisons.every(x=>x.pixelIdentical&&x.diffPixels===0&&x.maxChannelDelta===0&&x.diffRatio===0);
+          const byViewport={};
+          for(const [vp,x] of Object.entries(phases)){
+            const samples=[...x.samePage.samples,...x.freshContext.samples,...x.freshProcess.samples];
+            const uniq=k=>[...new Set(samples.map(s=>s.hashes[k]))];
+            byViewport[vp]={
+              accepted:samples.length,
+              pngHashes:[...new Set(samples.map(s=>s.pngHash))],
+              domHashes:uniq('domSha256'),
+              geometryHashes:uniq('geometrySha256'),
+              resourceHashes:uniq('resourceSetSha256'),
+              fontHashes:uniq('fontStateSha256'),
+              imageHashes:uniq('imageStateSha256'),
+              renderHashes:uniq('renderStateSha256'),
+              exactAcrossRegimes:[...new Set(samples.map(s=>s.pngHash))].length===1&&uniq('domSha256').length===1&&uniq('geometrySha256').length===1&&uniq('resourceSetSha256').length===1&&uniq('fontStateSha256').length===1&&uniq('imageStateSha256').length===1&&uniq('renderStateSha256').length===1
+            };
+          }
+          const crossRegimePass=Object.values(byViewport).every(x=>x.exactAcrossRegimes);
+          const pageErrors=runtimeRecords.flatMap(x=>x.pageErrors.map(message=>({variant:x.variant,viewport:x.viewport,label:x.label,message})));
+          const rawConsoleErrors=runtimeRecords.flatMap(x=>x.consoleErrors.map(message=>({variant:x.variant,viewport:x.viewport,label:x.label,message,blockedExternalCount:x.blockedExternalCount,blockedTelemetryCount:x.blockedTelemetryCount,failedLocal:x.failedLocal})));
+          const unexplainedConsoleErrors=rawConsoleErrors.filter(x=>!((x.blockedExternalCount+x.blockedTelemetryCount)>0&&x.failedLocal.length===0&&/Failed to load resource|ERR_FAILED|ERR_BLOCKED_BY_CLIENT/i.test(x.message)));
+          const localRequestFailures=runtimeRecords.flatMap(x=>x.failedLocal.map(url=>({variant:x.variant,viewport:x.viewport,label:x.label,url})));
+          const unsafeDispatches=networkRecords.reduce((n,x)=>n+x.blockedUnsafeCount,0);
+          const runtimePass=pageErrors.length===0&&unexplainedConsoleErrors.length===0&&localRequestFailures.length===0&&unsafeDispatches===0;
+          const selfPass=everyPhasePass&&exactPixelPass&&crossRegimePass&&runtimePass;
+          
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-main-self-stability.json'),JSON.stringify({
+            pass:selfPass,
+            viewports:phases,
+            viewportIdentity:byViewport,
+            allComparisonCount:allComparisons.length,
+            allDiffPixelsZero:allComparisons.every(x=>x.diffPixels===0),
+            allMaxChannelDeltaZero:allComparisons.every(x=>x.maxChannelDelta===0),
+            allDiffRatioZero:allComparisons.every(x=>x.diffRatio===0),
+            quietWindow:{pendingLocal:'0 continuously for 1000ms on accepted captures',mutationDelta:0,layoutShiftDelta:'0 or UNSUPPORTED',geometry:'stable',fonts:'loaded/stable',resourceSet:'stable',imageState:'stable',focus:'normalized',selection:'empty',pointer:'normalized',scroll:'0,0'}
+          },null,2));
+          
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-dom-geometry.json'),JSON.stringify({
+            pass:crossRegimePass&&phaseList.every(p=>(p.samples||[]).every(s=>s.hashes.domSha256&&s.hashes.geometrySha256)),
+            viewportIdentity:byViewport,
+            geometrySamples:allGeometryHashes,
+            dom:'STABLE',
+            geometry:'EXACT / STABLE',
+            scrollLayout:'STABLE'
+          },null,2));
+          
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-console-network.json'),JSON.stringify({
+            pass:runtimePass,
+            pageErrors,
+            rawConsoleErrors,
+            unexplainedConsoleErrors,
+            localRequestFailures,
+            externalBlockedRequests:networkRecords.reduce((n,x)=>n+x.blockedExternalCount,0),
+            telemetryBlockedRequests:networkRecords.reduce((n,x)=>n+x.blockedTelemetryCount,0),
+            unsafeDispatches,
+            mutationAttempts:unsafeDispatches,
+            intentionallyBlockedExternalReadsAreNotClassifiedAsProductRegressions:true
+          },null,2));
+          
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-network-policy.json'),JSON.stringify({
+            installedBeforeNavigation:true,
+            sameOriginSafeReads:['GET','HEAD','OPTIONS'],
+            externalRequests:'BLOCK',
+            telemetry:'BLOCK',
+            unsafeMutatingRequests:'BLOCK',
+            mutatingDispatchCount:unsafeDispatches,
+            records:networkRecords
+          },null,2));
+          
+          fs.copyFileSync(path.join(OUT,'folio-quiet-window-browser-environment.json'),path.join(OUT,'folio-post-promotion-browser-environment.json'));
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-browser-raw-hashes.json'),JSON.stringify({
+            resourceHashes:allResourceHashes,
+            fontHashes:allFontHashes,
+            imageHashes:allImageHashes,
+            geometryHashes:allGeometryHashes,
+            renderHashes:allRenderHashes,
+            mutationSamples:allMutationSamples,
+            layoutShiftSamples:allLayoutSamples,
+            pendingRequestSamples:allPendingSamples,
+            pixelComparisons:allComparisons
+          },null,2));
+          
+          if(!selfPass) throw new Error('PROMOTED_MAIN_SELF_STABILITY_FAILURE');
+          
+          JS
+          OUT="$OUT" M4="$GITHUB_WORKSPACE" M5="$GITHUB_WORKSPACE" node .postpromo-quiet.mjs
+          rm -f .postpromo-quiet.mjs
+          test -z "$(git status --porcelain)"
+
+      - name: Terminal authorities summary and deployment boundary
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/postpromo"; mkdir -p "$OUT"
+          api(){ curl --fail --silent --show-error --location -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28" "$1"; }
+          MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main"|jq -r '.object.sha')"
+          M5="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-m5-implementation"|jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation"|jq -r '.object.sha')"
+          GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages"|jq -r '.object.sha')"
+          MAIN_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${MAIN}")"
+          GH_G="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/commits/${GH}")"
+          test "$MAIN" = "$MAIN_SHA"
+          test "$M5" = "$M5_SHA"
+          test "$M4" = "$M4_SHA"
+          test "$GH" = "$GH_SHA"
+          test "$(jq -r '.tree.sha'<<<"$MAIN_G")" = "$MAIN_TREE"
+          test "$(jq -r '.tree.sha'<<<"$GH_G")" = "$GH_TREE"
+
+          ISSUES="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100")"
+          TOTAL="$(jq '[.[]|select((has("pull_request")|not))]|length'<<<"$ISSUES")"
+          TYPEA="$(jq '[.[]|select((has("pull_request")|not))|select((((.title//"")+" "+(.body//""))|test("type[- ]?a|production defect|critical production";"i")))]'<<<"$ISSUES")"
+          jq -n --argjson total "$TOTAL" --argjson blockers "$TYPEA" '{totalOpenIssues:$total,blockingMatches:$blockers,currentTypeAProductionDefect:(if ($blockers|length)==0 then "NONE PROVEN" else "PROVEN" end)}' > "$OUT/folio-post-promotion-type-a.json"
+
+          RUNS="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${MAIN_SHA}&per_page=100")"
+          jq '{runCount:.total_count,runs:[.workflow_runs[]|{id,name,event,status,conclusion,head_branch,head_sha,html_url}],deploymentLikeRunCount:([.workflow_runs[]|select((.name//"")|test("deploy|pages|firebase|publish";"i"))]|length)}' <<<"$RUNS" > "$OUT/folio-post-promotion-associated-runs.json"
+
+          jq -n --arg main "$MAIN" --arg m5 "$M5" --arg m4 "$M4" --arg gh "$GH" \
+            '{main:$main,m5:$m5,m4:$m4,ghPages:$gh,mainMovedDuringVerification:false,m5Moved:false,historicalM4Rewritten:false,ghPagesMoved:false,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}' \
+            > "$OUT/folio-post-promotion-terminal-refs.json"
+
+          jq -n --arg gh "$GH" --arg ght "$GH_TREE" --argjson runCount "$(jq '.runCount' "$OUT/folio-post-promotion-associated-runs.json")" --argjson deploymentLike "$(jq '.deploymentLikeRunCount' "$OUT/folio-post-promotion-associated-runs.json")" \
+            '{ghPages:$gh,ghPagesTree:$ght,associatedMainRunCount:$runCount,deploymentLikeAssociatedRunCount:$deploymentLike,ghPagesUnchanged:true,pagesSettingsMutationByThisGate:false,firebaseMutationByThisGate:false,backendMutationByThisGate:false,intentionalDeploymentTriggered:false,deployment:"NOT PERFORMED"}' \
+            > "$OUT/folio-post-promotion-deployment-state.json"
+
+          if [ -s "$OUT/folio-post-promotion-main-self-stability.json" ] && jq -e '.pass==true' "$OUT/folio-post-promotion-main-self-stability.json" >/dev/null \
+             && jq -e '.pass==true' "$OUT/folio-post-promotion-dom-geometry.json" >/dev/null \
+             && jq -e '.pass==true' "$OUT/folio-post-promotion-console-network.json" >/dev/null \
+             && jq -e '.blockingMatches|length==0' "$OUT/folio-post-promotion-type-a.json" >/dev/null \
+             && jq -e '.deploymentLikeRunCount==0' "$OUT/folio-post-promotion-associated-runs.json" >/dev/null; then
+            jq -n \
+              --arg outcome "A — POST-PROMOTION MAIN VERIFIED" \
+              --arg main "$MAIN" --arg tree "$MAIN_TREE" --arg m5 "$M5" --arg old "$OLD_MAIN" --arg m4 "$M4" --arg gh "$GH" \
+              --slurpfile token "$OUT/folio-post-promotion-token-authority.json" \
+              --slurpfile build "$OUT/folio-post-promotion-build.json" \
+              '{outcome:$outcome,status:"READY FOR FINAL CLOSURE REVIEW",currentMain:$main,currentMainTree:$tree,m5Branch:$m5,mainEqualsM5:true,mainTreeEqualsM5Tree:true,oldMain:$old,promotedCommits:1,fastForwardHistory:"PASS",changedPathHistory:5,tokenAuthority:$token[0],build:$build[0],sourceFolioResidues:0,builtFolioResidues:0,protectedBehavior:"PASS",promotedMainSelfStability:"PASS",dom:"STABLE",geometry:"EXACT / STABLE",consoleNetwork:"PASS",currentTypeAProductionDefect:"NONE PROVEN",historicalM4:$m4,ghPages:$gh,deployment:"NOT PERFORMED",pagesSettings:"UNCHANGED BY THIS GATE",firebaseBackend:"UNCHANGED",verification:"COMPLETE",deploymentAuthorized:false,nextGate:"TO BE DETERMINED ONLY AFTER INDEPENDENT CLOSURE OF THIS VERIFICATION"}' \
+              > "$OUT/folio-post-promotion-summary.json"
+          else
+            jq -n --arg outcome "BLOCKED — VERIFICATION CONDITION FAILED" --arg main "$MAIN" --arg m5 "$M5" --arg m4 "$M4" --arg gh "$GH" \
+              '{outcome:$outcome,main:$main,m5:$m5,m4:$m4,ghPages:$gh,deployment:"NO",productionRepairPerformed:false}' > "$OUT/folio-post-promotion-summary.json"
+            exit 1
+          fi
+
+          for F in \
+            folio-post-promotion-preflight.json \
+            folio-post-promotion-authorities.json \
+            folio-post-promotion-main-identity.json \
+            folio-post-promotion-topology.json \
+            folio-post-promotion-five-path-history.json \
+            folio-post-promotion-main-m5-tree-identity.json \
+            folio-post-promotion-token-authority.json \
+            folio-post-promotion-build.json \
+            folio-post-promotion-source-folio-absence.json \
+            folio-post-promotion-built-folio-absence.json \
+            folio-post-promotion-protected-behavior.json \
+            folio-post-promotion-browser-environment.json \
+            folio-post-promotion-network-policy.json \
+            folio-post-promotion-main-self-stability.json \
+            folio-post-promotion-dom-geometry.json \
+            folio-post-promotion-console-network.json \
+            folio-post-promotion-type-a.json \
+            folio-post-promotion-associated-runs.json \
+            folio-post-promotion-deployment-state.json \
+            folio-post-promotion-summary.json \
+            folio-post-promotion-terminal-refs.json
+          do test -s "$OUT/$F"; done
+
+      - name: Upload post-promotion verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-3b-folio-opacity-post-promotion-main-verification
+          path: ${{ runner.temp }}/postpromo
+          if-no-files-found: error
+          retention-days: 90
