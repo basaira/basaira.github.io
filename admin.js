@@ -895,8 +895,9 @@
         const buttons = item.querySelectorAll("button");
 
         buttons[0].addEventListener("click", () => fillVideoForm(index));
+        const expectedVideoFingerprint = JSON.stringify(video);
         buttons[1].addEventListener("click", () => {
-          deleteVideo(index).catch(error => {
+          deleteVideo(index, expectedVideoFingerprint).catch(error => {
             console.error("Video deletion failed:", error);
             showStatus(error?.message || "تعذر حذف بيانات الفيديو.", "error");
           });
@@ -912,6 +913,7 @@
       if (!video) return;
 
       $("video-index").value = String(index);
+      $("video-index").dataset.originalFingerprint = JSON.stringify(video);
       $("video-title").value = video.title || "";
       $("video-category").value = video.category || "all";
       $("video-url").value = video.videoUrl || "";
@@ -934,7 +936,13 @@
       }
 
       const videos = [...(contentCache.videos || [])];
-      const index = $("video-index").value === "" ? -1 : Number.parseInt($("video-index").value, 10);
+      const indexText = $("video-index").value;
+      const index = indexText === "" ? -1 : Number(indexText);
+      if (indexText !== "" &&
+          (!Number.isInteger(index) || index < 0 || index >= videos.length ||
+           $("video-index").dataset.originalFingerprint !== JSON.stringify(videos[index]))) {
+        throw new Error("تغيّر الفيديو المحدد منذ فتح المحرر؛ أعد اختياره قبل الحفظ.");
+      }
 
       const data = {
         title: title,
@@ -969,11 +977,13 @@
       showStatus("تم حفظ الفيديو وتسجيل العملية.", "success");
     }
 
-    async function deleteVideo(index) {
+    async function deleteVideo(index, expectedFingerprint) {
       if (!confirm("حذف هذا الفيديو؟")) return;
 
       const videos = [...(contentCache.videos || [])];
       if (!Number.isInteger(index) || index < 0 || index >= videos.length) throw new Error("معرّف الفيديو غير صالح.");
+      assertUnchanged(expectedFingerprint, JSON.stringify(videos[index]),
+        "تغيّر موضع الفيديو أو محتواه؛ أعد تحميل القائمة قبل الحذف.");
       const removed = videos[index];
       const baseline = JSON.stringify(videos);
       videos.splice(index, 1);
@@ -994,6 +1004,7 @@
     function clearVideoForm() {
       $("video-form").reset();
       $("video-index").value = "";
+      delete $("video-index").dataset.originalFingerprint;
       $("video-published").checked = true;
     }
 
