@@ -1,4 +1,5 @@
  import { firebaseConfig, FIREBASE_PROJECT_ID } from "./firebase-config.js";
+    import {isCurrentAdminSession, assertUnchanged, assertRequestTransition, sortRequests} from "./admin-repair-core.mjs";
     import contentRegistryData from "./content-registry.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 
@@ -472,17 +473,10 @@
           submissionDate: data.submissionDate || data.submittedAt || null
         };
       };
-      const stamp = (v) => {
-        if (!v) return 0;
-        if (typeof v.toMillis === "function") return v.toMillis();
-        const n = new Date(v).getTime();
-        return Number.isFinite(n) ? n : 0;
-      };
-      requestsCache = [
+      requestsCache = sortRequests([
         ...legacy.value.map(d => normalizeRequest(d, "enrollment_requests")),
         ...assessment.value.map(d => normalizeRequest(d, "assessment_requests"))
-      ].sort((a, b) => stamp(b.submissionDate) - stamp(a.submissionDate) ||
-        a.sourceCollection.localeCompare(b.sourceCollection) || a.id.localeCompare(b.id));
+      ]);
       requestDisplayLimit = 100;
       renderStats();
       renderRequests();
@@ -693,7 +687,7 @@
       await runTransaction(db, async tx => {
         const snap = await tx.get(target);
         if (!snap.exists()) throw new Error("الطلب لم يعد موجودًا.");
-        if ((snap.data().status || "new") !== expectedStatus) throw new Error("تغيّرت حالة الطلب بواسطة مدير آخر؛ حدّث القائمة أولًا.");
+        assertRequestTransition(snap.data().status || "new", expectedStatus);
         if (revision !== authRevision || auth.currentUser?.uid !== actorUid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
         tx.update(target, { status, handledAt: serverTimestamp(), handledBy: actorUid });
         appendAuditToBatch(tx, "request.status", "request", id, { collection: safeCollection, status });
@@ -1252,7 +1246,7 @@
           const permitted = await checkAdminRole(user);
           if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
           currentUser = user;
-          isAdmin = permitted;
+          isAdmin = isCurrentAdminSession(revision, authRevision, user.uid, auth.currentUser?.uid, permitted);
           renderAuth();
           if (!permitted) {
             showStatus("تم تسجيل الدخول، لكن هذا الحساب لا يملك صلاحية الإدارة. يلزم تعيين admin_roles/UID من مشغّل مخول.", "warning");
