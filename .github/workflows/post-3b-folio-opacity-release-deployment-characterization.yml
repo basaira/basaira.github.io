@@ -77,7 +77,7 @@ jobs:
             test -z "${PAGE_CNAME}"
           fi
 
-          jq -n             --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"             --arg impl "${IMPL}" --arg implTree "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")"             --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")"             --argjson pagesReadable "${PAGE_READABLE}" --arg pagesHttp "${PAGE_CODE}"             --arg pagesBranch "${PAGE_BRANCH}" --arg pagesPath "${PAGE_PATH}" --arg cname "${PAGE_CNAME}"             '{main:$main,mainTree:$mainTree,implementation:$impl,implementationTree:$implTree,mainImplementationIdentical:($main==$impl),ghPages:$gh,ghPagesTree:$ghTree,pagesApi:{readable:$pagesReadable,httpStatus:$pagesHttp,branch:$pagesBranch,path:$pagesPath,cname:$cname},productionMutation:false}'             | tee "${OUT}/release-source-authority.json"
+          jq -n             --arg historicalM4 "${M4}" --arg m4Tree "$(jq -r '.tree.sha' <<<"${M4_GIT}")" --arg main "${MAIN}" --arg mainTree "$(jq -r '.tree.sha' <<<"${MAIN_GIT}")"             --arg impl "${IMPL}" --arg implTree "$(jq -r '.tree.sha' <<<"${IMPL_GIT}")"             --arg gh "${GH}" --arg ghTree "$(jq -r '.tree.sha' <<<"${GH_GIT}")"             --argjson pagesReadable "${PAGE_READABLE}" --arg pagesHttp "${PAGE_CODE}"             --arg pagesBranch "${PAGE_BRANCH}" --arg pagesPath "${PAGE_PATH}" --arg cname "${PAGE_CNAME}"             '{main:$main,mainTree:$mainTree,implementation:$impl,implementationTree:$implTree,historicalM4:$historicalM4,m4Tree:$m4Tree,mainImplementationIdentical:($main==$impl),ghPages:$gh,ghPagesTree:$ghTree,pagesApi:{readable:$pagesReadable,httpStatus:$pagesHttp,branch:$pagesBranch,path:$pagesPath,cname:$cname},productionMutation:false}'             | tee "${OUT}/release-source-authority.json"
 
       - name: Fresh exact-source verification
         shell: bash
@@ -86,6 +86,7 @@ jobs:
           OUT="${RUNNER_TEMP}/release-characterization"
           test "$(git rev-parse HEAD)" = "${MAIN_SHA}"
           test "$(git rev-parse HEAD^{tree})" = "${MAIN_TREE}"
+          test -z "$(git status --porcelain)"
           node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51 2>&1 | tee "${OUT}/release-source-preflight.txt"
           npm ci 2>&1 | tee "${OUT}/release-npm-ci.txt"
           npm run verify 2>&1 | tee "${OUT}/release-npm-verify.txt"
@@ -146,6 +147,8 @@ jobs:
           reproducible=(ia==ib)
           if not reproducible:
               raise SystemExit('NON-DETERMINISTIC RELEASE BUILD')
+          ia['sourceSha']=os.environ['MAIN_SHA']
+          ia['sourceTree']=os.environ['MAIN_TREE']
           (out/'release-build-snapshot.json').write_text(json.dumps(ia,indent=2)+'\n')
           (out/'release-reproducibility.json').write_text(json.dumps({
               'source':os.environ.get('MAIN_SHA','2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243'),
@@ -192,6 +195,9 @@ jobs:
           }
           if current_json['fileCount'] != 25 or current_json['totalBytes'] != 2555325:
               raise SystemExit(f"unexpected current gh-pages snapshot {current_json['fileCount']} files {current_json['totalBytes']} bytes")
+          current_names={x['path'] for x in current}
+          for asset in ['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css']:
+              if asset not in current_names: raise SystemExit('missing current live hashed asset '+asset)
           (out/'current-gh-pages-snapshot.json').write_text(json.dumps(current_json,indent=2)+'\n')
 
           def digest_map(root):
@@ -218,6 +224,17 @@ jobs:
           delta['deploymentMethodDecision']=method
           delta['overlayValidWithoutExplicitDeletion']=overlayValid
           (out/'release-delta.json').write_text(json.dumps(delta,indent=2)+'\n')
+          # A clean future snapshot must retire ALL obsolete hashed JS and CSS.
+          retired=[x for x in delete if x.startswith('assets/') and (x.endswith('.js') or x.endswith('.css'))]
+          expected=['assets/main-DDXdaUdM.js','assets/main-NHlCiF5H.css']
+          if any(x not in retired for x in expected): raise SystemExit('missing retired main asset in DELETE list')
+          corpus='\n'.join(p.read_text(errors='replace') for p in new.rglob('*') if p.is_file() and p.suffix in {'.html','.css','.js'})
+          retired_references=[x for x in retired if x in corpus]
+          if retired_references: raise SystemExit('retired assets still referenced '+repr(retired_references))
+          (out/'release-retired-assets.json').write_text(json.dumps({
+             'retiredAssets':retired,'retiredMainAssets':expected,'retiredReferences':retired_references,
+             'overlayWouldLeaveStaleAssets':bool(retired),'cleanReplacementRequired':bool(retired)
+          },indent=2)+'\n')
           print(json.dumps(delta,indent=2))
           PY
 
