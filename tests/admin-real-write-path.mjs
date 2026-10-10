@@ -104,8 +104,11 @@ try{
   page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(String(error)));
   await page.goto(BASE+'/admin.html',{waitUntil:'domcontentloaded'});
+  const requestLoadStarted=Date.now();
   await login();
-  assert.ok(await page.evaluate(()=>window.__requestReads)>=3,'both server pages plus assessment read before first render');
+  const requestLoadMs=Date.now()-requestLoadStarted;
+  const requestReads=await page.evaluate(()=>window.__requestReads||0);
+  assert.ok(requestReads>=3,'both server pages plus assessment read before first render');
   assert.equal(await page.locator('#requests-list .item').count(),100,'only first 100 displayed');
   const initial=await content();
   await selectText('welcome');
@@ -230,7 +233,9 @@ try{
   await assertFails(getDocs(collection(env.authenticatedContext('student',{email:'student@example.invalid'}).firestore(),'enrollment_requests')));
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({result:'PASS',actualHandlers:true,realEmulatorTransactions:true,
-    auditEvents:finalAuditCount,privateDomCleared:true,networkFailureDenied:true}));
+    auditEvents:finalAuditCount,privateDomCleared:true,networkFailureDenied:true,
+    pagination:{syntheticEnrollmentRecords:206,serverReadsBeforeFirst100:requestReads,
+      initialSignInAndLoadMs:requestLoadMs,initialRenderedRows:100}}));
 }finally{
   await context?.close();await browser?.close();await env?.cleanup();
 }
