@@ -97,12 +97,21 @@ async function visit(vp,label){
   await x.page.locator('#admin-dashboard:not(.hidden)').waitFor({timeout:20000});
   await x.page.locator('.nav-btn[data-tab="requests"]').click();
   if(!await x.page.locator('#tab-requests').evaluate(el=>el.classList.contains('active')))throw Error(label+': tab navigation failed');
+  await x.page.locator('.nav-btn[data-tab="requests"]').focus();
+  await x.page.keyboard.press('ArrowRight');
+  const keyboardOk=await x.page.evaluate(() => document.activeElement?.id==='admin-tab-texts' &&
+    document.getElementById('tab-texts')?.classList.contains('active'));
+  if(!keyboardOk)throw Error(label+': keyboard tab navigation/focus failed');
+  await x.page.keyboard.press('Home');
+  if(!await x.page.evaluate(() => document.activeElement?.id==='admin-tab-overview'))throw Error(label+': keyboard Home focus failed');
+  const dashboardOverflow=await x.page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+  if(dashboardOverflow>2)throw Error(label+': authenticated dashboard horizontal overflow '+dashboardOverflow);
   const openDashboard=await x.page.locator('#admin-dashboard').isVisible();
   if(!openDashboard)throw Error(label+': active admin dashboard hidden');
   await x.page.evaluate(()=>window.__mockRole?.(false));
   await x.page.waitForFunction(() => document.querySelector('#admin-dashboard')?.classList.contains('hidden'), {timeout:10000});
   if(x.pageErrors.length)throw Error(label+': JS exceptions '+x.pageErrors.join(';'));
-  results.push({label,viewport:vp,unauthenticatedDenied:nonAdminHidden,adminNavigable:openDashboard,roleRevocationClosed:true,rtl:true,overflowPx:initial.overflow,pageErrors:0});
+  results.push({label,viewport:vp,unauthenticatedDenied:nonAdminHidden,adminNavigable:openDashboard,roleRevocationClosed:true,rtl:true,keyboardAccessible:keyboardOk,overflowPx:initial.overflow,authenticatedOverflowPx:dashboardOverflow,pageErrors:0});
   await x.context.close();
 }
 try{
