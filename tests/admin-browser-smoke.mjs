@@ -133,6 +133,6 @@ try{
   results.push({label:'signout-race',staleAuthorizationRejected:true});
   await race.context.close();
   if(unsafeDispatches)throw Error('Blocked mutating outbound attempts occurred: '+unsafeDispatches);
-  fs.writeFileSync('admin-browser-results.json',JSON.stringify({results,unsafeDispatches,provider:'SYNTHETIC MOCK — NOT LIVE FIREBASE'},null,2));
+  fs.writeFileSync((process.env.RUNNER_TEMP || '/tmp')+'/admin-browser-results.json',JSON.stringify({results,unsafeDispatches,provider:'SYNTHETIC MOCK — NOT LIVE FIREBASE'},null,2));
   console.log(JSON.stringify({cases:results.length,result:'PASS',unsafeDispatches}));
 } finally {await browser.close()}
