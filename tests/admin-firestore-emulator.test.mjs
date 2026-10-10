@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import test, {before, after} from 'node:test';
 import assert from 'node:assert/strict';
 import {initializeTestEnvironment, assertFails, assertSucceeds} from '@firebase/rules-unit-testing';
-import {collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch} from 'firebase/firestore';
+import {collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch, query, orderBy, documentId, limit, startAfter} from 'firebase/firestore';
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error('Refusing non-emulator Firestore testing');
 const projectId = 'demo-basair-admin-security';
@@ -69,6 +69,25 @@ test('content updates permitted only to admin, constrained by field type',async(
   await assertFails(setDoc(doc(administrator,'site_content','public'),{videos:'malformed'},{merge:true}));
   await assertFails(setDoc(doc(administrator,'site_content','public'),{unexpectedPrivilegedField:true},{merge:true}));
 });
+test('Firestore cursor pagination returns records beyond first 200 in deterministic order',async()=>{
+  await env.withSecurityRulesDisabled(async ctx=>{
+    const db=ctx.firestore();
+    const batch=writeBatch(db);
+    for(let index=0;index<205;index++){
+      batch.set(doc(db,'enrollment_requests','synthetic-'+String(index).padStart(4,'0')),{
+        status:'new',fullName:'Synthetic Only'
+      });
+    }
+    await batch.commit();
+  });
+  const base=collection(administrator,'enrollment_requests');
+  const first=await assertSucceeds(getDocs(query(base,orderBy(documentId()),limit(200))));
+  const second=await assertSucceeds(getDocs(query(base,orderBy(documentId()),startAfter(first.docs.at(-1)),limit(200))));
+  assert.equal(first.size,200);
+  assert.equal(second.size,6);
+  assert.equal(new Set([...first.docs,...second.docs].map(d=>d.id)).size,206);
+});
+
 test('revoked role denies subsequent reads and writes',async()=>{
   await env.withSecurityRulesDisabled(async ctx=>{
     await updateDoc(doc(ctx.firestore(),'admin_roles','admin1'),{active:false});
