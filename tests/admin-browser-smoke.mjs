@@ -100,7 +100,7 @@ async function visit(vp,label){
   const openDashboard=await x.page.locator('#admin-dashboard').isVisible();
   if(!openDashboard)throw Error(label+': active admin dashboard hidden');
   await x.page.evaluate(()=>window.__mockRole?.(false));
-  await x.page.locator('#admin-dashboard.hidden').waitFor({timeout:10000});
+  await x.page.waitForFunction(() => document.querySelector('#admin-dashboard')?.classList.contains('hidden'), {timeout:10000});
   if(x.pageErrors.length)throw Error(label+': JS exceptions '+x.pageErrors.join(';'));
   results.push({label,viewport:vp,unauthenticatedDenied:nonAdminHidden,adminNavigable:openDashboard,roleRevocationClosed:true,rtl:true,overflowPx:initial.overflow,pageErrors:0});
   await x.context.close();
