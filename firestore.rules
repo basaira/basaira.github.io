@@ -104,7 +104,39 @@ service cloud.firestore {
         && request.resource.data.status in ['new', 'contacted', 'pending', 'accepted', 'rejected']
         && request.resource.data.handledAt == request.time
         && request.resource.data.handledBy is string
-        && request.resource.data.handledBy.size() <= 180;
+        && request.resource.data.handledBy == request.auth.uid
+        && request.resource.data.handledBy.size() <= 128;
+    }
+
+    function validAdminAuditCreate() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['action', 'targetType', 'targetId', 'details', 'actorUid', 'actorEmail', 'createdAt'])
+        && data.keys().hasOnly(['action', 'targetType', 'targetId', 'details', 'actorUid', 'actorEmail', 'createdAt'])
+        && data.actorUid == request.auth.uid
+        && data.actorEmail is string && data.actorEmail.size() <= 160
+        && data.createdAt == request.time
+        && data.action is string && data.action.size() >= 1 && data.action.size() <= 80
+        && data.action in ['text.update','text.restore','video.create','video.update','video.delete','request.status','settings.update']
+        && data.targetType is string && data.targetType.size() >= 1 && data.targetType.size() <= 40
+        && data.targetId is string && data.targetId.size() <= 160
+        && data.details is map
+        && data.details.keys().hasOnly([
+          'lang', 'section', 'collection', 'status',
+          'category', 'published', 'whatsappConfigured', 'telegramConfigured'
+        ])
+        && isOptionalShortString(data.details, 'lang', 16)
+        && isOptionalShortString(data.details, 'section', 80)
+        && isOptionalShortString(data.details, 'collection', 60)
+        && isOptionalShortString(data.details, 'status', 40)
+        && isOptionalShortString(data.details, 'category', 40);
+    }
+
+    function validAdminContentMutation() {
+      let data = request.resource.data;
+      return data.diff(resource.data).affectedKeys().hasOnly(['texts', 'videos', 'settings'])
+        && (!('texts' in data) || (data.texts is map && data.texts.keys().size() <= 5000))
+        && (!('videos' in data) || (data.videos is list && data.videos.size() <= 250))
+        && (!('settings' in data) || data.settings is map);
     }
 
     // Legacy requests are immutable except for an audited status transition by an active admin.
@@ -125,7 +157,9 @@ service cloud.firestore {
     // One public content document. Visitors can read; only active admins can write.
     match /site_content/public {
       allow read: if true;
-      allow create, update: if isActiveAdmin();
+      allow create: if isActiveAdmin()
+        && request.resource.data.keys().hasOnly(['texts','videos','settings']);
+      allow update: if isActiveAdmin() && validAdminContentMutation();
       allow delete: if false;
     }
 
@@ -136,7 +170,8 @@ service cloud.firestore {
 
     // Immutable administrative audit trail. It intentionally stores no lead PII.
     match /admin_audit/{entryId} {
-      allow read, create: if isActiveAdmin();
+      allow read: if isActiveAdmin();
+      allow create: if isActiveAdmin() && validAdminAuditCreate();
       allow update, delete: if false;
     }
 
