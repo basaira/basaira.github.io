@@ -3,8 +3,8 @@
 import fs from 'node:fs';
 import { chromium } from 'playwright';
 const BASE='http://127.0.0.1:4179';
-const appMock=String.raw\`export function initializeApp(){return {name:'synthetic-admin-browser'}}\`;
-const firestoreMock=String.raw\`
+const appMock=String.raw`export function initializeApp(){return {name:'synthetic-admin-browser'}}`;
+const firestoreMock=String.raw`
 export function initializeFirestore(){return {}}
 export function doc(_db,...parts){return {path:parts.join('/'),id:parts.at(-1)}}
 export function collection(_db,...parts){return {path:parts.join('/')}}
@@ -29,8 +29,8 @@ export function onSnapshot(ref,ok){
   if(ref.path.startsWith('admin_roles/'))window.__mockRole=(active)=>ok({exists:()=>active,data:()=>({active})});
   return ()=>{window.__mockRole=null};
 }
-\`;
-const authMock=String.raw\`
+`;
+const authMock=String.raw`
 export class GoogleAuthProvider{setCustomParameters(){}}
 export const browserLocalPersistence={}
 export function getAuth(){
@@ -56,7 +56,7 @@ export async function signOut(auth){
   auth.currentUser=null;
   void auth.cb(null);
 }
-\`;
+`;
 const modules=new Map([
   ['firebase-app.js',appMock],
   ['firebase-firestore.js',firestoreMock],
