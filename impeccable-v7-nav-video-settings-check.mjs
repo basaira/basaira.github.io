@@ -28,19 +28,19 @@ ok(/body\.route-ru #navbar \.nav-link[\s\S]*?text-transform:none!important/.test
 // Admin video management: metadata-only external HTTPS model, active-admin protected and audited.
 ok(/id="video-url"[^>]*type="url"/.test(adminHtml) && !/id="video-form"[\s\S]{0,3000}type="file"/.test(adminHtml), 'Video admin uses external URL metadata, not Firebase binary upload.');
 ok(/function safeUrl\(value, label\)[\s\S]*?url\.protocol !== "https:"/.test(admin), 'Admin rejects non-HTTPS video/poster URLs.');
-ok(/function saveVideo\(event\)[\s\S]*?batch\.set\(publicRef, \{ videos \}, \{ merge: true \}\)[\s\S]*?appendAuditToBatch/.test(admin), 'Video saves are atomic with an immutable admin audit entry.');
+ok(/function saveVideo\(event\)[\s\S]*?runTransaction\(db[\s\S]*?tx\.set\(publicRef, \{videos\}, \{merge:true\}\)[\s\S]*?appendAuditToBatch\(tx/.test(admin), 'Video saves are transaction-atomic with an immutable admin audit entry and concurrency check.');
 ok(/videos\.length >= 250/.test(admin), 'Video metadata library retains its safety limit.');
 ok(/function normalizeVideo\(video\)[\s\S]*?!isSafeHttpsUrl\(videoUrl\)/.test(app), 'Public renderer rejects unsafe video URLs.');
 ok(/video\.published !== false/.test(app), 'Public renderer honors video publish state.');
-ok(/match \/site_content\/public[\s\S]*?allow create, update: if isActiveAdmin\(\);[\s\S]*?allow delete: if false;/.test(rules), 'Only active admins can mutate public site content; document deletion is blocked.');
+ok(/match \/site_content\/public[\s\S]*?allow create: if isActiveAdmin\(\)[\s\S]*?allow update: if isActiveAdmin\(\) && validAdminContentMutation\(\);[\s\S]*?allow delete: if false;/.test(rules), 'Active-admin content writes require validated shapes; deletion remains blocked.');
 
 // Settings: validated centrally and applied to all marked public links.
 ok(/function normalizeWhatsappNumber/.test(admin) && /function normalizeTelegramUsername/.test(admin), 'Contact settings are normalized before save.');
-ok(/batch\.set\(publicRef, \{ settings \}, \{ merge: true \}\)/.test(admin), 'Contact settings save into the protected public content document.');
+ok(/tx\.set\(publicRef, \{settings\}, \{merge:true\}\)/.test(admin), 'Contact settings are saved atomically in the protected public content document.');
 ok(/function applyPublicContactSettings\(settings\)[\s\S]*?data-contact-channel="whatsapp"[\s\S]*?data-contact-channel="telegram"/.test(app), 'Public WhatsApp and Telegram links consume saved settings dynamically.');
-ok(/appendAuditToBatch\(batch, "settings\.update"/.test(admin), 'Settings changes are written to the admin audit trail.');
-ok(/function saveText\(event\)[\s\S]*?batch\.set\(publicRef, \{ texts \}, \{ merge: true \}\)[\s\S]*?appendAuditToBatch/.test(admin), 'CMS text overrides remain atomic and audited.');
-ok(/function updateRequestStatus\(id, status, sourceCollection\)[\s\S]*?\["new", "contacted", "pending", "accepted", "rejected"\][\s\S]*?batch\.update/.test(admin), 'Admin request-status changes stay allow-listed and audited.');
+ok(/appendAuditToBatch\(tx, "settings\.update"/.test(admin), 'Settings changes are transactionally written to the admin audit trail.');
+ok(/function saveText\(event\)[\s\S]*?runTransaction\(db[\s\S]*?tx\.set\(publicRef, \{ texts \}, \{ merge: true \}\)[\s\S]*?appendAuditToBatch\(tx/.test(admin), 'CMS text overrides prevent lost updates and remain transactionally audited.');
+ok(/function updateRequestStatus\(id, status, sourceCollection, expectedStatus\)[\s\S]*?\["new", "contacted", "pending", "accepted", "rejected"\][\s\S]*?runTransaction\(db[\s\S]*?tx\.update/.test(admin), 'Admin request-status changes are allow-listed, concurrency-safe, and audited.');
 
 // Protected stylesheet ordering remains intact.
 const styles = [...html.matchAll(/<link[^>]+href="([^"]+\.css[^\"]*)"[^>]*>/g)].map(m=>m[1]);
