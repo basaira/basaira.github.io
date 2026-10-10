@@ -436,52 +436,54 @@
       return digits.length >= 6 && digits.length <= 15 ? digits : "";
     }
 
+    async function loadRequestCollection(name) {
+      // Key-based pagination also covers legacy records without timestamps.
+      const docs = [];
+      let cursor = null;
+      let page = 0;
+      while (true) {
+        if (++page > 1000) throw new Error("تجاوز حجم طلبات الإدارة حد الصفحات الآمن.");
+        const constraints = [orderBy(documentId()), ...(cursor ? [startAfter(cursor)] : []), limit(200)];
+        const snap = await getDocs(query(collection(db, name), ...constraints));
+        docs.push(...snap.docs);
+        if (snap.size < 200) return docs;
+        cursor = snap.docs[snap.docs.length - 1];
+      }
+    }
+
     async function loadRequests() {
-      const [legacyResult, assessmentResult] = await Promise.allSettled([
-        getDocs(query(collection(db, "enrollment_requests"), limit(1000))),
-        getDocs(query(collection(db, "assessment_requests"), limit(1000)))
+      const revision = authRevision;
+      const [legacy, assessment] = await Promise.allSettled([
+        loadRequestCollection("enrollment_requests"),
+        loadRequestCollection("assessment_requests")
       ]);
+      if (legacy.status === "rejected") throw legacy.reason;
+      if (assessment.status === "rejected") throw assessment.reason;
+      if (revision !== authRevision || !isAdmin) return;
 
       const normalizeRequest = (d, sourceCollection) => {
         const data = d.data() || {};
         return {
-          id: d.id,
-          sourceCollection,
-          ...data,
+          ...data, id: d.id, sourceCollection,
           ...normalizeRequestContactFields(data),
           message: data.message || data.goal || "",
           submissionDate: data.submissionDate || data.submittedAt || null
         };
       };
-
-      const legacyDocs = legacyResult.status === "fulfilled" ? legacyResult.value.docs : [];
-      const assessmentDocs = assessmentResult.status === "fulfilled" ? assessmentResult.value.docs : [];
+      const stamp = (v) => {
+        if (!v) return 0;
+        if (typeof v.toMillis === "function") return v.toMillis();
+        const n = new Date(v).getTime();
+        return Number.isFinite(n) ? n : 0;
+      };
       requestsCache = [
-        ...legacyDocs.map((d) => normalizeRequest(d, "enrollment_requests")),
-        ...assessmentDocs.map((d) => normalizeRequest(d, "assessment_requests"))
-      ];
-
-      requestsCache.sort((a, b) => {
-        const ad = a.submissionDate && a.submissionDate.toMillis ? a.submissionDate.toMillis() : 0;
-        const bd = b.submissionDate && b.submissionDate.toMillis ? b.submissionDate.toMillis() : 0;
-        return bd - ad;
-      });
-
+        ...legacy.value.map(d => normalizeRequest(d, "enrollment_requests")),
+        ...assessment.value.map(d => normalizeRequest(d, "assessment_requests"))
+      ].sort((a, b) => stamp(b.submissionDate) - stamp(a.submissionDate) ||
+        a.sourceCollection.localeCompare(b.sourceCollection) || a.id.localeCompare(b.id));
+      requestDisplayLimit = 100;
       renderStats();
       renderRequests();
-
-      const failures = [
-        legacyResult.status === "rejected" ? "enrollment_requests" : "",
-        assessmentResult.status === "rejected" ? "assessment_requests" : ""
-      ].filter(Boolean);
-      if (failures.length === 2) {
-        const err = assessmentResult.reason || legacyResult.reason || new Error("تعذر قراءة الطلبات");
-        throw err;
-      }
-      if (failures.length) {
-        showStatus(`تم تحميل الطلبات المتاحة، لكن تعذرت قراءة: ${failures.join("، ")}. انشر firestore.rules الجديدة على Firebase.`, "warning");
-      }
-      if (!failures.length && (legacyDocs.length >= 1000 || assessmentDocs.length >= 1000)) showStatus("تم تحميل حد الأمان البالغ 1000 طلب من إحدى المجموعات. للسجل الأكبر يلزم تقسيم صفحات بدل تحميل كل السجل دفعة واحدة.", "warning");
     }
 
     async function loadAudit() {
@@ -581,7 +583,7 @@
         return;
       }
 
-      rows.forEach((r) => {
+      rows.slice(0, requestDisplayLimit).forEach((r) => {
         const item = document.createElement("div");
         item.className = "item";
 
@@ -652,7 +654,7 @@
 
           try {
             await runBusy(saveStatusButton, async () => {
-              await updateRequestStatus(r.id, nextStatus, r.sourceCollection || "enrollment_requests");
+              await updateRequestStatus(r.id, nextStatus, r.sourceCollection || "enrollment_requests", previousStatus);
             });
           } catch (error) {
             console.error("Request status update failed:", error);
@@ -667,21 +669,33 @@
 
         box.appendChild(item);
       });
+      if (rows.length > requestDisplayLimit) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "btn secondary";
+        more.textContent = `عرض 100 طلب آخر (${rows.length - requestDisplayLimit} متبقية)`;
+        more.addEventListener("click", () => { requestDisplayLimit += 100; renderRequests(); });
+        box.appendChild(more);
+      }
     }
 
-    async function updateRequestStatus(id, status, sourceCollection) {
+    async function updateRequestStatus(id, status, sourceCollection, expectedStatus) {
       const safeCollection = sourceCollection === "assessment_requests" ? "assessment_requests" : "enrollment_requests";
       if (!["new", "contacted", "pending", "accepted", "rejected"].includes(status)) {
         showStatus("حالة الطلب غير صحيحة.", "error"); return;
       }
-      const batch = writeBatch(db);
-      batch.update(doc(db, safeCollection, id), {
-        status: status,
-        handledAt: serverTimestamp(),
-        handledBy: currentUser ? currentUser.email || currentUser.uid : "admin"
+      if (!isAdmin || !currentUser) throw new Error("صلاحية الإدارة غير متاحة.");
+      const revision = authRevision;
+      const actorUid = currentUser.uid;
+      const target = doc(db, safeCollection, id);
+      await runTransaction(db, async tx => {
+        const snap = await tx.get(target);
+        if (!snap.exists()) throw new Error("الطلب لم يعد موجودًا.");
+        if ((snap.data().status || "new") !== expectedStatus) throw new Error("تغيّرت حالة الطلب بواسطة مدير آخر؛ حدّث القائمة أولًا.");
+        if (revision !== authRevision || auth.currentUser?.uid !== actorUid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
+        tx.update(target, { status, handledAt: serverTimestamp(), handledBy: actorUid });
+        appendAuditToBatch(tx, "request.status", "request", id, { collection: safeCollection, status });
       });
-      appendAuditToBatch(batch, "request.status", "request", id, { collection: safeCollection, status });
-      await batch.commit();
       await Promise.all([loadRequests(), loadAudit()]);
       showStatus("تم تحديث حالة الطلب وتسجيل العملية.", "success");
     }
