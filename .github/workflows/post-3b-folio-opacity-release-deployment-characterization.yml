@@ -855,3 +855,12 @@ jobs:
           path: ${{ runner.temp }}/release-characterization
           if-no-files-found: error
           retention-days: 90
+
+      - name: Preserve exact immutable candidate release snapshot as evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: folio-m5-proposed-release-snapshot-2fd0973
+          path: ${{ runner.temp }}/release-build-a/dist/
+          if-no-files-found: error
+          retention-days: 90
