@@ -114,6 +114,7 @@ service cloud.firestore {
         && data.keys().hasOnly(['action', 'targetType', 'targetId', 'details', 'actorUid', 'actorEmail', 'createdAt'])
         && data.actorUid == request.auth.uid
         && data.actorEmail is string && data.actorEmail.size() <= 160
+        && data.actorEmail == (request.auth.token.email is string ? request.auth.token.email : '')
         && data.createdAt == request.time
         && data.action is string && data.action.size() >= 1 && data.action.size() <= 80
         && data.action in ['text.update','text.restore','video.create','video.update','video.delete','request.status','settings.update']
