@@ -1119,7 +1119,11 @@
       });
     });
 
-    $("logout-btn").addEventListener("click", () => signOut(auth));
+    $("logout-btn").addEventListener("click", async () => {
+      revokeLocalAdminSession();
+      try { await signOut(auth); }
+      catch (error) { showStatus("تعذر إنهاء جلسة Firebase. أغلق اللوحة وأعد المحاولة.", "error"); }
+    });
     $("refresh-all-btn").addEventListener("click", loadAll);
     $("refresh-requests-btn").addEventListener("click", loadRequests);
     $("firebase-health-btn").addEventListener("click", async () => {
@@ -1182,32 +1186,44 @@
       }
     });
 
-      onAuthStateChanged(auth, async (user) => {
-        currentUser = user;
+      onAuthStateChanged(auth, async user => {
+        // Old role reads and loader callbacks must never restore an earlier user.
+        const revision = ++authRevision;
+        if (unsubscribeAdminRole) { unsubscribeAdminRole(); unsubscribeAdminRole = null; }
+        currentUser = null;
         isAdmin = false;
-
-        if (!user) {
-          renderAuth();
-          return;
-        }
-
+        clearPrivateState();
+        renderAuth();
+        if (!user) return;
         try {
-          isAdmin = await checkAdminRole(user);
+          const permitted = await checkAdminRole(user);
+          if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+          currentUser = user;
+          isAdmin = permitted;
           renderAuth();
-
-          if (isAdmin) {
-            showStatus("تم تسجيل الدخول كمدير. جار تحميل البيانات...", "success");
-            await loadAll();
-          } else {
-            showStatus("تمت المصادقة في Firebase، لكن هذا المستخدم لا يملك صلاحية الإدارة بعد. أنشئ المستند admin_roles/UID واجعل active = true، ثم أعد تحميل الصفحة.", "warning");
+          if (!permitted) {
+            showStatus("تم تسجيل الدخول، لكن هذا الحساب لا يملك صلاحية الإدارة. يلزم تعيين admin_roles/UID من مشغّل مخول.", "warning");
+            return;
           }
+          // Revocation is observed, not only checked once during sign-in.
+          unsubscribeAdminRole = onSnapshot(doc(db, "admin_roles", user.uid), snapshot => {
+            if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+            if (!snapshot.exists() || snapshot.data().active !== true) {
+              revokeLocalAdminSession("أُلغيت صلاحية الإدارة؛ أُغلقت اللوحة فورًا.");
+            }
+          }, () => {
+            if (revision === authRevision) revokeLocalAdminSession("تعذر تأكيد صلاحية الإدارة؛ أُغلقت اللوحة احترازيًا.");
+          });
+          showStatus("تم التحقق من صلاحية الإدارة. جار تحميل البيانات…", "warning");
+          await loadAll();
         } catch (error) {
-          console.error(error);
-          renderAuth();
-          const msg = error && error.code === "permission-denied"
-            ? "تم تسجيل الدخول إلى Firebase، لكن قواعد Firestore الحالية تمنع التحقق من admin_roles. انشر firestore.rules الجديدة."
-            : "فشل التحقق من صلاحية المدير: " + (error && error.message ? error.message : "خطأ غير معروف");
-          showStatus(msg, "error");
+          if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+          revokeLocalAdminSession();
+          console.error("Admin authorization check failed:", error);
+          const code = error && error.code || "unknown";
+          showStatus(code === "permission-denied"
+            ? "رُفض التحقق من صلاحية الإدارة. افحص إعدادات Firestore مع المشغّل المخوّل."
+            : "تعذر التحقق من صلاحية المدير؛ بقيت اللوحة مغلقة.", "error");
         }
       });
     }
