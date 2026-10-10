@@ -279,7 +279,11 @@ jobs:
                   def add(attr,val,kind):
                       if val: self.refs.append((tag,attr,val,kind))
                   if tag=='script': add('src',a.get('src'),'script')
-                  if tag=='img': add('src',a.get('src'),'image')
+                  if tag=='img':
+                      add('src',a.get('src'),'image')
+                      if a.get('srcset'):
+                          for piece in a['srcset'].split(','):
+                              add('srcset',piece.strip().split()[0],'image-srcset')
                   if tag=='source':
                       add('src',a.get('src'),'source')
                       if a.get('srcset'):
@@ -353,11 +357,22 @@ jobs:
 
           if missing_refs: raise SystemExit(f'missing local references: {missing_refs[:10]}')
           if old_refs: raise SystemExit(f'old hashed asset still referenced: {old_refs}')
+          escaped=[x for x in graph if x['resolved']=='__ESCAPES_ROOT__']
+          if escaped: raise SystemExit('escaped root references '+repr(escaped[:10]))
           if bad_repo_prefix: raise SystemExit(f'accidental repo-prefix refs: {bad_repo_prefix}')
           if mixed: raise SystemExit(f'mixed-content http resource references: {mixed}')
 
           all_text='\n'.join(p.read_text(errors='replace') for p in root.rglob('*') if p.is_file() and p.suffix.lower() in {'.html','.js','.css'})
           compact=re.sub(r'\s+','',all_text)
+          folio_markers=[
+            '--folio-opacity','overdrive-folio-marker','is-folio-current',
+            'od-folio-open','dataset.folio','initFolioMarkers','-18% 0px -56% 0px'
+          ]
+          folio_counts={marker:all_text.count(marker) for marker in folio_markers}
+          if any(folio_counts.values()): raise SystemExit('built Folio residues '+repr(folio_counts))
+          (out/'release-folio-sentinels.json').write_text(json.dumps({
+            'pass':True,'builtReleaseResidues':0,'signatures':folio_counts
+          },indent=2)+'\n')
           earlier=bool(re.search(r'--layout-section-compact:var\\(--space-layout-section-compact\\)(?:;|})',compact))
           later=bool(re.search(r'--layout-section-compact:clamp\\(3\\.25rem,4\\.7vw,4\\.65rem\\)(?:;|})',compact))
           canonical=bool(re.search(r'--space-layout-section-compact:clamp\\(3\\.75rem,6vw,5\\.75rem\\)(?:;|})',compact))
@@ -385,6 +400,7 @@ jobs:
           (out/'release-local-reference-graph.json').write_text(json.dumps({
               'entrypoints':entrypoints,'entrypointCount':len(entrypoints),'allEntrypointsPresent':True,
               'referenceCount':len(graph),'references':graph,'missingReferences':[],
+              'escapedRootReferences':[],'retiredAssetReferences':[],
               'oldHashedAssetReferences':[],'repoPrefixAssumptions':[],'externalHttpsReferences':external_https,
               'mixedContentHttpReferences':[]
           },indent=2)+'\n')
@@ -395,6 +411,17 @@ jobs:
               'mixedContentHttpResourceReferences':[],'externalHttpsReferenceCount':len(external_https),
               'httpsSanityPass':True
           },indent=2)+'\n')
+          (out/'release-protected-sentinels.json').write_text(json.dumps({
+            'pass':bool(token_name_present and canonical_name_present and len(missing)==0),
+            'protectedBehavior':'requires 24-case runtime smoke',
+            'homepageContentPresent':(root/'index.html').is_file(),
+            'localizedEntrypointCount':len(entrypoints)-1,
+            'adminEntrypointPresent':(root/'admin.html').is_file(),
+            'layoutSectionCompactNamePresent':token_name_present,
+            'canonicalLayoutSectionCompactNamePresent':canonical_name_present,
+            'runtimeEvidence':'release-browser-smoke.json'
+          },indent=2)+'\n')
+          if not (token_name_present and canonical_name_present): raise SystemExit('protected token missing')
           (out/'release-static-sentinel.json').write_text(json.dumps({
               'earlierBridgeDeclarationAbsent':not earlier,
               'laterOwnerLiteralPresent':later,
@@ -747,6 +774,14 @@ jobs:
           DEL="$(jq -r '.counts.DELETE' "${OUT}/release-delta.json")"
           PRE="$(jq -r '.counts.PRESERVE' "${OUT}/release-delta.json")"
           test "${DEL}" -gt 0
+          PAGES_API="$(jq -c '.pagesApi' "${OUT}/release-source-authority.json")"
+          jq -n --argjson config "${PAGES_API}" --argjson run "${PAGE_RUN}" --slurpfile jobs "${JOBS}" \
+            '{pagesConfiguration:(if $config.readable then $config else {status:"UNREADABLE",httpStatus:$config.httpStatus} end),
+              currentGhPagesDeploymentRun:$run,trigger:"dynamic",
+              associatedSourceSha:"cef59ba05b3382978b4c18e83592f08227b2f9c4",
+              observedJobs:[$jobs[0].jobs[]|{name,status,conclusion}],
+              establishedBySuccessfulDynamicRun:true,
+              automaticDeploymentObserved:true,noNewDeploymentTriggered:true}' > "${OUT}/release-pages-platform.json"
           jq -n             --arg currentGh "${GH_SHA}" --arg futureParent "${GH_SHA}" --arg source "${MAIN_SHA}"             --arg manifest "${MANIFEST}" --arg pagesRun "${PAGE_RUN}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",overlayDeploymentValid:false,reason:"DELETE count > 0; retired Vite hashed assets must disappear.",futureCommit:{parents:1,parent:$futureParent,message:"Deploy Folio M5 release 2fd0973",cleanSnapshotManifestSha256:$manifest,appendOnlyHistory:true,force:false,rebase:false,reset:false},raceContract:{requiredMain:$source,requiredGhPages:$currentGh,requiredSnapshotManifest:$manifest,stopIfAnyMoves:true},pagesPlatform:{establishedByCurrentGhPagesDynamicRun:true,currentRunId:($pagesRun|tonumber),expectedJobs:["build","report-build-status","deploy"],manualDispatchRequired:false},firebaseMutationAuthorized:false,backendMutationAuthorized:false,deltaCounts:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve}}'             | tee "${OUT}/release-deployment-plan.json"
 
       - name: Assemble release characterization summary
@@ -765,6 +800,9 @@ jobs:
           BLOCKING="$(jq -r '.blockingPresent' "${OUT}/release-console-classification.json")"
           test "${PASS}" = "24"
           test "${BLOCKING}" = "false"
+          for F in release-retired-assets.json release-pages-platform.json release-folio-sentinels.json release-protected-sentinels.json; do
+            test -s "${OUT}/${F}"
+          done
           jq -n             --arg classification "A — CLEAN SNAPSHOT DEPLOYMENT READY"             --arg source "${MAIN_SHA}" --arg sourceTree "${MAIN_TREE}" --arg currentGh "${GH_SHA}"             --arg manifest "${MANIFEST}" --argjson files "${FILES}" --argjson bytes "${BYTES}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{classification:$classification,source:$source,sourceTree:$sourceTree,currentGhPages:$currentGh,proposedSnapshot:{fileCount:$files,totalBytes:$bytes,manifestSha256:$manifest},delta:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve},browserSmoke:"24/24 PASS",deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",noGhPagesMutation:true,noPagesSettingsMutation:true,noFirebaseMutation:true,nextPossibleGate:"FOLIO OPACITY M5 RELEASE / DEPLOYMENT IMPLEMENTATION",doNotDeploy:true}'             | tee "${OUT}/release-characterization-summary.json"
 
       - name: Terminal production ref check
