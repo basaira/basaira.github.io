@@ -51,6 +51,8 @@ jobs:
         run: |
           set -euo pipefail
           npm ci
+          npm audit --json > /tmp/basair-admin-npm-audit.json || true
+          node --input-type=module -e 'import fs from "node:fs"; const a=JSON.parse(fs.readFileSync("/tmp/basair-admin-npm-audit.json","utf8")); for(const [name,v] of Object.entries(a.vulnerabilities||{})){ if(["high","critical"].includes(v.severity)) console.log(JSON.stringify({name,severity:v.severity,via:v.via,effects:v.effects,range:v.range,fixAvailable:v.fixAvailable})); }'
           npm run verify
           npm run build
           node token-authority-check.mjs
@@ -89,6 +91,22 @@ jobs:
           npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-security "node --test tests/admin-firestore-emulator.test.mjs"
           test -z "$(git status --porcelain)"
 
+      - name: Actual Admin UI to Firestore emulator write paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 firebase@12.15.0 @firebase/rules-unit-testing@5.0.0
+          python3 -m http.server 4179 --bind 127.0.0.1 > /tmp/basair-admin-write-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:4179/admin.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html > /dev/null
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-write-path "node tests/admin-real-write-path.mjs"
+          test -z "$(git status --porcelain)"
+
       - name: Final candidate-only path inventory
         shell: bash
         run: |
@@ -96,3 +114,4 @@ jobs:
           git diff --check
           git diff --stat 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243 HEAD
           test -z "$(git status --porcelain)"
+

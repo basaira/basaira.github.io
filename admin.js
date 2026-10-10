@@ -56,6 +56,34 @@
       requestsCache = [];
       auditCache = [];
       auditLoadState = "idle";
+      requestDisplayLimit = 100;
+      // Hiding the dashboard does not remove its previously rendered private DOM.
+      for (const id of ["requests-list", "audit-list", "texts-list", "videos-list",
+        "text-id", "text-value", "video-index", "video-title", "video-url",
+        "video-image", "settings-whatsapp", "settings-telegram", "request-search",
+        "text-search", "uid-box"]) {
+        const element = document.getElementById(id);
+        if (element) element.value !== undefined ? element.value = "" : element.replaceChildren();
+      }
+      for (const id of ["text-original-preview", "text-section-readonly", "text-lang-readonly",
+        "text-results-count", "stat-requests", "stat-texts", "stat-videos", "stat-registry",
+        "badge-requests", "badge-texts", "badge-videos", "badge-audit",
+        "overview-cap-requests", "overview-cap-settings", "overview-cap-texts",
+        "overview-cap-videos", "overview-edited-texts", "overview-new-requests",
+        "overview-settings-state", "overview-audit-count"]) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = "";
+      }
+      for (const id of ["admin-email", "admin-password"]) {
+        const element = document.getElementById(id);
+        if (element) element.value = "";
+      }
+      const preview = document.getElementById("text-preview-link");
+      if (preview) { preview.removeAttribute("href"); preview.classList.add("hidden"); }
+      const index = document.getElementById("video-index");
+      if (index) delete index.dataset.originalFingerprint;
+      const status = document.getElementById("status");
+      if (status) { status.replaceChildren(); status.className = "status"; status.dataset.statusType = ""; }
     }
     function revokeLocalAdminSession(message) {
       ++authRevision;
@@ -794,10 +822,13 @@
         const current = Object.prototype.hasOwnProperty.call(live.texts, id) ? live.texts[id] : null;
         if (current !== baseline) throw new Error("عدّل مدير آخر هذا النص؛ أعد تحميله قبل الكتابة.");
         if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
-        const texts = {...live.texts};
+        const storedTexts = snapshot.exists() ? snapshot.data().texts : null;
+        const texts = {...(storedTexts && typeof storedTexts === "object" && !Array.isArray(storedTexts) ? storedTexts : {})};
         if (value === original) delete texts[id];
         else texts[id] = value;
-        tx.set(publicRef, { texts }, { merge: true });
+        // Replace only the top-level texts map. A recursive merge retains deleted
+        // nested keys; mergeFields also treats dotted IDs as literal map keys.
+        tx.set(publicRef, { texts }, { mergeFields: ["texts"] });
         appendAuditToBatch(tx, value === original ? "text.restore" : "text.update", "content", id,
           {lang: item.lang || "", section: item.section || "global"});
       });
@@ -828,9 +859,10 @@
         const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
         if (live.texts[id] !== baseline) throw new Error("تغيّر النص بواسطة مدير آخر؛ حدّث القائمة.");
         if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الاستعادة.");
-        const texts = {...live.texts};
+        const storedTexts = snapshot.exists() ? snapshot.data().texts : null;
+        const texts = {...(storedTexts && typeof storedTexts === "object" && !Array.isArray(storedTexts) ? storedTexts : {})};
         delete texts[id];
-        tx.set(publicRef, { texts }, { merge: true });
+        tx.set(publicRef, { texts }, { mergeFields: ["texts"] });
         appendAuditToBatch(tx, "text.restore", "content", id, {lang: item.lang || "", section: item.section || "global"});
       });
       try { await Promise.all([loadContent(), loadAudit()]); }
@@ -1316,3 +1348,4 @@
     });
   
   
+
