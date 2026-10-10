@@ -1,0 +1,81 @@
+name: BASAIR Admin Repair Verification
+
+on:
+  push:
+    branches:
+      - 'basair/admin-functional-security-repair'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout isolated candidate (no production refs)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Set up Java for local Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Verify frozen base and single-branch scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243 HEAD
+          test "$(git branch --show-current || true)" = "" || true
+          test -z "$(git status --porcelain)"
+          git diff --check 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243 HEAD
+          if git diff --name-only 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243 HEAD | grep -Eq '^(index.html|overdrive-v1.js|overdrive-v1.css|visual-layout-hotfix-v2.css|token-authority-manifest.json)$'; then
+            echo 'Protected Folio/public artifact changed unexpectedly'
+            exit 1
+          fi
+
+      - name: Production-independent source and public regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          node scripts/verify-css-consolidation-preflight.mjs --expected-css-count=51
+          git diff --check
+          test -z "$(git status --porcelain)"
+
+      - name: Admin unit regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/admin-policy.test.mjs
+
+      - name: Firestore emulator synthetic security tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false firebase@12.15.0 @firebase/rules-unit-testing@5.0.0
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-security "node --test tests/admin-firestore-emulator.test.mjs"
+          test -z "$(git status --porcelain)"
+
+      - name: Final candidate-only path inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --stat 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243 HEAD
+          test -z "$(git status --porcelain)"
