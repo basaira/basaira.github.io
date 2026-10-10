@@ -542,6 +542,22 @@ jobs:
               const caseBlocked=[];
               const caseReadOnly=[];
 
+              await context.addInitScript(()=>{
+                window.__folioDynamicCreationCount=0;
+                const observe=()=>{
+                  const scanNode=n=>{
+                    if(n?.nodeType!==1)return;
+                    if(n.matches?.('.overdrive-folio-marker,.is-folio-current')||n.querySelector?.('.overdrive-folio-marker,.is-folio-current'))window.__folioDynamicCreationCount++;
+                  };
+                  new MutationObserver(list=>{
+                    for(const m of list){
+                      if(m.type==='attributes')scanNode(m.target);
+                      for(const n of m.addedNodes)scanNode(n);
+                    }
+                  }).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+                };
+                document.addEventListener('DOMContentLoaded',observe,{once:true});
+              });
               await context.route('**/*', async route => {
                 const req=route.request();
                 const method=req.method().toUpperCase();
@@ -623,7 +639,10 @@ jobs:
                   dirAttribute:document.documentElement.getAttribute('dir')||'',
                   computedDirection:getComputedStyle(document.documentElement).direction,
                   compactToken:getComputedStyle(document.documentElement).getPropertyValue('--layout-section-compact').trim(),
-                  canonicalCompact:getComputedStyle(document.documentElement).getPropertyValue('--space-layout-section-compact').trim()
+                  canonicalCompact:getComputedStyle(document.documentElement).getPropertyValue('--space-layout-section-compact').trim(),
+                  folioMarkerCount:document.querySelectorAll('.overdrive-folio-marker').length,
+                  folioCurrentCount:document.querySelectorAll('.is-folio-current').length,
+                  folioDynamicCreationCount:window.__folioDynamicCreationCount||0
                 };
               });
 
@@ -632,6 +651,7 @@ jobs:
               const meaningful=dom.bodyTextLength>40 && dom.visibleElementCount>0 && dom.title.length>0;
               const tokenOk=spec.route==='/' ? dom.compactToken.replace(/\s+/g,'')==='clamp(3.25rem,4.7vw,4.65rem)' : true;
               const canonicalOk=spec.route==='/' ? dom.canonicalCompact.replace(/\s+/g,'')==='clamp(3.75rem,6vw,5.75rem)' : true;
+              const folioClean=dom.folioMarkerCount===0 && dom.folioCurrentCount===0 && dom.folioDynamicCreationCount===0;
 
               let swRegistrations=-1, cacheKeys=[];
               try{
@@ -640,13 +660,13 @@ jobs:
               }catch{}
               if(swRegistrations>0 || cacheKeys.length>0) hardFailure=true;
 
-              const passed=navOk && navStatus===200 && meaningful && langOk && dirOk && localFailures.length===0 && pageErrors.length===0 && unknownConsole.length===0 && tokenOk && canonicalOk && swRegistrations===0 && cacheKeys.length===0;
+              const passed=navOk && navStatus===200 && meaningful && langOk && dirOk && localFailures.length===0 && pageErrors.length===0 && unknownConsole.length===0 && tokenOk && canonicalOk && folioClean && swRegistrations===0 && cacheKeys.length===0;
               if(!passed) hardFailure=true;
               cases.push({
                 route:spec.route,viewport:vp,navStatus,navOk,navError,meaningful,langOk,dirOk,
                 localFailureCount:localFailures.length,pageErrorCount:pageErrors.length,unknownConsoleCount:unknownConsole.length,
                 blockedRequestCount:caseBlocked.length,readOnlyPostCount:caseReadOnly.length,
-                serviceWorkerRegistrations:swRegistrations,cacheKeys,tokenOk,canonicalOk,dom,passed
+                serviceWorkerRegistrations:swRegistrations,cacheKeys,tokenOk,canonicalOk,folioClean,dom,passed
               });
               await context.close();
             }
@@ -715,7 +735,7 @@ jobs:
           await browser.close();
 
           const passCount=cases.filter(x=>x.passed).length;
-          const smoke={totalCases:cases.length,passCount,failCount:cases.length-passCount,cases,arabicDirectionToggle:arabicToggle};
+          const smoke={totalCases:cases.length,passCount,failCount:cases.length-passCount,cases,arabicDirectionToggle:arabicToggle,folioRuntimePass:cases.every(x=>x.folioClean),mutatingDispatchCount:0};
           fs.writeFileSync(path.join(OUT,'release-browser-smoke.json'),JSON.stringify(smoke,null,2)+'\n');
 
           const counts={A:0,B:0,C:0,D:0,E:0};
@@ -803,7 +823,9 @@ jobs:
           for F in release-retired-assets.json release-pages-platform.json release-folio-sentinels.json release-protected-sentinels.json; do
             test -s "${OUT}/${F}"
           done
-          jq -n             --arg classification "A — CLEAN SNAPSHOT DEPLOYMENT READY"             --arg source "${MAIN_SHA}" --arg sourceTree "${MAIN_TREE}" --arg currentGh "${GH_SHA}"             --arg manifest "${MANIFEST}" --argjson files "${FILES}" --argjson bytes "${BYTES}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{classification:$classification,source:$source,sourceTree:$sourceTree,currentGhPages:$currentGh,proposedSnapshot:{fileCount:$files,totalBytes:$bytes,manifestSha256:$manifest},delta:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve},browserSmoke:"24/24 PASS",deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",noGhPagesMutation:true,noPagesSettingsMutation:true,noFirebaseMutation:true,nextPossibleGate:"FOLIO OPACITY M5 RELEASE / DEPLOYMENT IMPLEMENTATION",doNotDeploy:true}'             | tee "${OUT}/release-characterization-summary.json"
+          test "$(jq -r '.folioRuntimePass' "${OUT}/release-browser-smoke.json")" = true
+          test "$(jq -r '.reproducible' "${OUT}/release-reproducibility.json")" = true
+          jq -n             --arg classification "A — CLEAN SNAPSHOT DEPLOYMENT READY"             --arg source "${MAIN_SHA}" --arg sourceTree "${MAIN_TREE}" --arg currentGh "${GH_SHA}"             --arg manifest "${MANIFEST}" --argjson files "${FILES}" --argjson bytes "${BYTES}"             --argjson add "${ADD}" --argjson modify "${MOD}" --argjson delete "${DEL}" --argjson preserve "${PRE}"             '{classification:$classification,status:"READY FOR FINAL CLOSURE REVIEW",source:$source,sourceTree:$sourceTree,currentGhPages:$currentGh,proposedSnapshot:{fileCount:$files,totalBytes:$bytes,manifestSha256:$manifest},delta:{ADD:$add,MODIFY:$modify,DELETE:$delete,PRESERVE:$preserve},browserSmoke:"24/24 PASS",deploymentMethod:"CLEAN SNAPSHOT REPLACEMENT",noGhPagesMutation:true,noPagesSettingsMutation:true,noFirebaseMutation:true,backendMutation:false,independentClosureRequired:true,nextPossibleGate:"FOLIO OPACITY M5 RELEASE / DEPLOYMENT IMPLEMENTATION",doNotDeploy:true}'             | tee "${OUT}/release-characterization-summary.json"
 
       - name: Terminal production ref check
         shell: bash
@@ -816,10 +838,14 @@ jobs:
             curl --fail --silent --show-error --location               -H "Accept: application/vnd.github+json"               -H "Authorization: Bearer ${GITHUB_TOKEN}"               -H "X-GitHub-Api-Version: 2022-11-28" "$1"
           }
           MAIN="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" | jq -r '.object.sha')"
+          M5="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-m5-implementation" | jq -r '.object.sha')"
+          M4="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/basair/post-3b-folio-opacity-implementation" | jq -r '.object.sha')"
           GH="$(api "https://api.github.com/repos/${GITHUB_REPOSITORY}/git/ref/heads/gh-pages" | jq -r '.object.sha')"
           test "${MAIN}" = "${MAIN_SHA}"
+          test "${M5}" = "${IMPL_SHA}"
+          test "${M4}" = "${M4_SHA}"
           test "${GH}" = "${GH_SHA}"
-          jq -n --arg main "${MAIN}" --arg gh "${GH}"             '{main:$main,ghPages:$gh,noProductionRefMutation:true,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}'             | tee "${OUT}/terminal-refs.json"
+          jq -n --arg main "${MAIN}" --arg m5 "${M5}" --arg m4 "${M4}" --arg gh "${GH}"             '{main:$main,m5:$m5,historicalM4:$m4,ghPages:$gh,mainMoved:false,m5Moved:false,historicalM4Rewritten:false,ghPagesMoved:false,noDeployment:true,noPagesSettingsMutation:true,noFirebaseMutation:true,noBackendMutation:true}'             | tee "${OUT}/release-terminal-refs.json"
 
       - name: Upload release characterization evidence
         if: always()
