@@ -692,7 +692,11 @@
         tx.update(target, { status, handledAt: serverTimestamp(), handledBy: actorUid });
         appendAuditToBatch(tx, "request.status", "request", id, { collection: safeCollection, status });
       });
-      await Promise.all([loadRequests(), loadAudit()]);
+      try { await Promise.all([loadRequests(), loadAudit()]); }
+      catch (error) {
+        showStatus("حُفظت حالة الطلب وسجل التدقيق، لكن تعذر تحديث العرض. أعد التحميل.", "warning");
+        return;
+      }
       showStatus("تم تحديث حالة الطلب وتسجيل العملية.", "success");
     }
 
@@ -891,7 +895,12 @@
         const buttons = item.querySelectorAll("button");
 
         buttons[0].addEventListener("click", () => fillVideoForm(index));
-        buttons[1].addEventListener("click", () => deleteVideo(index));
+        buttons[1].addEventListener("click", () => {
+          deleteVideo(index).catch(error => {
+            console.error("Video deletion failed:", error);
+            showStatus(error?.message || "تعذر حذف بيانات الفيديو.", "error");
+          });
+        });
 
         box.appendChild(item);
       });
@@ -1172,7 +1181,12 @@
       catch (error) { showStatus("تعذر إنهاء جلسة Firebase. أغلق اللوحة وأعد المحاولة.", "error"); }
     });
     $("refresh-all-btn").addEventListener("click", loadAll);
-    $("refresh-requests-btn").addEventListener("click", loadRequests);
+    $("refresh-requests-btn").addEventListener("click", () => {
+      loadRequests().then(() => showStatus("تم تحديث الطلبات.", "success")).catch(error => {
+        console.error("Request refresh failed:", error);
+        showStatus("تعذر تحميل قائمة الطلبات.", "error");
+      });
+    });
     $("firebase-health-btn").addEventListener("click", async () => {
       await runBusy($("firebase-health-btn"), async () => {
         try {
@@ -1204,11 +1218,21 @@
       if ($("text-lang-readonly")) $("text-lang-readonly").textContent = "—";
       if ($("text-preview-link")) $("text-preview-link").classList.add("hidden");
     });
-    $("delete-text-btn").addEventListener("click", deleteText);
+    $("delete-text-btn").addEventListener("click", () => {
+      deleteText().catch(error => {
+        console.error("Text restoration failed:", error);
+        showStatus(error?.message || "تعذرت استعادة النص.", "error");
+      });
+    });
     $("scan-content-ids-btn").addEventListener("click", scanContentIds);
 
     $("video-form").addEventListener("submit", (event) => runFormAction(event, saveVideo));
-    if ($("refresh-audit-btn")) $("refresh-audit-btn").addEventListener("click", loadAudit);
+    if ($("refresh-audit-btn")) $("refresh-audit-btn").addEventListener("click", () => {
+      loadAudit().catch(error => {
+        console.error("Audit refresh failed:", error);
+        showStatus("تعذر تحديث سجل التغييرات.", "error");
+      });
+    });
     $("clear-video-btn").addEventListener("click", clearVideoForm);
 
     if ($("contact-settings-form")) $("contact-settings-form").addEventListener("submit", (event) => runFormAction(event, saveContactSettings));
