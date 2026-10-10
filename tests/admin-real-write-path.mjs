@@ -47,6 +47,7 @@ async function action(click,receipt,kind,verify){
   await verify();
 }
 async function selectText(id){
+  await page.locator('.nav-btn[data-tab="texts"]').click();
   await page.locator('#text-search').fill(id);
   await page.locator('#texts-list .item').first().click();
   assert.equal(await page.locator('#text-id').inputValue(),id);
@@ -129,11 +130,13 @@ try{
     await page.locator('#text-form button[type=submit]').click();
   },'تم حفظ النص','text.update',async()=>assert.equal((await content()).texts.title,'Updated Title'));
   await action(async()=>{
+    await page.locator('.nav-btn[data-tab="requests"]').click();
     await page.locator('#requests-list .item select.request-status').first().selectOption('contacted');
     await page.locator('#requests-list .item button.ok').first().click();
   },'تم تحديث حالة الطلب','request.status',async()=>
     assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'contacted'));
   await action(async()=>{
+    await page.locator('.nav-btn[data-tab="videos"]').click();
     await page.locator('#video-title').fill('Created synthetic');
     await page.locator('#video-url').fill('https://example.invalid/video');
     await page.locator('#video-form button[type=submit]').click();
@@ -146,6 +149,7 @@ try{
   await action(()=>page.locator('#videos-list .item').last().locator('button').last().click(),
     'تم حذف بيانات الفيديو','video.delete',async()=>assert.equal((await content()).videos.length,1));
   await action(async()=>{
+    await page.locator('.nav-btn[data-tab="settings"]').click();
     await page.locator('#settings-whatsapp').fill('201111111111');
     await page.locator('#contact-settings-form button[type=submit]').click();
   },'تم حفظ إعدادات التواصل','settings.update',async()=>
