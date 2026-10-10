@@ -950,14 +950,19 @@
         videos.push({ ...data, createdAt: new Date().toISOString() });
       }
 
-      const batch = writeBatch(db);
-      batch.set(publicRef, { videos }, { merge: true });
-      appendAuditToBatch(batch, action, "video", String(index >= 0 ? index : videos.length - 1), { category, published: data.published });
-      await batch.commit();
-
+      const baseline = JSON.stringify(contentCache.videos || []);
+      const revision = authRevision;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (JSON.stringify(live.videos) !== baseline) throw new Error("تغيّرت مكتبة الفيديو لدى مدير آخر. حدّثها قبل حفظ التعديل.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحفظ.");
+        tx.set(publicRef, {videos}, {merge:true});
+        appendAuditToBatch(tx, action, "video", String(index >= 0 ? index : videos.length - 1), {category, published: data.published});
+      });
       clearVideoForm();
-      await Promise.all([loadContent(), loadAudit()]);
-
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("حُفظ الفيديو وسجل التدقيق، لكن تعذر تحديث العرض.", "warning"); return; }
       showStatus("تم حفظ الفيديو وتسجيل العملية.", "success");
     }
 
@@ -965,15 +970,21 @@
       if (!confirm("حذف هذا الفيديو؟")) return;
 
       const videos = [...(contentCache.videos || [])];
-      const removed = videos[index] || {};
+      if (!Number.isInteger(index) || index < 0 || index >= videos.length) throw new Error("معرّف الفيديو غير صالح.");
+      const removed = videos[index];
+      const baseline = JSON.stringify(videos);
       videos.splice(index, 1);
-
-      const batch = writeBatch(db);
-      batch.set(publicRef, { videos }, { merge: true });
-      appendAuditToBatch(batch, "video.delete", "video", String(index), { category: removed.category || "", published: removed.published !== false });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
-
+      const revision = authRevision;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (JSON.stringify(live.videos) !== baseline) throw new Error("تغيّرت قائمة الفيديو لدى مدير آخر؛ حدّثها قبل الحذف.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحذف.");
+        tx.set(publicRef, {videos}, {merge:true});
+        appendAuditToBatch(tx, "video.delete", "video", String(index), {category: removed.category || "", published: removed.published !== false});
+      });
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("حُذفت بيانات الفيديو لكن تعذر تحديث العرض.", "warning"); return; }
       showStatus("تم حذف بيانات الفيديو وتسجيل العملية.", "success");
     }
 
@@ -1004,8 +1015,9 @@
     function renderContactSettings() {
       if (!$('settings-whatsapp') || !$('settings-telegram')) return;
       const settings = contentCache.settings || {};
-      $('settings-whatsapp').value = String(settings.whatsappNumber || '201070441115');
-      $('settings-telegram').value = String(settings.telegramUsername || 'BasairAcademy0');
+      // Never display invented saved values when the document is empty.
+      $('settings-whatsapp').value = String(settings.whatsappNumber || '');
+      $('settings-telegram').value = String(settings.telegramUsername || '');
     }
 
     async function saveContactSettings(event) {
@@ -1025,15 +1037,22 @@
           telegramUsername,
           updatedAt: new Date().toISOString()
         };
-        const batch = writeBatch(db);
-        batch.set(publicRef, { settings }, { merge: true });
-        appendAuditToBatch(batch, "settings.update", "settings", "contact", {
-          whatsappConfigured: Boolean(whatsappNumber),
-          telegramConfigured: Boolean(telegramUsername)
+        const baseline = JSON.stringify(contentCache.settings || {});
+        const revision = authRevision;
+        await runTransaction(db, async tx => {
+          const snapshot = await tx.get(publicRef);
+          const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+          if (JSON.stringify(live.settings) !== baseline) throw new Error("عدّل مدير آخر إعدادات التواصل؛ حدّثها قبل الحفظ.");
+          if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحفظ.");
+          tx.set(publicRef, {settings}, {merge:true});
+          appendAuditToBatch(tx, "settings.update", "settings", "contact", {
+            whatsappConfigured: Boolean(whatsappNumber),
+            telegramConfigured: Boolean(telegramUsername)
+          });
         });
-        await batch.commit();
-        await Promise.all([loadContent(), loadAudit()]);
-        showStatus("تم حفظ إعدادات التواصل وتطبيقها على روابط الموقع الديناميكية.", "success");
+        try { await Promise.all([loadContent(), loadAudit()]); }
+        catch (error) { showStatus("حُفظت إعدادات التواصل لكن تعذر تحديث العرض.", "warning"); return; }
+        showStatus("تم حفظ إعدادات التواصل بنجاح.", "success");
       } catch (error) {
         console.error("Save contact settings failed:", error);
         showStatus(error && error.message ? error.message : "تعذر حفظ إعدادات التواصل.", "error");
