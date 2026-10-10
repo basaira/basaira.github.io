@@ -59,6 +59,7 @@ test('audit entries enforce actual actor and immutability',async()=>{
     actorUid:'admin1',actorEmail:'admin@example.invalid',createdAt:serverTimestamp()};
   const audit=await assertSucceeds(addDoc(collection(administrator,'admin_audit'),valid));
   await assertFails(addDoc(collection(administrator,'admin_audit'),{...valid,actorUid:'student'}));
+  await assertFails(addDoc(collection(administrator,'admin_audit'),{...valid,actorEmail:'spoof@example.invalid'}));
   await assertFails(addDoc(collection(student,'admin_audit'),{...valid,actorUid:'student'}));
   await assertFails(updateDoc(doc(administrator,'admin_audit',audit.id),{action:'video.delete'}));
   await assertFails(deleteDoc(doc(administrator,'admin_audit',audit.id)));
