@@ -277,6 +277,7 @@ jobs:
           
           const allResourceManifests=[],allResourceHashes=[],allFontHashes=[],allImageHashes=[],allGeometryHashes=[],allRenderHashes=[];
           const allMutationSamples=[],allLayoutSamples=[],allPendingSamples=[];
+          const acceptedRawCaptures=[];
           const allSelfDiffs=[],allSelfDiffElements=[],allSelfDiffColors=[];
           const networkRecords=[],runtimeRecords=[];
           
@@ -461,6 +462,13 @@ jobs:
           
           async function shotFromOpen(x,label){
             const png=await x.page.screenshot({fullPage:true,animations:'disabled',caret:'hide'});
+            const dir=path.join(OUT,'accepted-captures');
+            fs.mkdirSync(dir,{recursive:true});
+            const name=(x.viewport+'-'+label).replace(/[^a-zA-Z0-9._-]/g,'_')+'.png';
+            const dest=path.join(dir,name);
+            if(fs.existsSync(dest))throw new Error('DUPLICATE_ACCEPTED_CAPTURE_PATH '+dest);
+            fs.writeFileSync(dest,png);
+            acceptedRawCaptures.push({file:'accepted-captures/'+name,variant:x.variant,viewport:x.viewport,label,sha256:H(png),bytes:png.length,accepted:true});
             return{accepted:true,variant:x.variant,viewport:x.viewport,label,png,pngHash:H(png),snapshot:x.snapshot,hashes:x.hashes};
           }
           
@@ -643,6 +651,12 @@ jobs:
             records:networkRecords
           },null,2));
           
+          fs.writeFileSync(path.join(OUT,'folio-post-promotion-accepted-captures.json'),JSON.stringify({
+            count:acceptedRawCaptures.length,
+            files:acceptedRawCaptures,
+            pixelComparisons:allComparisons.length,
+            comparisonSummary:allComparisons.map(x=>({key:x.key,diffPixels:x.diffPixels,maxChannelDelta:x.maxChannelDelta,diffRatio:x.diffRatio,pixelIdentical:x.pixelIdentical}))
+          },null,2));
           fs.copyFileSync(path.join(OUT,'folio-quiet-window-browser-environment.json'),path.join(OUT,'folio-post-promotion-browser-environment.json'));
           fs.writeFileSync(path.join(OUT,'folio-post-promotion-browser-raw-hashes.json'),JSON.stringify({
             resourceHashes:allResourceHashes,
