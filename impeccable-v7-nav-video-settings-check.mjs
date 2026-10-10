@@ -39,7 +39,9 @@ ok(/function normalizeWhatsappNumber/.test(admin) && /function normalizeTelegram
 ok(/tx\.set\(publicRef, \{settings\}, \{merge:true\}\)/.test(admin), 'Contact settings are saved atomically in the protected public content document.');
 ok(/function applyPublicContactSettings\(settings\)[\s\S]*?data-contact-channel="whatsapp"[\s\S]*?data-contact-channel="telegram"/.test(app), 'Public WhatsApp and Telegram links consume saved settings dynamically.');
 ok(/appendAuditToBatch\(tx, "settings\.update"/.test(admin), 'Settings changes are transactionally written to the admin audit trail.');
-ok(/function saveText\(event\)[\s\S]*?runTransaction\(db[\s\S]*?tx\.set\(publicRef, \{ texts \}, \{ merge: true \}\)[\s\S]*?appendAuditToBatch\(tx/.test(admin), 'CMS text overrides prevent lost updates and remain transactionally audited.');
+ok(/function saveText\(event\)[\s\S]*?runTransaction\(db[\s\S]*?current !== baseline[\s\S]*?tx\.set\(publicRef, \{ texts \}, \{ mergeFields: \["texts"\] \}\)[\s\S]*?appendAuditToBatch\(tx/.test(admin)
+  && /function deleteText\(\)[\s\S]*?runTransaction\(db[\s\S]*?tx\.set\(publicRef, \{ texts \}, \{ mergeFields: \["texts"\] \}\)[\s\S]*?appendAuditToBatch\(tx/.test(admin),
+  'CMS text writes replace the top-level map, preserve concurrent edit checks, and audit both restoration paths.');
 ok(/function updateRequestStatus\(id, status, sourceCollection, expectedStatus\)[\s\S]*?\["new", "contacted", "pending", "accepted", "rejected"\][\s\S]*?runTransaction\(db[\s\S]*?tx\.update/.test(admin), 'Admin request-status changes are allow-listed, concurrency-safe, and audited.');
 
 // Protected stylesheet ordering remains intact.
