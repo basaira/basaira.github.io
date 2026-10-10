@@ -64,6 +64,23 @@ jobs:
           set -euo pipefail
           node --test tests/admin-policy.test.mjs
 
+      - name: Synthetic read-only Admin browser integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4179 --bind 127.0.0.1 > /tmp/basair-admin-test-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:4179/admin.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html > /dev/null
+          node tests/admin-browser-smoke.mjs
+          test -z "$(git status --porcelain)"
+
       - name: Firestore emulator synthetic security tests
         shell: bash
         run: |
