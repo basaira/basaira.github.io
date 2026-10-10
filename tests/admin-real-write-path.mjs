@@ -220,7 +220,7 @@ try{
     await updateDoc(doc(c.firestore(),'admin_roles','admin1'),{active:false});
   });
   await page.evaluate(()=>window.__resumeTx());
-  await page.locator('#admin-dashboard.hidden').waitFor();
+  await page.waitForFunction(()=>document.querySelector('#admin-dashboard')?.classList.contains('hidden'));
   assert.equal(await privateDomEmpty(),true,'revocation private DOM');
   await env.withSecurityRulesDisabled(async c=>{
     const privileged=c.firestore();
