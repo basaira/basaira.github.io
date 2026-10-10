@@ -12,6 +12,10 @@
       writeBatch,
       query,
       orderBy,
+      documentId,
+      startAfter,
+      runTransaction,
+      onSnapshot,
       limit
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
@@ -41,6 +45,26 @@
     let contentRegistry = [];
     let registryById = new Map();
     let auditCache = [];
+    let auditLoadState = "idle";
+    let authRevision = 0;
+    let unsubscribeAdminRole = null;
+    let requestDisplayLimit = 100;
+
+    function clearPrivateState() {
+      contentCache = { texts: {}, videos: [], settings: {} };
+      requestsCache = [];
+      auditCache = [];
+      auditLoadState = "idle";
+    }
+    function revokeLocalAdminSession(message) {
+      ++authRevision;
+      if (unsubscribeAdminRole) { unsubscribeAdminRole(); unsubscribeAdminRole = null; }
+      currentUser = null;
+      isAdmin = false;
+      clearPrivateState();
+      renderAuth();
+      if (message) showStatus(message, "error");
+    }
 
     const $ = (id) => document.getElementById(id);
 
@@ -194,7 +218,7 @@
     }
 
     function appendAuditToBatch(batch, action, targetType, targetId, details) {
-      if (!currentUser || !isAdmin) return;
+      if (!currentUser || !isAdmin) throw new Error("لا يمكن حفظ عملية إدارية دون صلاحية وتسجيل تدقيق.");
       batch.set(newAuditRef(), {
         action: String(action || "unknown").slice(0, 80),
         targetType: String(targetType || "unknown").slice(0, 40),
@@ -366,9 +390,12 @@
       if (!isAdmin) return;
 
       showStatus("جار تحديث البيانات...", "warning");
+      const revision = authRevision;
       try { await loadContentRegistry(); }
-      catch (error) { console.error("Content registry load failed:", error); }
+      catch (error) { console.error("Content registry load failed:", error); showStatus("تعذر تحميل فهرس المحتوى.", "error"); return; }
+      if (revision !== authRevision || !isAdmin) return;
       const results = await Promise.allSettled([loadContent(), loadRequests(), loadAudit()]);
+      if (revision !== authRevision || !isAdmin) return;
       const failed = results.filter((r) => r.status === "rejected");
       if (failed.length) {
         console.error("Admin data load errors:", failed.map((r) => r.reason));
@@ -458,12 +485,21 @@
     }
 
     async function loadAudit() {
+      const revision = authRevision;
+      auditLoadState = "loading";
+      renderAudit();
       try {
         const snap = await getDocs(query(collection(db, "admin_audit"), orderBy("createdAt", "desc"), limit(100)));
-        auditCache = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+        if (revision !== authRevision || !isAdmin) return;
+        auditCache = snap.docs.map(d => ({id: d.id, ...(d.data() || {})}));
+        auditLoadState = "success";
       } catch (error) {
+        if (revision !== authRevision || !isAdmin) return;
         auditCache = [];
-        if (error && error.code !== "permission-denied") console.error("Audit load failed:", error);
+        auditLoadState = error && error.code === "permission-denied" ? "permission-denied" : "network-failure";
+        renderAudit();
+        renderStats();
+        throw error;
       }
       renderAudit();
       renderStats();
@@ -481,7 +517,11 @@
       const box = $("audit-list");
       if (!box) return;
       box.textContent = "";
-      if (!auditCache.length) { box.innerHTML = '<div class="empty">لا توجد تغييرات مسجلة بعد.</div>'; return; }
+      if (auditLoadState === "loading") { box.textContent = "جار تحميل سجل التغييرات…"; return; }
+      if (auditLoadState === "permission-denied") { box.textContent = "رُفض الوصول إلى سجل التغييرات. راجع الصلاحيات."; return; }
+      if (auditLoadState === "network-failure") { box.textContent = "تعذر تحميل سجل التغييرات. أعد المحاولة."; return; }
+      if (auditLoadState === "idle") { box.textContent = "لم يُحمَّل سجل التغييرات بعد."; return; }
+      if (!auditCache.length) { box.textContent = "لا توجد تغييرات مسجلة بعد."; return; }
       auditCache.forEach((entry) => {
         const item = document.createElement("div");
         item.className = "item";
