@@ -17,8 +17,8 @@ const blobs={
     'firestore.rules':'ea30c6d8b74e428d783a58d9a8fd5681ef723d76'}
 };
 const pair=process.env.TEST_PAIR;
-const variants={A:['old','old'],B:['old','new'],C:['new','old'],D:['new','new']};
-assert.ok(Object.hasOwn(variants,pair),'TEST_PAIR must be A, B, C or D');
+const variants={A:['old','old'],B:['old','new'],C:['new','old'],D:['new','new'],E:['old','patched'],F:['new','patched']};
+assert.ok(Object.hasOwn(variants,pair),'TEST_PAIR must be A, B, C, D, E or F');
 const [clientKind,ruleKind]=variants[pair];
 const endpoint=process.env.FIRESTORE_EMULATOR_HOST;
 assert.match(endpoint||'',/^127\.0\.0\.1:\d+$/,'loopback Firestore Emulator required');
@@ -33,7 +33,13 @@ for(const kind of ['old','new'])for(const [path,expected] of Object.entries(blob
 assert.equal(git('rev-parse',`${OLD}:admin.html`).trim(),'8a57f75206a5088db783705208886b693caef2eb');
 assert.equal(git('rev-parse',`${NEW}:admin.html`).trim(),'8a57f75206a5088db783705208886b693caef2eb');
 const client=git('show',`${revision(clientKind)}:admin.js`);
-const rules=git('show',`${revision(ruleKind)}:firestore.rules`);
+const rules=ruleKind==='patched'?readFileSync('firestore.rules','utf8'):git('show',`${revision(ruleKind)}:firestore.rules`);
+if(ruleKind==='patched'){
+  assert.notEqual(rules,git('show',`${NEW}:firestore.rules`),'patched rules must differ from frozen candidate');
+  assert.equal(rules.replace("request.auth.token.get('email', '') is string\n        && data.actorEmail == request.auth.token.get('email', '')",
+    "data.actorEmail == (request.auth.token.email is string ? request.auth.token.email : '')"),
+    git('show',`${NEW}:firestore.rules`),'patch must change only optional audit email authorization');
+}
 const html=git('show',`${revision(clientKind)}:admin.html`);
 
 // The real Firebase Firestore SDK is bundled locally. Only the external Auth
@@ -44,7 +50,7 @@ const shim=[
   "import {initializeApp as app} from 'firebase/app';",
   "import * as f from 'firebase/firestore';",
   `export const initializeApp=()=>app({projectId:'${projectId}',apiKey:'synthetic',appId:'synthetic'});`,
-  `export function initializeFirestore(a,o){const db=f.initializeFirestore(a,o);f.connectFirestoreEmulator(db,'127.0.0.1',${port},{mockUserToken:window.__identity.email?{sub:window.__identity.uid,email:window.__identity.email}:{sub:window.__identity.uid}});return db}`,
+  `export function initializeFirestore(a,o){const db=f.initializeFirestore(a,o);const email=Object.hasOwn(window.__identity,'tokenEmail')?window.__identity.tokenEmail:window.__identity.email;f.connectFirestoreEmulator(db,'127.0.0.1',${port},{mockUserToken:email?{sub:window.__identity.uid,email}:{sub:window.__identity.uid}});return db}`,
   "export const {collection,doc,serverTimestamp,query,orderBy,documentId,startAfter,onSnapshot,limit}=f;",
   "export const getDoc=f.getDoc;export const getDocs=f.getDocs;",
   "async function pending(){if(window.__holdWrite){window.__holdWrite=false;window.__paused=true;await new Promise(resolve=>window.__resumeWrite=resolve);window.__paused=false}}",
@@ -90,7 +96,7 @@ async function browserFor(identity){
 async function status(page,type){
   await page.waitForFunction(t=>document.querySelector('#status')?.dataset.statusType===t,type,{timeout:20000});
 }
-async function action(page,click,kind,verify){
+async function action(page,click,kind,verify,actorUid='admin1',actorEmail='admin@example.invalid'){
   const before=await readAudits();
   const committed=await page.evaluate(()=>window.__commits||0);
   await click();
@@ -106,7 +112,8 @@ async function action(page,click,kind,verify){
   const after=await readAudits();
   assert.equal(after.length,before.length+1,`${pair} ${kind} audit atomicity`);
   assert.equal(after.filter(e=>e.action===kind).length,before.filter(e=>e.action===kind).length+1);
-  assert.equal(after.at(-1)?.actorUid,'admin1');
+  assert.equal(after.at(-1)?.actorUid,actorUid);
+  assert.equal(after.at(-1)?.actorEmail,actorEmail);
   await verify();
 }
 async function selectText(page,id){
@@ -148,6 +155,7 @@ try{
     const seed=c.firestore();
     await setDoc(doc(seed,'admin_roles','admin1'),{active:true});
     await setDoc(doc(seed,'admin_roles','adminNoEmail'),{active:true});
+    await setDoc(doc(seed,'admin_roles','adminTokenOnly'),{active:true});
     await setDoc(doc(seed,'admin_roles','inactive'),{active:false});
     await setDoc(doc(seed,'site_content','public'),{
       texts:{welcome:'Modified Welcome',title:'Modified Title',keep:'Preserved'},
@@ -156,6 +164,7 @@ try{
     });
     await setDoc(doc(seed,'enrollment_requests','email-lead'),{status:'new',fullName:'Synthetic Email Lead'});
     await setDoc(doc(seed,'enrollment_requests','noemail-lead'),{status:'new',fullName:'Synthetic No Email Lead'});
+    await setDoc(doc(seed,'enrollment_requests','tokenonly-lead'),{status:'new',fullName:'Synthetic Token Only Lead'});
   });
   browser=await chromium.launch({headless:true,args:['--disable-background-networking']});
   const guest=env.unauthenticatedContext().firestore();
@@ -168,7 +177,7 @@ try{
     await page.locator('#admin-dashboard:not(.hidden)').waitFor();
     await page.waitForFunction(()=>document.querySelector('#requests-list')?.textContent.includes('Synthetic Email Lead'));
     const initial=await readContent();
-    if(pair==='B'){
+    if(pair==='B'||pair==='E'){
       const before=await readAudits();
       await updateStatus(page,'Synthetic Email Lead','contacted');
       await status(page,'error');
@@ -294,11 +303,65 @@ try{
       assert.notEqual(ui.type,'error',JSON.stringify({ui,browserErrors}));
       assert.equal((await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data().handledBy,'adminNoEmail');
       assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before+1);
+      const statusAudit=(await getDocs(collection(noEmail,'admin_audit'))).docs.map(d=>d.data()).find(e=>e.action==='request.status' && e.actorUid==='adminNoEmail');
+      assert.equal(statusAudit?.actorEmail,'');
+      if(ruleKind==='patched'){
+        const initial=await readContent();
+        await selectText(second,'title');
+        await action(second,async()=>{
+          await second.locator('#text-value').fill('No-email updated title');
+          await second.locator('#text-form button[type=submit]').click();
+        },'text.update',async()=>assert.equal((await readContent()).texts.title,'No-email updated title'),'adminNoEmail','');
+        await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'site_content','public'),{'texts.welcome':'Modified Welcome'}));
+        await selectText(second,'welcome');
+        await action(second,async()=>{
+          await second.locator('#text-value').fill('Original Welcome');
+          await second.locator('#text-form button[type=submit]').click();
+        },'text.restore',async()=>{
+          assert.equal(Object.hasOwn((await readContent()).texts,'welcome'),clientKind==='old');
+          assert.deepEqual((await readContent()).videos,initial.videos);
+        },'adminNoEmail','');
+        await second.locator('.nav-btn[data-tab="videos"]').click();
+        const videosBefore=(await readContent()).videos.length;
+        await action(second,async()=>{
+          await second.locator('#video-title').fill('No-email video');
+          await second.locator('#video-url').fill('https://example.invalid/no-email-video');
+          await second.locator('#video-form button[type=submit]').click();
+        },'video.create',async()=>assert.equal((await readContent()).videos.length,videosBefore+1),'adminNoEmail','');
+        await second.locator('#videos-list .item').last().locator('button').first().click();
+        await action(second,async()=>{
+          await second.locator('#video-title').fill('No-email updated video');
+          await second.locator('#video-form button[type=submit]').click();
+        },'video.update',async()=>assert.equal((await readContent()).videos.at(-1).title,'No-email updated video'),'adminNoEmail','');
+        await action(second,()=>second.locator('#videos-list .item').last().locator('button').last().click(),
+          'video.delete',async()=>assert.equal((await readContent()).videos.length,videosBefore),'adminNoEmail','');
+        await action(second,async()=>{
+          await second.locator('.nav-btn[data-tab="settings"]').click();
+          await second.locator('#settings-whatsapp').fill('201222222222');
+          await second.locator('#contact-settings-form button[type=submit]').click();
+        },'settings.update',async()=>assert.equal((await readContent()).settings.whatsappNumber,'201222222222'),'adminNoEmail','');
+      }
     }
   }finally{await secondContext.close()}
+  if(pair==='F'){
+    const {page:tokenPage,context:tokenContext}=await browserFor({uid:'adminTokenOnly',email:null,
+      tokenEmail:'token@example.invalid',preauth:true});
+    try{
+      await tokenPage.locator('#admin-dashboard:not(.hidden)').waitFor();
+      await tokenPage.waitForFunction(()=>document.querySelector('#requests-list')?.textContent.includes('Synthetic Token Only Lead'));
+      const before=await readAudits();
+      await updateStatus(tokenPage,'Synthetic Token Only Lead','contacted');
+      await status(tokenPage,'error');
+      assert.equal((await readRequest('tokenonly-lead')).status,'new');
+      assert.equal((await readAudits()).length,before.length);
+      assert.notEqual(await tokenPage.locator('#status').getAttribute('data-status-type'),'success');
+      console.log(JSON.stringify({result:'PASS: expected denial',pair,case:'client email absent, token email present',
+        reason:'actual client actorEmail is empty; audit rule requires token email'}));
+    }finally{await tokenContext.close()}
+  }
   assert.deepEqual(unexpectedExternal,[],'any non-loopback Firebase endpoint or unexpected request aborts the test');
   console.log(JSON.stringify({result:'PASS',pair,client:clientKind,rules:ruleKind,
-    expectedEmailStatusDenial:pair==='B',emailAbsentAuditDenial:ruleKind==='new',
+    expectedEmailStatusDenial:pair==='B'||pair==='E',emailAbsentAuditDenial:ruleKind==='new',
     oldRestoreDefect:clientKind==='old',
     actualAdminHandlers:true,realFirestoreSDK:true,projectId}));
 }finally{await browser?.close();await env?.cleanup()}
