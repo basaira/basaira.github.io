@@ -256,11 +256,27 @@ try{
   const noEmail=env.authenticatedContext('adminNoEmail').firestore();
   const {page:second,context:secondContext}=await browserFor({uid:'adminNoEmail',email:null,preauth:true});
   try{
+    const browserErrors=[];
+    second.on('pageerror',error=>browserErrors.push(String(error)));
     await second.locator('#admin-dashboard:not(.hidden)').waitFor();
     await second.waitForFunction(()=>document.querySelector('#requests-list')?.textContent.includes('Synthetic No Email Lead'));
     const before=(await getDocs(collection(noEmail,'admin_audit'))).size;
     await updateStatus(second,'Synthetic No Email Lead','contacted');
-    await second.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('تم تحديث حالة الطلب'));
+    try{
+      await second.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('تم تحديث حالة الطلب') ||
+        document.querySelector('#status')?.dataset.statusType==='error',null,{timeout:15000});
+    }catch(error){
+      const ui=await second.locator('#status').evaluate(e=>({text:e.textContent,type:e.dataset.statusType}));
+      const request=(await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data();
+      const auditCount=(await getDocs(collection(noEmail,'admin_audit'))).size;
+      throw Error(`No-email Admin handler stalled: ${JSON.stringify({ui,request,auditCount,before,browserErrors})}`,{cause:error});
+    }
+    const ui=await second.locator('#status').evaluate(e=>({text:e.textContent,type:e.dataset.statusType}));
+    if(ui.type==='error'){
+      const request=(await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data();
+      const auditCount=(await getDocs(collection(noEmail,'admin_audit'))).size;
+      throw Error(`No-email Admin status denied: ${JSON.stringify({ui,request,auditCount,before,browserErrors})}`);
+    }
     assert.equal((await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data().handledBy,'adminNoEmail');
     assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before+1);
   }finally{await secondContext.close()}
