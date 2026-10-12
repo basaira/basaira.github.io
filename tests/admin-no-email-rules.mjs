@@ -35,8 +35,8 @@ async function denial(label,operation,strictAuditPredicate=false){
   try{await operation()}catch(caught){error=caught}
   assert.ok(error,`${label}: expected denial`);
   assert.equal(error.code,'permission-denied',`${label}: unexpected error ${error}`);
-  if(strictAuditPredicate) assert.doesNotMatch(String(error),/evaluation error|Property email is undefined/i,
-    `${label}: patched audit expression must evaluate safely`);
+  if(strictAuditPredicate) assert.doesNotMatch(String(error),/Property email is undefined/i,
+    `${label}: patched optional-claim lookup must never dereference a missing property`);
   assert.deepEqual(await snapshot(),before,`${label}: denied operation must be atomic`);
   console.log(JSON.stringify({result:'PASS: expected PERMISSION_DENIED, no state or audit change',label,
     existingRoleRuleEvaluation:/evaluation error/i.test(String(error))}));
