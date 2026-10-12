@@ -18,11 +18,17 @@ const audit=(uid,email='',changes={})=>({
   actorUid:uid,actorEmail:email,createdAt:serverTimestamp(),...changes
 });
 const privileged=async fn=>env.withSecurityRulesDisabled(async ctx=>fn(ctx.firestore()));
-const snapshot=()=>privileged(async db=>({
-  request:(await getDoc(doc(db,'enrollment_requests','lead'))).data(),
-  content:(await getDoc(doc(db,'site_content','public'))).data(),
-  audits:(await getDocs(collection(db,'admin_audit'))).size
-}));
+async function snapshot(){
+  let value;
+  await privileged(async db=>{
+    value={
+      request:(await getDoc(doc(db,'enrollment_requests','lead'))).data(),
+      content:(await getDoc(doc(db,'site_content','public'))).data(),
+      audits:(await getDocs(collection(db,'admin_audit'))).size
+    };
+  });
+  return value;
+}
 async function denial(label,operation){
   const before=await snapshot();
   let error;
