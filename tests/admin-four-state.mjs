@@ -243,7 +243,7 @@ try{
     });
     await assertFails(getDocs(collection(db,'enrollment_requests')));
     if(clientKind==='new'){
-      await page.locator('#admin-dashboard.hidden').waitFor();
+      await page.waitForFunction(()=>document.querySelector('#admin-dashboard')?.classList.contains('hidden'));
       assert.equal(await page.locator('#requests-list').textContent(),'');
     }else{
       assert.equal(await page.locator('#admin-dashboard').evaluate(e=>e.classList.contains('hidden')),false,
