@@ -1,0 +1,84 @@
+name: BASAIR Admin Four-State Compatibility Evidence
+
+on:
+  push:
+    branches:
+      - 'basair/admin-compatibility-evidence-v1'
+
+permissions:
+  contents: read
+
+jobs:
+  four-state-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact evidence commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js and Java
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Frozen source and evidence-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse aa7cdd9698914e212eef2956df0fbf62a06c94c0^{tree})" = 16f19f59acb2ab289f8f453bf8ea059caa1306b4
+          test "$(git rev-parse 5bc4e216a568a57b217187b4030f8208ad87fe31^{commit})" = 5bc4e216a568a57b217187b4030f8208ad87fe31
+          git merge-base --is-ancestor aa7cdd9698914e212eef2956df0fbf62a06c94c0 HEAD
+          git diff --name-only aa7cdd9698914e212eef2956df0fbf62a06c94c0 HEAD | while IFS= read -r path; do
+            case "$path" in
+              tests/admin-four-state.mjs|.github/workflows/admin-compatibility-evidence.yml|docs/admin-four-state-evidence.md) ;;
+              *) echo "Unexpected changed path: $path"; exit 1 ;;
+            esac
+          done
+          git diff --check aa7cdd9698914e212eef2956df0fbf62a06c94c0 HEAD
+          test -z "$(git status --porcelain)"
+
+      - name: Source and public regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          git diff --check
+          node --test tests/admin-policy.test.mjs
+          test -z "$(git status --porcelain)"
+
+      - name: Admin browser and rules regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 firebase@12.15.0 @firebase/rules-unit-testing@5.0.0
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4179 --bind 127.0.0.1 > /tmp/basair-compat-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:4179/admin.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html > /dev/null
+          node tests/admin-browser-smoke.mjs
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-compat-regression "node --test tests/admin-firestore-emulator.test.mjs"
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-write-path "node tests/admin-real-write-path.mjs"
+          for pair in A B C D; do
+            echo "Running isolated source pair $pair"
+            TEST_PAIR="$pair" npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project "demo-basair-compat-${pair,,}" "node tests/admin-four-state.mjs"
+          done
+          git diff --check
+          test -z "$(git status --porcelain)"
