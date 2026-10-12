@@ -112,8 +112,9 @@ async function action(page,click,kind,verify,actorUid='admin1',actorEmail='admin
   const after=await readAudits();
   assert.equal(after.length,before.length+1,`${pair} ${kind} audit atomicity`);
   assert.equal(after.filter(e=>e.action===kind).length,before.filter(e=>e.action===kind).length+1);
-  assert.equal(after.at(-1)?.actorUid,actorUid);
-  assert.equal(after.at(-1)?.actorEmail,actorEmail);
+  const actorEvents=after.filter(e=>e.actorUid===actorUid && e.action===kind);
+  assert.equal(actorEvents.length,before.filter(e=>e.actorUid===actorUid && e.action===kind).length+1);
+  assert.ok(actorEvents.every(e=>e.actorEmail===actorEmail),`${pair} ${kind} actorEmail`);
   await verify();
 }
 async function selectText(page,id){
