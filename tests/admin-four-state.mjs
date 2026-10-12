@@ -264,6 +264,7 @@ try{
   // The missing-email case distinguishes the old client's UID fallback from
   // its ordinary email attribution. It has its own active role and request.
   const noEmail=env.authenticatedContext('adminNoEmail').firestore();
+  db=noEmail; // The first Admin role was revoked above; use the active identity for independent reads.
   const {page:second,context:secondContext}=await browserFor({uid:'adminNoEmail',email:null,preauth:true});
   try{
     const browserErrors=[];
