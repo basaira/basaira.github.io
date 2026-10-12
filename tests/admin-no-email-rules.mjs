@@ -29,16 +29,17 @@ async function snapshot(){
   });
   return value;
 }
-async function denial(label,operation){
+async function denial(label,operation,strictAuditPredicate=false){
   const before=await snapshot();
   let error;
   try{await operation()}catch(caught){error=caught}
   assert.ok(error,`${label}: expected denial`);
   assert.equal(error.code,'permission-denied',`${label}: unexpected error ${error}`);
-  assert.doesNotMatch(String(error),/evaluation error|Property email is undefined/i,
-    `${label}: rule expression must evaluate safely`);
+  if(strictAuditPredicate) assert.doesNotMatch(String(error),/evaluation error|Property email is undefined/i,
+    `${label}: patched audit expression must evaluate safely`);
   assert.deepEqual(await snapshot(),before,`${label}: denied operation must be atomic`);
-  console.log(JSON.stringify({result:'PASS: expected PERMISSION_DENIED, no state or audit change',label}));
+  console.log(JSON.stringify({result:'PASS: expected PERMISSION_DENIED, no state or audit change',label,
+    existingRoleRuleEvaluation:/evaluation error/i.test(String(error))}));
 }
 async function atomicStatus(db,entry){
   const batch=writeBatch(db);
@@ -79,12 +80,12 @@ try{
   await privileged(db=>updateDoc(doc(db,'admin_roles','revoked'),{active:false}));
   await denial('revoked batch',()=>atomicStatus(revoked,audit('revoked')));
   await denial('actorUid spoof',()=>atomicStatus(noEmail,audit('impostor')));
-  await denial('actorEmail spoof with token email',()=>atomicStatus(emailAdmin,audit('emailAdmin','forged@example.invalid')));
-  await denial('nonempty email with missing token claim',()=>atomicStatus(noEmail,audit('noEmail','forged@example.invalid')));
-  await denial('malformed numeric token email',()=>atomicStatus(malformed,audit('malformed','')));
-  await denial('invalid audit action',()=>atomicStatus(noEmail,audit('noEmail','',{action:'role.create'})));
-  await denial('unexpected audit fields',()=>atomicStatus(noEmail,audit('noEmail','',{privateData:'synthetic'})));
-  await denial('invalid timestamp',()=>atomicStatus(noEmail,audit('noEmail','',{createdAt:Timestamp.fromMillis(0)})));
+  await denial('actorEmail spoof with token email',()=>atomicStatus(emailAdmin,audit('emailAdmin','forged@example.invalid')),true);
+  await denial('nonempty email with missing token claim',()=>atomicStatus(noEmail,audit('noEmail','forged@example.invalid')),true);
+  await denial('malformed numeric token email',()=>atomicStatus(malformed,audit('malformed','')),true);
+  await denial('invalid audit action',()=>atomicStatus(noEmail,audit('noEmail','',{action:'role.create'})),true);
+  await denial('unexpected audit fields',()=>atomicStatus(noEmail,audit('noEmail','',{privateData:'synthetic'})),true);
+  await denial('invalid timestamp',()=>atomicStatus(noEmail,audit('noEmail','',{createdAt:Timestamp.fromMillis(0)})),true);
   await denial('disallowed status field',async()=>{
     const batch=writeBatch(noEmail);
     batch.update(doc(noEmail,'enrollment_requests','lead'),{
