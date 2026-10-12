@@ -314,7 +314,11 @@ try{
           await second.locator('#text-value').fill('No-email updated title');
           await second.locator('#text-form button[type=submit]').click();
         },'text.update',async()=>assert.equal((await readContent()).texts.title,'No-email updated title'),'adminNoEmail','');
-        await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'site_content','public'),{'texts.welcome':'Modified Welcome'}));
+        await selectText(second,'welcome');
+        await action(second,async()=>{
+          await second.locator('#text-value').fill('Modified Welcome');
+          await second.locator('#text-form button[type=submit]').click();
+        },'text.update',async()=>assert.equal((await readContent()).texts.welcome,'Modified Welcome'),'adminNoEmail','');
         await selectText(second,'welcome');
         await action(second,async()=>{
           await second.locator('#text-value').fill('Original Welcome');
