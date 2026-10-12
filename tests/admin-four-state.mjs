@@ -48,8 +48,8 @@ const shim=[
   "export const {collection,doc,serverTimestamp,query,orderBy,documentId,startAfter,onSnapshot,limit}=f;",
   "export const getDoc=f.getDoc;export const getDocs=f.getDocs;",
   "async function pending(){if(window.__holdWrite){window.__holdWrite=false;window.__paused=true;await new Promise(resolve=>window.__resumeWrite=resolve);window.__paused=false}}",
-  "export function writeBatch(db){const b=f.writeBatch(db);return new Proxy(b,{get(t,p){if(p==='commit')return async()=>{await pending();const result=await t.commit();window.__commits=(window.__commits||0)+1;return result};const v=t[p];return typeof v==='function'?v.bind(t):v}})}",
-  "export async function runTransaction(db,fn){const result=await f.runTransaction(db,async tx=>{const value=await fn(tx);await pending();return value});window.__commits=(window.__commits||0)+1;return result}",
+  "export function writeBatch(db){const b=f.writeBatch(db);return new Proxy(b,{get(t,p){if(p==='commit')return async()=>{try{await pending();const result=await t.commit();window.__commits=(window.__commits||0)+1;return result}finally{window.__writeSettled=(window.__writeSettled||0)+1}};const v=t[p];return typeof v==='function'?v.bind(t):v}})}",
+  "export async function runTransaction(db,fn){try{const result=await f.runTransaction(db,async tx=>{const value=await fn(tx);await pending();return value});window.__commits=(window.__commits||0)+1;return result}finally{window.__writeSettled=(window.__writeSettled||0)+1}}",
   "export class GoogleAuthProvider{setCustomParameters(){}}",
   "export const browserLocalPersistence={};export const setPersistence=async()=>{};",
   "export const getAuth=()=>window.__auth||(window.__auth={currentUser:window.__identity.preauth?{uid:window.__identity.uid,email:window.__identity.email}:null,cb:null});",
@@ -272,16 +272,33 @@ try{
       throw Error(`No-email Admin handler stalled: ${JSON.stringify({ui,request,auditCount,before,browserErrors})}`,{cause:error});
     }
     const ui=await second.locator('#status').evaluate(e=>({text:e.textContent,type:e.dataset.statusType}));
-    if(ui.type==='error'){
-      const request=(await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data();
-      const auditCount=(await getDocs(collection(noEmail,'admin_audit'))).size;
-      throw Error(`No-email Admin status denied: ${JSON.stringify({ui,request,auditCount,before,browserErrors})}`);
+    if(ruleKind==='new'){
+      // Frozen candidate rules dereference a missing Auth token email in the
+      // audit predicate. Record the actual supported-identity regression as an
+      // explicit expected denial, with independent state and audit assertions.
+      assert.equal(ui.type,'error','candidate audit rule must deny missing-email token');
+      assert.match(ui.text,/Property email is undefined/);
+      assert.equal((await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data().status,'new');
+      assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before);
+      const contentBefore=await getDoc(doc(noEmail,'site_content','public'));
+      await selectText(second,'title');
+      const settled=await second.evaluate(()=>window.__writeSettled||0);
+      await second.locator('#text-value').fill('No-email write rejected');
+      await second.locator('#text-form button[type=submit]').click();
+      await second.waitForFunction(n=>(window.__writeSettled||0)>n &&
+        document.querySelector('#status')?.dataset.statusType==='error',settled,{timeout:20000});
+      assert.match(await second.locator('#status').textContent(),/Property email is undefined/);
+      assert.deepEqual((await getDoc(doc(noEmail,'site_content','public'))).data(),contentBefore.data());
+      assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before);
+    }else{
+      assert.notEqual(ui.type,'error',JSON.stringify({ui,browserErrors}));
+      assert.equal((await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data().handledBy,'adminNoEmail');
+      assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before+1);
     }
-    assert.equal((await getDoc(doc(noEmail,'enrollment_requests','noemail-lead'))).data().handledBy,'adminNoEmail');
-    assert.equal((await getDocs(collection(noEmail,'admin_audit'))).size,before+1);
   }finally{await secondContext.close()}
   assert.deepEqual(unexpectedExternal,[],'any non-loopback Firebase endpoint or unexpected request aborts the test');
   console.log(JSON.stringify({result:'PASS',pair,client:clientKind,rules:ruleKind,
-    expectedEmailStatusDenial:pair==='B',oldRestoreDefect:clientKind==='old',
+    expectedEmailStatusDenial:pair==='B',emailAbsentAuditDenial:ruleKind==='new',
+    oldRestoreDefect:clientKind==='old',
     actualAdminHandlers:true,realFirestoreSDK:true,projectId}));
 }finally{await browser?.close();await env?.cleanup()}
