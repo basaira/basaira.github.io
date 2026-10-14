@@ -213,8 +213,11 @@ try{
   await page.waitForFunction(()=>document.querySelector('#status')?.dataset.statusType==='error');
   assert.equal(await deniedCard.locator('.pill').textContent(),oldPill,'rejected write restores prior status label');
   assert.equal(await deniedCard.locator('select.request-status').inputValue(),'contacted','rejected write restores select value');
-  assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'contacted');
-  assert.equal((await audits()).length,auditBeforeDenied,'rejected write adds no audit record');
+  await env.withSecurityRulesDisabled(async c=>{
+    const privileged=c.firestore();
+    assert.equal((await getDoc(doc(privileged,'enrollment_requests','synthetic-lead'))).data().status,'contacted');
+    assert.equal((await getDocs(collection(privileged,'admin_audit'))).size,auditBeforeDenied,'rejected write adds no audit record');
+  });
   assert.equal(await page.locator('#request-total-count').textContent(),'1008','rejected write leaves total unchanged');
   assert.equal(await page.locator('#request-new-count').textContent(),'202','rejected write leaves new count unchanged');
   assert.equal(await page.locator('#request-filtered-count').textContent(),'1','rejected write leaves filtered count unchanged');
