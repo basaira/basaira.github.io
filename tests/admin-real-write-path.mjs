@@ -15,10 +15,11 @@ const source=[
   "import * as f from 'firebase/firestore';",
   "export const initializeApp=()=>app({projectId:'"+projectId+"',apiKey:'synthetic',appId:'synthetic'});",
   "export function initializeFirestore(a,o){const db=f.initializeFirestore(a,o);f.connectFirestoreEmulator(db,'127.0.0.1',"+port+",{mockUserToken:{sub:window.__uid||'admin1',email:window.__email||'admin@example.invalid'}});return db}",
-  "export const {collection,doc,serverTimestamp,writeBatch,query,orderBy,documentId,startAfter,onSnapshot,limit}=f;",
+  "export const {collection,doc,serverTimestamp,writeBatch,query,orderBy,documentId,startAfter,limit}=f;",
+  "export function onSnapshot(ref,next,error){return f.onSnapshot(ref,snapshot=>{if(window.__holdAdminRoleListener&&ref.path==='admin_roles/'+(window.__uid||'admin1')){if(!snapshot.exists()||snapshot.data().active!==true)window.__suppressedRoleRevocation=true;return}next(snapshot)},error)}",
   "export async function getDoc(ref){if(window.__failRefresh){window.__failRefresh=false;throw Error('synthetic refresh failure')}return f.getDoc(ref)}",
   "export async function getDocs(q){const path=q._query?.path?.canonicalString?.()||'';if(path.includes('requests'))window.__requestReads=(window.__requestReads||0)+1;if(window.__failAssessmentRead&&path.includes('assessment_requests')){window.__failAssessmentRead=false;throw Object.assign(Error('synthetic permission denied'),{code:'permission-denied'})}return f.getDocs(q)}",
-  "export async function runTransaction(db,fn){if(window.__failPermissionDenied){window.__failPermissionDenied=false;throw Object.assign(Error('Missing or insufficient permissions.'),{code:'permission-denied'})}if(window.__failWrite)throw Object.assign(Error('synthetic network failure'),{code:'unavailable'});const result=await f.runTransaction(db,async tx=>{window.__txAttempts=(window.__txAttempts||0)+1;const value=await fn(tx);if(window.__holdTransactionOnce){window.__holdTransactionOnce=false;window.__txPaused=true;await new Promise(resolve=>window.__resumeTx=resolve);window.__txPaused=false}return value});window.__txDone=(window.__txDone||0)+1;if(window.__failAfterCommit)window.__failRefresh=true;return result}",
+  "export async function runTransaction(db,fn){if(window.__failWrite)throw Object.assign(Error('synthetic network failure'),{code:'unavailable'});const result=await f.runTransaction(db,async tx=>{window.__txAttempts=(window.__txAttempts||0)+1;const value=await fn(tx);if(window.__holdTransactionOnce){window.__holdTransactionOnce=false;window.__txPaused=true;await new Promise(resolve=>window.__resumeTx=resolve);window.__txPaused=false}return value});window.__txDone=(window.__txDone||0)+1;if(window.__failAfterCommit)window.__failRefresh=true;return result}",
   "export class GoogleAuthProvider{setCustomParameters(){}}",
   "export const browserLocalPersistence={};export const setPersistence=async()=>{};",
   "export const getAuth=()=>window.__auth||(window.__auth={currentUser:null,cb:null});",
@@ -204,7 +205,9 @@ try{
   const deniedCard=page.locator('#requests-list .item').filter({hasText:'Synthetic Student'});
   const oldPill=await deniedCard.locator('.pill').textContent();
   const auditBeforeDenied=(await audits()).length;
-  await page.evaluate(()=>window.__failPermissionDenied=true);
+  await page.evaluate(()=>window.__holdAdminRoleListener=true);
+  await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'admin_roles','admin1'),{active:false}));
+  await page.waitForFunction(()=>window.__suppressedRoleRevocation===true);
   await deniedCard.locator('select.request-status').selectOption('accepted');
   await deniedCard.locator('button.ok').click();
   await page.waitForFunction(()=>document.querySelector('#status')?.dataset.statusType==='error');
@@ -215,6 +218,8 @@ try{
   assert.equal(await page.locator('#request-total-count').textContent(),'1008','rejected write leaves total unchanged');
   assert.equal(await page.locator('#request-new-count').textContent(),'202','rejected write leaves new count unchanged');
   assert.equal(await page.locator('#request-filtered-count').textContent(),'1','rejected write leaves filtered count unchanged');
+  await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'admin_roles','admin1'),{active:true}));
+  await page.evaluate(()=>window.__holdAdminRoleListener=false);
 
   // A fully loaded empty pair of collections is a verified zero, distinct from a failed load.
   await env.withSecurityRulesDisabled(async c=>{
