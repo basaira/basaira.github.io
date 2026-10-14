@@ -17,8 +17,8 @@ const source=[
   "export function initializeFirestore(a,o){const db=f.initializeFirestore(a,o);f.connectFirestoreEmulator(db,'127.0.0.1',"+port+",{mockUserToken:{sub:window.__uid||'admin1',email:window.__email||'admin@example.invalid'}});return db}",
   "export const {collection,doc,serverTimestamp,writeBatch,query,orderBy,documentId,startAfter,onSnapshot,limit}=f;",
   "export async function getDoc(ref){if(window.__failRefresh){window.__failRefresh=false;throw Error('synthetic refresh failure')}return f.getDoc(ref)}",
-  "export async function getDocs(q){if(q._query?.path?.canonicalString?.().includes('requests'))window.__requestReads=(window.__requestReads||0)+1;return f.getDocs(q)}",
-  "export async function runTransaction(db,fn){if(window.__failWrite)throw Object.assign(Error('synthetic network failure'),{code:'unavailable'});const result=await f.runTransaction(db,async tx=>{window.__txAttempts=(window.__txAttempts||0)+1;const value=await fn(tx);if(window.__holdTransactionOnce){window.__holdTransactionOnce=false;window.__txPaused=true;await new Promise(resolve=>window.__resumeTx=resolve);window.__txPaused=false}return value});window.__txDone=(window.__txDone||0)+1;if(window.__failAfterCommit)window.__failRefresh=true;return result}",
+  "export async function getDocs(q){const path=q._query?.path?.canonicalString?.()||'';if(path.includes('requests'))window.__requestReads=(window.__requestReads||0)+1;if(window.__failAssessmentRead&&path.includes('assessment_requests')){window.__failAssessmentRead=false;throw Object.assign(Error('synthetic permission denied'),{code:'permission-denied'})}return f.getDocs(q)}",
+  "export async function runTransaction(db,fn){if(window.__failPermissionDenied){window.__failPermissionDenied=false;throw Object.assign(Error('Missing or insufficient permissions.'),{code:'permission-denied'})}if(window.__failWrite)throw Object.assign(Error('synthetic network failure'),{code:'unavailable'});const result=await f.runTransaction(db,async tx=>{window.__txAttempts=(window.__txAttempts||0)+1;const value=await fn(tx);if(window.__holdTransactionOnce){window.__holdTransactionOnce=false;window.__txPaused=true;await new Promise(resolve=>window.__resumeTx=resolve);window.__txPaused=false}return value});window.__txDone=(window.__txDone||0)+1;if(window.__failAfterCommit)window.__failRefresh=true;return result}",
   "export class GoogleAuthProvider{setCustomParameters(){}}",
   "export const browserLocalPersistence={};export const setPersistence=async()=>{};",
   "export const getAuth=()=>window.__auth||(window.__auth={currentUser:null,cb:null});",
@@ -57,7 +57,10 @@ async function login(){
   await page.locator('#admin-password').fill('synthetic-password');
   await page.locator('#email-login-btn').click();
   await page.locator('#admin-dashboard:not(.hidden)').waitFor();
-  await page.waitForFunction(()=>document.querySelector('#requests-list')?.textContent.includes('Synthetic Student'));
+  await page.waitForFunction(()=>document.querySelector('#request-counts')?.dataset.state==='complete');
+}
+async function waitCounter(id,value){
+  await page.waitForFunction(([selector,expected])=>document.querySelector(selector)?.textContent===expected,[id,value]);
 }
 async function privateDomEmpty(){
   return page.evaluate(()=>['requests-list','audit-list','texts-list','videos-list','text-id','text-value',
@@ -81,10 +84,15 @@ try{
     });
     await setDoc(doc(seed,'enrollment_requests','synthetic-lead'),
       {status:'new',fullName:'Synthetic Student',email:'synthetic@example.invalid',submissionDate:'2026-10-10T00:00:00Z'});
-    const batch=writeBatch(seed);
-    for(let i=0;i<205;i++)batch.set(doc(seed,'enrollment_requests','synthetic-'+String(i).padStart(4,'0')),
-      {status:'new',fullName:'Fixture '+i});
-    await batch.commit();
+    const statuses=['new','contacted','pending','accepted','rejected'];
+    for(let offset=0;offset<1002;offset+=450){
+      const batch=writeBatch(seed);
+      for(let i=offset;i<Math.min(offset+450,1002);i++)batch.set(doc(seed,'enrollment_requests','synthetic-'+String(i).padStart(4,'0')),
+        {status:statuses[i%statuses.length],fullName:i<2?'Counter Needle':'Large fixture '+i});
+      await batch.commit();
+    }
+    for(const status of statuses)await setDoc(doc(seed,'assessment_requests','assessment-'+status),
+      {status,fullName:'Assessment '+status});
   });
   browser=await chromium.launch({headless:true,args:['--disable-background-networking']});
   context=await browser.newContext({locale:'ar-EG'});
@@ -108,8 +116,44 @@ try{
   await login();
   const requestLoadMs=Date.now()-requestLoadStarted;
   const requestReads=await page.evaluate(()=>window.__requestReads||0);
+  await page.locator('.nav-btn[data-tab="requests"]').click();
   assert.ok(requestReads>=3,'both server pages plus assessment read before first render');
   assert.equal(await page.locator('#requests-list .item').count(),100,'only first 100 displayed');
+  assert.equal(await page.locator('#badge-requests').textContent(),'1008','sidebar badge is total across both collections');
+  assert.equal(await page.locator('#stat-requests').textContent(),'1008','overview is total across both collections');
+  assert.equal(await page.locator('#overview-new-requests').textContent(),'203','new-only count is separate');
+  assert.equal(await page.locator('#request-total-count').textContent(),'1008','all loaded records counted once');
+  assert.equal(await page.locator('#request-new-count').textContent(),'203','new-only count matches mixed statuses');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'1008','initial filter matches all loaded requests');
+
+  await page.locator('#request-search').fill('Counter Needle');
+  await waitCounter('#request-filtered-count','2');
+  await page.locator('#request-status-filter').selectOption('new');
+  await waitCounter('#request-filtered-count','1');
+  assert.equal(await page.locator('#badge-requests').textContent(),'1008','filters never alter sidebar total');
+  await page.locator('#request-status-filter').selectOption('all');
+  await waitCounter('#request-filtered-count','2');
+  await page.locator('#request-search').fill('no matching synthetic record');
+  await waitCounter('#request-filtered-count','0');
+  assert.equal(await page.locator('#badge-requests').textContent(),'1008','zero search results do not replace total');
+  await page.locator('#request-search').fill('');
+  await page.locator('#request-status-filter').selectOption('contacted');
+  await waitCounter('#request-filtered-count','202');
+  await page.locator('#request-status-filter').selectOption('all');
+
+  // A one-collection read failure must not present a zero or partial total.
+  await page.evaluate(()=>window.__failAssessmentRead=true);
+  await page.locator('#refresh-requests-btn').click();
+  await page.waitForFunction(()=>document.querySelector('#request-counts')?.dataset.state==='partial');
+  assert.equal(await page.locator('#request-total-count').textContent(),'غير مكتمل');
+  assert.equal(await page.locator('#request-new-count').textContent(),'غير مكتمل');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'غير مكتمل');
+  assert.equal(await page.locator('#badge-requests').textContent(),'غير مكتمل');
+  assert.match(await page.locator('#requests-list').textContent(),/غير مكتملة/);
+  await page.locator('#refresh-requests-btn').click();
+  await page.waitForFunction(()=>document.querySelector('#request-counts')?.dataset.state==='complete');
+  assert.equal(await page.locator('#request-total-count').textContent(),'1008','successful refresh restores complete total');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'1008','successful refresh restores matching count');
   const initial=await content();
   await selectText('welcome');
   await action(async()=>{
@@ -134,10 +178,51 @@ try{
   },'تم حفظ النص','text.update',async()=>assert.equal((await content()).texts.title,'Updated Title'));
   await action(async()=>{
     await page.locator('.nav-btn[data-tab="requests"]').click();
-    await page.locator('#requests-list .item select.request-status').first().selectOption('contacted');
-    await page.locator('#requests-list .item button.ok').first().click();
+    await page.locator('#request-search').fill('Synthetic Student');
+    const card=page.locator('#requests-list .item').filter({hasText:'Synthetic Student'});
+    await card.locator('select.request-status').selectOption('contacted');
+    await card.locator('button.ok').click();
   },'تم تحديث حالة الطلب','request.status',async()=>
     assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'contacted'));
+  assert.equal(await page.locator('#badge-requests').textContent(),'1008','status update preserves total');
+  assert.equal(await page.locator('#request-new-count').textContent(),'202','status update removes one from new count');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'1','status update refreshes active search count');
+
+  // A permission-denied transaction response rolls back the optimistic row UI and leaves counts unchanged.
+  const deniedCard=page.locator('#requests-list .item').filter({hasText:'Synthetic Student'});
+  const oldPill=await deniedCard.locator('.pill').textContent();
+  const auditBeforeDenied=(await audits()).length;
+  await page.evaluate(()=>window.__failPermissionDenied=true);
+  await deniedCard.locator('select.request-status').selectOption('accepted');
+  await deniedCard.locator('button.ok').click();
+  await page.waitForFunction(()=>document.querySelector('#status')?.dataset.statusType==='error');
+  assert.equal(await deniedCard.locator('.pill').textContent(),oldPill,'rejected write restores prior status label');
+  assert.equal(await deniedCard.locator('select.request-status').inputValue(),'contacted','rejected write restores select value');
+  assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'contacted');
+  assert.equal((await audits()).length,auditBeforeDenied,'rejected write adds no audit record');
+  assert.equal(await page.locator('#request-total-count').textContent(),'1008','rejected write leaves total unchanged');
+  assert.equal(await page.locator('#request-new-count').textContent(),'202','rejected write leaves new count unchanged');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'1','rejected write leaves filtered count unchanged');
+
+  // A fully loaded empty pair of collections is a verified zero, distinct from a failed load.
+  await env.withSecurityRulesDisabled(async c=>{
+    const privileged=c.firestore();
+    for(const name of ['enrollment_requests','assessment_requests']){
+      const docs=(await getDocs(collection(privileged,name))).docs;
+      for(let offset=0;offset<docs.length;offset+=400){
+        const batch=writeBatch(privileged);
+        docs.slice(offset,offset+400).forEach(snapshot=>batch.delete(snapshot.ref));
+        await batch.commit();
+      }
+    }
+  });
+  await page.locator('#refresh-requests-btn').click();
+  await page.waitForFunction(()=>document.querySelector('#request-counts')?.dataset.state==='complete');
+  assert.equal(await page.locator('#badge-requests').textContent(),'0','empty collections display a verified zero total');
+  assert.equal(await page.locator('#request-total-count').textContent(),'0');
+  assert.equal(await page.locator('#request-new-count').textContent(),'0');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'0');
+  assert.match(await page.locator('#requests-list').textContent(),/لا توجد طلبات مطابقة/);
   await action(async()=>{
     await page.locator('.nav-btn[data-tab="videos"]').click();
     await page.locator('#video-title').fill('Created synthetic');
@@ -234,7 +319,9 @@ try{
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({result:'PASS',actualHandlers:true,realEmulatorTransactions:true,
     auditEvents:finalAuditCount,privateDomCleared:true,networkFailureDenied:true,
-    pagination:{syntheticEnrollmentRecords:206,serverReadsBeforeFirst100:requestReads,
+    requestCounters:{syntheticRecords:1008,initialTotal:1008,initialNew:203,searchMatches:2,combinedMatches:1,
+      permissionDeniedRollback:true,partialLoadMarkedIncomplete:true,verifiedEmptyTotal:0},
+    pagination:{syntheticEnrollmentRecords:1003,serverReadsBeforeFirst100:requestReads,
       initialSignInAndLoadMs:requestLoadMs,initialRenderedRows:100}}));
 }finally{
   await context?.close();await browser?.close();await env?.cleanup();

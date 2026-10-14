@@ -47,6 +47,7 @@
     let registryById = new Map();
     let auditCache = [];
     let auditLoadState = "idle";
+    let requestLoadState = "idle";
     let authRevision = 0;
     let unsubscribeAdminRole = null;
     let requestDisplayLimit = 100;
@@ -54,6 +55,7 @@
     function clearPrivateState() {
       contentCache = { texts: {}, videos: [], settings: {} };
       requestsCache = [];
+      requestLoadState = "idle";
       auditCache = [];
       auditLoadState = "idle";
       requestDisplayLimit = 100;
@@ -68,12 +70,15 @@
       for (const id of ["text-original-preview", "text-section-readonly", "text-lang-readonly",
         "text-results-count", "stat-requests", "stat-texts", "stat-videos", "stat-registry",
         "badge-requests", "badge-texts", "badge-videos", "badge-audit",
+        "request-total-count", "request-new-count", "request-filtered-count", "request-count-state",
         "overview-cap-requests", "overview-cap-settings", "overview-cap-texts",
         "overview-cap-videos", "overview-edited-texts", "overview-new-requests",
         "overview-settings-state", "overview-audit-count"]) {
         const element = document.getElementById(id);
         if (element) element.textContent = "";
       }
+      const requestCounts = document.getElementById("request-counts");
+      if (requestCounts) requestCounts.dataset.state = "idle";
       for (const id of ["admin-email", "admin-password"]) {
         const element = document.getElementById(id);
         if (element) element.value = "";
@@ -484,13 +489,22 @@
 
     async function loadRequests() {
       const revision = authRevision;
+      requestLoadState = "loading";
+      requestsCache = [];
+      renderStats();
+      renderRequests();
       const [legacy, assessment] = await Promise.allSettled([
         loadRequestCollection("enrollment_requests"),
         loadRequestCollection("assessment_requests")
       ]);
-      if (legacy.status === "rejected") throw legacy.reason;
-      if (assessment.status === "rejected") throw assessment.reason;
       if (revision !== authRevision || !isAdmin) return;
+      if (legacy.status === "rejected" || assessment.status === "rejected") {
+        requestLoadState = legacy.status === "fulfilled" || assessment.status === "fulfilled" ? "partial" : "failed";
+        requestsCache = [];
+        renderStats();
+        renderRequests();
+        throw legacy.status === "rejected" ? legacy.reason : assessment.reason;
+      }
 
       const normalizeRequest = (d, sourceCollection) => {
         const data = d.data() || {};
@@ -505,6 +519,7 @@
         ...legacy.value.map(d => normalizeRequest(d, "enrollment_requests")),
         ...assessment.value.map(d => normalizeRequest(d, "assessment_requests"))
       ]);
+      requestLoadState = "complete";
       requestDisplayLimit = 100;
       renderStats();
       renderRequests();
@@ -562,45 +577,51 @@
 
     function renderStats() {
       const editedCount = Object.keys(contentCache.texts || {}).length;
-      const requestsCount = requestsCache.length;
-      const newRequestsCount = requestsCache.filter((r) => (r.status || "new") === "new").length;
+      const requestsComplete = requestLoadState === "complete";
+      const requestsCount = requestsComplete ? requestsCache.length : null;
+      const newRequestsCount = requestsComplete ? requestsCache.filter((r) => (r.status || "new") === "new").length : null;
+      const requestCountPlaceholder = requestLoadState === "loading" ? "جارٍ التحميل…" : requestLoadState === "idle" ? "—" : "غير مكتمل";
       const videosCount = (contentCache.videos || []).length;
       const settings = contentCache.settings || {};
       const configuredChannels = [Boolean(settings.whatsappNumber), Boolean(settings.telegramUsername)].filter(Boolean).length;
 
-      $("stat-requests").textContent = String(requestsCount);
+      $("stat-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       $("stat-texts").textContent = String(editedCount);
       $("stat-videos").textContent = String(videosCount);
       if ($("stat-registry")) $("stat-registry").textContent = String(contentRegistry.length);
 
-      $("badge-requests").textContent = String(newRequestsCount);
+      $("badge-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       $("badge-texts").textContent = String(editedCount);
       $("badge-videos").textContent = String(videosCount);
       if ($("badge-audit")) $("badge-audit").textContent = String(auditCache.length);
 
       if ($("overview-cap-texts")) $("overview-cap-texts").textContent = String(contentRegistry.length);
-      if ($("overview-cap-requests")) $("overview-cap-requests").textContent = String(requestsCount);
+      if ($("overview-cap-requests")) $("overview-cap-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       if ($("overview-cap-videos")) $("overview-cap-videos").textContent = String(videosCount);
       if ($("overview-cap-settings")) $("overview-cap-settings").textContent = String(configuredChannels) + '/2';
       if ($("overview-edited-texts")) $("overview-edited-texts").textContent = String(editedCount);
-      if ($("overview-new-requests")) $("overview-new-requests").textContent = String(newRequestsCount);
+      if ($("overview-new-requests")) $("overview-new-requests").textContent = requestsComplete ? String(newRequestsCount) : requestCountPlaceholder;
       if ($("overview-settings-state")) $("overview-settings-state").textContent = String(configuredChannels) + '/2';
       if ($("overview-audit-count")) $("overview-audit-count").textContent = String(auditCache.length);
     }
 
     function renderRequests() {
       const box = $("requests-list");
-      const q = ($("request-search").value || "").trim().toLowerCase();
-      const status = $("request-status-filter").value;
-
+      if (!box) return;
+      renderRequestCounts();
       box.textContent = "";
-
-      const rows = requestsCache.filter((r) => {
-        const rs = r.status || "new";
-        const hay = [r.fullName, r.phone, r.whatsapp, r.email, r.country, r.track, r.persona, r.locale, r.message, r.goal, rs].join(" ").toLowerCase();
-
-        return (status === "all" || rs === status) && (!q || hay.includes(q));
-      });
+      if (requestLoadState !== "complete") {
+        const message = requestLoadState === "loading" ? "جار تحميل الطلبات من المصدرين…" :
+          requestLoadState === "partial" ? "تعذر تحميل جميع الطلبات؛ الإجمالي والنتائج غير مكتملة. أعد المحاولة." :
+          requestLoadState === "failed" ? "تعذر تحميل الطلبات؛ لا يمكن تأكيد الإجمالي. أعد المحاولة." :
+          "لم تُحمّل الطلبات بعد.";
+        const notice = document.createElement("div");
+        notice.className = "empty";
+        notice.textContent = message;
+        box.appendChild(notice);
+        return;
+      }
+      const rows = getFilteredRequests();
 
       if (!rows.length) {
         box.innerHTML = '<div class="empty">لا توجد طلبات مطابقة.</div>';
@@ -701,6 +722,34 @@
         more.addEventListener("click", () => { requestDisplayLimit += 100; renderRequests(); });
         box.appendChild(more);
       }
+    }
+
+    function getFilteredRequests() {
+      const q = ($("request-search").value || "").trim().toLowerCase();
+      const status = $("request-status-filter").value;
+      return requestsCache.filter((r) => {
+        const rs = r.status || "new";
+        const hay = [r.fullName, r.phone, r.whatsapp, r.email, r.country, r.track, r.persona, r.locale, r.message, r.goal, rs].join(" ").toLowerCase();
+        return (status === "all" || rs === status) && (!q || hay.includes(q));
+      });
+    }
+
+    function renderRequestCounts() {
+      const panel = $("request-counts");
+      if (!panel) return;
+      panel.dataset.state = requestLoadState;
+      const stateLabel = requestLoadState === "complete" ? "اكتمل التحميل من المجموعتين" :
+        requestLoadState === "loading" ? "جار التحميل" :
+        requestLoadState === "partial" ? "تحميل جزئي؛ الأعداد غير مكتملة" :
+        requestLoadState === "failed" ? "فشل التحميل؛ الأعداد غير متاحة" : "لم تُحمّل الطلبات بعد";
+      $("request-count-state").textContent = stateLabel;
+      if (requestLoadState !== "complete") {
+        for (const id of ["request-total-count", "request-new-count", "request-filtered-count"]) $(id).textContent = requestLoadState === "loading" ? "جارٍ التحميل…" : "غير مكتمل";
+        return;
+      }
+      $("request-total-count").textContent = String(requestsCache.length);
+      $("request-new-count").textContent = String(requestsCache.filter(r => (r.status || "new") === "new").length);
+      $("request-filtered-count").textContent = String(getFilteredRequests().length);
     }
 
     async function updateRequestStatus(id, status, sourceCollection, expectedStatus) {
