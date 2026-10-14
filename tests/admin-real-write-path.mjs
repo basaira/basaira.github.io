@@ -121,7 +121,6 @@ try{
   });
   page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(String(error)));
-  page.on('console',message=>{if(message.type()==='error')console.error('Browser console:',message.text())});
   await page.goto(BASE+'/admin.html',{waitUntil:'domcontentloaded'});
   const requestLoadStarted=Date.now();
   await login();
@@ -190,8 +189,10 @@ try{
   await action(async()=>{
     await page.locator('.nav-btn[data-tab="requests"]').click();
     await page.locator('#request-search').fill('Synthetic Student');
+  await waitCounter('#request-filtered-count','1');
     const card=page.locator('#requests-list .item').filter({hasText:'Synthetic Student'});
     await card.locator('select.request-status').selectOption('contacted');
+  assert.equal(await card.locator('select.request-status').inputValue(),'contacted','status selection is applied before save');
     await card.locator('button.ok').click();
   },'تم تحديث حالة الطلب','request.status',async()=>
     assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'contacted'));
