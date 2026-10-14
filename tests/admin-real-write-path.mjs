@@ -37,8 +37,18 @@ async function action(click,receipt,kind,verify){
   const previous=await audits(),before=previous.length;
   const completed=await page.evaluate(()=>window.__txDone||0);
   await click();
-  await page.waitForFunction(([s,count])=>(window.__txDone||0)>count &&
-    document.querySelector('#status')?.textContent.includes(s),[receipt,completed],{timeout:20000});
+  try {
+    await page.waitForFunction(([s,count])=>(window.__txDone||0)>count &&
+      document.querySelector('#status')?.textContent.includes(s),[receipt,completed],{timeout:20000});
+  } catch (error) {
+    console.error('Write-path diagnostic',JSON.stringify(await page.evaluate(()=>({
+      txDone:window.__txDone||0,status:document.querySelector('#status')?.textContent,
+      statusType:document.querySelector('#status')?.dataset.statusType,
+      requestCounterState:document.querySelector('#request-counts')?.dataset.state,
+      requestsText:document.querySelector('#requests-list')?.textContent.slice(0,500)
+    }))));
+    throw error;
+  }
   const entries=await audits();
   assert.equal(entries.length,before+1,'audit must commit exactly once');
   assert.equal(entries.filter(e=>e.action===kind).length,
@@ -111,6 +121,7 @@ try{
   });
   page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+  page.on('console',message=>{if(message.type()==='error')console.error('Browser console:',message.text())});
   await page.goto(BASE+'/admin.html',{waitUntil:'domcontentloaded'});
   const requestLoadStarted=Date.now();
   await login();
