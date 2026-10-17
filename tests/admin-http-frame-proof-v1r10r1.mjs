@@ -55,7 +55,7 @@ try{
  const context=await browser.newContext({viewport:{width:390,height:844},locale:'ar-EG',serviceWorkers:'block'});
  const denied=[],sdkResponses=[],localResponses=[],failures=[],consoleMessages=[],pageErrors=[];
  await context.route('**/*',async route=>{
-  const url=new URL(route.request().url);
+  const url=new URL(route.request().url());
   if(url.hostname==='127.0.0.1' && Object.values(ports).includes(Number(url.port)))return route.continue();
   if(url.hostname==='www.gstatic.com'&&url.pathname.startsWith('/firebasejs/12.15.0/'))return route.continue();
   if((url.hostname==='fonts.googleapis.com'||url.hostname==='fonts.gstatic.com')&&route.request().method()==='GET')return route.continue();
@@ -111,7 +111,7 @@ try{
   const ctx=await browser.newContext({viewport:{width:1100,height:800},serviceWorkers:'block'});
   // Contain all external traffic while permitting test-only loopback.
   await ctx.route('**/*',async route=>{
-   const u=new URL(route.request().url);
+   const u=new URL(route.request().url());
    if(u.hostname==='127.0.0.1'&&Object.values(ports).includes(Number(u.port)))return route.continue();
    return route.abort('blockedbyclient');
   });
