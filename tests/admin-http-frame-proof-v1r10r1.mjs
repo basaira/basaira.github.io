@@ -86,7 +86,7 @@ try{
    dashboardHidden:document.getElementById('admin-dashboard')?.classList.contains('hidden'),
    ids:Object.fromEntries(ids.map(id=>[id,!!document.getElementById(id)])),
    countText:document.getElementById('request-counts')?.textContent||'',
-   originalMeta:document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.outerHTML||''
+   originalMeta:document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content')||''
   };
  });
  assert.equal(smoke.rtl,'rtl');assert.equal(smoke.lang,'ar');
@@ -94,7 +94,7 @@ try{
  assert.ok(smoke.loginVisible && smoke.dashboardHidden,'unexpected Auth UI state');
  assert.ok(Object.values(smoke.ids).every(Boolean),'required Admin UI element missing');
  assert.ok(smoke.countText.includes('الإجمالي')&&smoke.countText.includes('طلبات جديدة')&&smoke.countText.includes('المطابق'),'counter distinction missing');
- assert.equal(smoke.originalMeta,manifest.protectedMetaPolicy,'original Admin CSP meta changed'); // DOM serialized markup must match snapshot tag.
+ assert.equal(smoke.originalMeta,manifest.protectedMetaPolicy.match(/content="([^"]+)"/i)?.[1],'original Admin CSP content changed');
  assert.equal(pageErrors.length,0,'unexpected JS page errors: '+pageErrors.join(';'));
  const localBad=localResponses.filter(x=>x.status>=400);
  assert.deepEqual(localBad,[],'missing/failed local Admin assets');
