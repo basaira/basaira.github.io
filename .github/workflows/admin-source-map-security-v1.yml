@@ -1,0 +1,166 @@
+name: BASAIR Admin Source Map Security Qualification
+
+on:
+  push:
+    branches:
+      - 'basair/admin-source-map-security-v1'
+
+permissions:
+  contents: read
+
+jobs:
+  source-map-js-remediation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact isolated candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16 and Java 21
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Immutable authorities and narrow candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=badbaa175eba86960559b2145e2b9cee3a20a7d5
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse aa7cdd9698914e212eef2956df0fbf62a06c94c0^{tree})" = 16f19f59acb2ab289f8f453bf8ea059caa1306b4
+          test "$(git rev-parse 1f64411fb1e0ba9a7a261b7bf2b3982d46743b06^{tree})" = a2a492bb41bc607be71204849ea001ebe64d08e1
+          test "$(git rev-parse 49c10292f628051942554a6a70e0e24e3a705822^{tree})" = 3f396909837eda9629413e23a5fa46d458e78d1f
+          test "$(git rev-parse 2eaf840dbf85749b281a2723457208b690a1cb20^{tree})" = 855abfc1bcc6e083353c4ba0033092052390ffab
+          test "$(git rev-parse 5bc4e216a568a57b217187b4030f8208ad87fe31^{commit})" = 5bc4e216a568a57b217187b4030f8208ad87fe31
+          test "$(git rev-parse badbaa175eba86960559b2145e2b9cee3a20a7d5^{tree})" = 2b8c98b9e5ae35f009d69582f4a8ef16d2264f6f
+          test "$(git rev-parse cef59ba05b3382978b4c18e83592f08227b2f9c4^{commit})" = cef59ba05b3382978b4c18e83592f08227b2f9c4
+          git diff --exit-code "$BASE" HEAD -- admin.js admin.html firestore.rules firebase.json firebase-config.js deploy-firestore-rules.bat
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r path; do
+            case "$path" in
+              package.json|package-lock.json|.github/workflows/admin-source-map-security-v1.yml|docs/admin-source-map-v1r7-evidence.md) ;;
+              *) echo "Unexpected path: $path"; exit 1 ;;
+            esac
+          done
+          git diff --check "$BASE" HEAD
+          test -z "$(git status --porcelain)"
+      - name: Clean baseline versus patched dependency security audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "NODE_VERSION=$(node --version) NPM_VERSION=$(npm --version)"
+          BASE=badbaa175eba86960559b2145e2b9cee3a20a7d5
+          BASE_DIR="$(mktemp -d "$RUNNER_TEMP/basair-v1r6-base-XXXXXX")"
+          git archive "$BASE" | tar -x -C "$BASE_DIR"
+          echo "V1R6_LOCK_SHA256=$(sha256sum "$BASE_DIR/package-lock.json" | awk '{print $1}')"
+          echo "V1R7_LOCK_SHA256=$(sha256sum package-lock.json | awk '{print $1}')"
+          echo "===== FROZEN V1R6: CLEAN npm ci ====="
+          (
+            cd "$BASE_DIR"
+            npm ci
+            npm ls source-map-js --all
+            npm audit --json > "$RUNNER_TEMP/basair-v1r6-full-audit.json" || true
+            npm audit --omit=dev --json > "$RUNNER_TEMP/basair-v1r6-prod-audit.json" || true
+          )
+          echo "===== V1R7: CLEAN npm ci ====="
+          npm ci
+          npm ls source-map-js --all
+          npm audit --json > "$RUNNER_TEMP/basair-v1r7-full-audit.json" || true
+          npm audit --omit=dev --json > "$RUNNER_TEMP/basair-v1r7-prod-audit.json" || true
+          echo "===== npm published integrity verification ====="
+          REGISTRY_INTEGRITY="$(npm view source-map-js@1.2.2 dist.integrity --json | tr -d '"\n')"
+          LOCK_INTEGRITY="$(node -p "require('./package-lock.json').packages['node_modules/source-map-js'].integrity")"
+          test "$REGISTRY_INTEGRITY" = "$LOCK_INTEGRITY"
+          echo "Integrity PASS: $LOCK_INTEGRITY"
+          echo "===== exact before/after dependency and advisory assertions ====="
+          BASE_DIR="$BASE_DIR" node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+          const before=JSON.parse(fs.readFileSync(path.join(process.env.BASE_DIR,'package-lock.json'),'utf8'));
+          const after=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+          const pkgBefore=JSON.parse(fs.readFileSync(path.join(process.env.BASE_DIR,'package.json'),'utf8'));
+          const pkgAfter=JSON.parse(fs.readFileSync('package.json','utf8'));
+          const key='node_modules/source-map-js';
+          assert.equal(before.packages[key].version,'1.2.1');
+          assert.equal(after.packages[key].version,'1.2.2');
+          assert.equal(after.packages[key].dev,true);
+          assert.equal(after.packages[key].integrity,'sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==');
+          const cleanedManifest=JSON.parse(JSON.stringify(pkgAfter));
+          delete cleanedManifest.overrides['source-map-js'];
+          assert.deepEqual(cleanedManifest,pkgBefore,'only an override was added');
+          const normalized={...after,packages:{...after.packages,[key]:before.packages[key]}};
+          assert.deepEqual(normalized,before,'every other lockfile node must match');
+          assert.deepEqual(Object.keys(after.packages).filter(k=>k.includes('source-map-js')),[key],'no nested vulnerable copy');
+          assert.equal(pkgAfter.overrides.nanoid,'3.3.18');
+          assert.equal(pkgAfter.overrides.postcss,'8.5.26');
+          assert.equal(pkgAfter.overrides['source-map-js'],'1.2.2');
+          const root=process.env.RUNNER_TEMP,read=n=>JSON.parse(fs.readFileSync(path.join(root,n),'utf8'));
+          const auditBefore=read('basair-v1r6-full-audit.json'),auditAfter=read('basair-v1r7-full-audit.json');
+          const prodBefore=read('basair-v1r6-prod-audit.json'),prodAfter=read('basair-v1r7-prod-audit.json');
+          const summary=a=>({counts:a.metadata?.vulnerabilities,entries:Object.fromEntries(Object.entries(a.vulnerabilities||{}).map(([k,v])=>[k,{severity:v.severity,via:v.via}]))});
+          console.log('AUDIT_BASE_ALL='+JSON.stringify(summary(auditBefore)));
+          console.log('AUDIT_PATCHED_ALL='+JSON.stringify(summary(auditAfter)));
+          console.log('AUDIT_BASE_OMIT_DEV='+JSON.stringify(summary(prodBefore)));
+          console.log('AUDIT_PATCHED_OMIT_DEV='+JSON.stringify(summary(prodAfter)));
+          assert.equal(auditBefore.vulnerabilities?.['source-map-js']?.severity,'high','baseline affected entry not visible');
+          assert.ok(!auditAfter.vulnerabilities?.['source-map-js'],'patched graph still vulnerable');
+          const grades={info:0,low:1,moderate:2,high:3,critical:4};
+          const sourceIds=x=>(x.via||[]).filter(v=>v&&typeof v==='object'&&v.source).map(v=>String(v.source));
+          for(const [name,v] of Object.entries(auditAfter.vulnerabilities||{})){
+            const prior=auditBefore.vulnerabilities?.[name];
+            assert.ok(prior,'new vulnerable package '+name);
+            assert.ok(grades[v.severity]<=grades[prior.severity],'severity regression '+name);
+            assert.ok(sourceIds(v).every(id=>sourceIds(prior).includes(id)),'new advisory '+name);
+          }
+          for(const [name,v] of Object.entries(prodAfter.vulnerabilities||{})){
+            const prior=prodBefore.vulnerabilities?.[name];
+            assert.ok(prior,'new production vulnerability '+name);
+            assert.ok(grades[v.severity]<=grades[prior.severity],'production severity regression '+name);
+            assert.ok(sourceIds(v).every(id=>sourceIds(prior).includes(id)),'new production advisory '+name);
+          }
+          console.log('SOURCE_MAP_JS_V1R7_FIXED=PASS; EXACT_DEPENDENCY_DELTA=PASS; NO_NEW_ADVISORIES=PASS');
+          NODE
+          git diff --check
+          test -z "$(git status --porcelain)"
+      - name: Source and public website regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          git diff --check
+          node --test tests/admin-policy.test.mjs
+          node --test tests/admin-request-load-generation.test.mjs
+          test -z "$(git status --porcelain)"
+      - name: Real Admin browser and synthetic Firestore Emulator regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 firebase@12.15.0 @firebase/rules-unit-testing@5.0.0 esbuild@0.25.10
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4179 --bind 127.0.0.1 > /tmp/basair-request-load-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:4179/admin.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html > /dev/null
+          node tests/admin-browser-smoke.mjs
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-compat-regression "node --test tests/admin-firestore-emulator.test.mjs"
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-write-path "node tests/admin-real-write-path.mjs"
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-no-email-security "node tests/admin-no-email-rules.mjs"
+          for pair in A B C D E F; do
+            echo "Running isolated source pair $pair"
+            TEST_PAIR="$pair" npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project "demo-basair-compat-${pair,,}" "node tests/admin-four-state.mjs"
+          done
+          git diff --check
+          test -z "$(git status --porcelain)"
