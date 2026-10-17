@@ -48,11 +48,14 @@
     let auditCache = [];
     let auditLoadState = "idle";
     let requestLoadState = "idle";
+    let requestLoadGeneration = 0;
     let authRevision = 0;
     let unsubscribeAdminRole = null;
     let requestDisplayLimit = 100;
 
     function clearPrivateState() {
+      // Invalidate requests still pending for the former private session.
+      ++requestLoadGeneration;
       contentCache = { texts: {}, videos: [], settings: {} };
       requestsCache = [];
       requestLoadState = "idle";
@@ -430,6 +433,8 @@
       if (revision !== authRevision || !isAdmin) return;
       const results = await Promise.allSettled([loadContent(), loadRequests(), loadAudit()]);
       if (revision !== authRevision || !isAdmin) return;
+      // A newer request-only refresh now owns the request display and its toast.
+      if (results[1].status === "fulfilled" && results[1].value?.superseded) return;
       const failed = results.filter((r) => r.status === "rejected");
       if (failed.length) {
         console.error("Admin data load errors:", failed.map((r) => r.reason));
@@ -489,6 +494,7 @@
 
     async function loadRequests() {
       const revision = authRevision;
+      const generation = ++requestLoadGeneration;
       requestLoadState = "loading";
       requestsCache = [];
       renderStats();
@@ -497,7 +503,9 @@
         loadRequestCollection("enrollment_requests"),
         loadRequestCollection("assessment_requests")
       ]);
-      if (revision !== authRevision || !isAdmin) return;
+      if (revision !== authRevision || !isAdmin || generation !== requestLoadGeneration) {
+        return {superseded: true};
+      }
       if (legacy.status === "rejected" || assessment.status === "rejected") {
         requestLoadState = legacy.status === "fulfilled" || assessment.status === "fulfilled" ? "partial" : "failed";
         requestsCache = [];
@@ -523,6 +531,7 @@
       requestDisplayLimit = 100;
       renderStats();
       renderRequests();
+      return {superseded: false};
     }
 
     async function loadAudit() {
@@ -769,8 +778,10 @@
         tx.update(target, { status, handledAt: serverTimestamp(), handledBy: actorUid });
         appendAuditToBatch(tx, "request.status", "request", id, { collection: safeCollection, status });
       });
-      try { await Promise.all([loadRequests(), loadAudit()]); }
-      catch (error) {
+      try {
+        const [refresh] = await Promise.all([loadRequests(), loadAudit()]);
+        if (refresh?.superseded) return;
+      } catch (error) {
         showStatus("حُفظت حالة الطلب وسجل التدقيق، لكن تعذر تحديث العرض. أعد التحميل.", "warning");
         return;
       }
@@ -1274,7 +1285,9 @@
     });
     $("refresh-all-btn").addEventListener("click", loadAll);
     $("refresh-requests-btn").addEventListener("click", () => {
-      loadRequests().then(() => showStatus("تم تحديث الطلبات.", "success")).catch(error => {
+      loadRequests().then(result => {
+        if (!result?.superseded) showStatus("تم تحديث الطلبات.", "success");
+      }).catch(error => {
         console.error("Request refresh failed:", error);
         showStatus("تعذر تحميل قائمة الطلبات.", "error");
       });
