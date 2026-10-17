@@ -24,6 +24,7 @@ This is the independently reproduced stale-overwrite defect. No production data 
 - Superseded loads return an explicit superseded result without stale success or failure notifications.
 - Global load, request-only refresh, and post-transaction refresh honor supersession.
 - Current active load failures still throw, while committed transactions with failed active reloads still show the truthful existing warning.
+- An additional deterministic reproduction showed that an earlier implementation could suppress an unrelated failing global content read when its request load was superseded; the global caller now reports independent content/audit failures before suppressing only its obsolete completion toast.
 - Existing 200-document Firestore pagination, first 100 rendered cards, status transaction, audit, and Rules are unchanged.
 
 ## Test and evidence boundaries
