@@ -13,7 +13,6 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: $GITHUB_SHA
           fetch-depth: 0
           persist-credentials: false
       - name: Node 22.16.0
