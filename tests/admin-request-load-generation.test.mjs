@@ -29,13 +29,13 @@ const stub=[
  "function loadRequestCollection(name){return new Promise((resolve,reject)=>pending.push({name,resolve,reject}))}",
  "function normalizeRequestContactFields(){return {phone:'',whatsapp:'',email:''}}",
  "function sortRequests(rows){return rows}",
- "async function loadContentRegistry(){} async function loadContent(){} async function loadAudit(){}"
+ "let contentReadFailure=false; async function loadContentRegistry(){} async function loadContent(){if(contentReadFailure)throw Object.assign(Error('synthetic content denied'),{code:'permission-denied'})} async function loadAudit(){}"
 ].join('\n');
 const renderStub=[
  "function renderRequests(){renderRequestCounts();$('requests-list').textContent=requestLoadState==='complete'?getFilteredRequests().slice(0,requestDisplayLimit).map(x=>x.fullName).join('|'):''}"
 ].join('\n');
 const expose=[
- "return {start:loadRequests,all:loadAll,refresh:()=> $('refresh-requests-btn').handlers.click(),clear:clearPrivateState,revoke:revokeLocalAdminSession,",
+ "return {start:loadRequests,all:loadAll,refresh:()=> $('refresh-requests-btn').handlers.click(),clear:clearPrivateState,revoke:revokeLocalAdminSession,failContent:()=>{contentReadFailure=true},",
  " switchAccount:()=>{authRevision++;clearPrivateState();currentUser={uid:'admin2',email:'admin2@example.invalid'};isAdmin=true},",
  " resolve:(offset,enrollment,assessment)=>{",
  "  const docs=(n,name)=>Array.from({length:n},(_,i)=>({id:name+i,data:()=>({status:i%5===0?'new':'contacted',fullName:name+i})}));",
@@ -101,4 +101,15 @@ test('latest active failure is never hidden; both source collections fail',async
   const app=fixture(),A=app.start();app.resolve(0,'reject','reject');
   assert.match((await done(A)).error,/synthetic denied/);assert.equal(app.state(),'failed');
   assert.equal(app.badge(),'غير مكتمل');assert.equal(app.total(),0);
+});
+
+test('11 superseded request does not conceal an independent content read failure',async()=>{
+  const app=fixture();app.failContent();
+  const A=app.all();await flush();assert.equal(app.count(),2);
+  const B=app.start();app.resolve(2,2,0);await done(B);
+  app.resolve(0,1,0);await done(A);
+  check(app,2);
+  assert.ok(app.messages().some(m=>m.type==='error'&&m.message.includes('Firestore')),
+    'unrelated failed Admin load must still report an error');
+  assert.ok(!app.messages().some(m=>m.message==='تم تحديث البيانات بنجاح.'));
 });
