@@ -1,0 +1,111 @@
+name: BASAIR Admin Built CSP Client-Only Preflight
+on:
+  push:
+    branches:
+      - basair/admin-csp-client-release-preflight-v1
+permissions:
+  contents: read
+jobs:
+  built-admin-csp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: $GITHUB_SHA
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Frozen authorities and evidence-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=9cc2439970459bd8d4ed5c57b05dbf91cd1ea3ba
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse aa7cdd9698914e212eef2956df0fbf62a06c94c0^{commit})" = aa7cdd9698914e212eef2956df0fbf62a06c94c0
+          test "$(git rev-parse 1f64411fb1e0ba9a7a261b7bf2b3982d46743b06^{commit})" = 1f64411fb1e0ba9a7a261b7bf2b3982d46743b06
+          test "$(git rev-parse 49c10292f628051942554a6a70e0e24e3a705822^{commit})" = 49c10292f628051942554a6a70e0e24e3a705822
+          test "$(git rev-parse 2eaf840dbf85749b281a2723457208b690a1cb20^{commit})" = 2eaf840dbf85749b281a2723457208b690a1cb20
+          test "$(git rev-parse badbaa175eba86960559b2145e2b9cee3a20a7d5^{tree})" = 2b8c98b9e5ae35f009d69582f4a8ef16d2264f6f
+          test "$(git rev-parse "$BASE^{tree}")" = 02c16252787467e8b5a142bc212a10d96e603524
+          test "$(git rev-parse cef59ba05b3382978b4c18e83592f08227b2f9c4^{commit})" = cef59ba05b3382978b4c18e83592f08227b2f9c4
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
+            case "$f" in
+              tests/admin-built-csp-preflight.mjs|scripts/admin-client-only-release-preflight.mjs|.github/workflows/admin-csp-client-release-preflight.yml|docs/admin-built-csp-v1r8-evidence.md) ;;
+              *) echo "Unexpected changed path: $f"; exit 1 ;;
+            esac
+          done
+          git diff --exit-code "$BASE" HEAD -- package.json package-lock.json admin.html admin.js firestore.rules firebase.json firebase-config.js deploy-firestore-rules.bat
+          git diff --check
+          test -z "$(git status --porcelain)"
+          echo V1R7_SOURCE_IMMUTABLE_PASS
+      - name: Frozen clean build and nonmutating Pages snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "NODE=$(node --version) NPM=$(npm --version)"
+          test "$(node --version)" = "v22.16.0"
+          test "$(npm --version)" = "10.9.2"
+          echo "LOCK_SHA256=$(sha256sum package-lock.json | cut -d' ' -f1)"
+          npm ci
+          npm ls source-map-js --all
+          test "$(node -p "require('./package-lock.json').packages['node_modules/source-map-js'].version")" = 1.2.2
+          test "$(node -p "require('./node_modules/source-map-js/package.json').version")" = 1.2.2
+          npm audit --json > "$RUNNER_TEMP/v1r8-base-audit.json" || true
+          node -e "const fs=require('node:fs'),a=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/v1r8-base-audit.json'));console.log('BASE_AUDIT='+JSON.stringify(a.metadata?.vulnerabilities));if((a.metadata?.vulnerabilities?.total||0)>0)process.exit(1)"
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          node scripts/admin-client-only-release-preflight.mjs
+          git diff --check
+          test -z "$(git status --porcelain)"
+      - name: Separate test tooling risk audit and Chromium install
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOOL_DIR="$RUNNER_TEMP/v1r8-tools"
+          mkdir -p "$TOOL_DIR"
+          npm install --prefix "$TOOL_DIR" --package-lock=true --no-audit playwright@1.55.0 firebase@12.15.0 @firebase/rules-unit-testing@5.0.0 esbuild@0.25.10
+          npm audit --prefix "$TOOL_DIR" --json > "$RUNNER_TEMP/v1r8-tooling-audit.json" || true
+          node -e "const fs=require('node:fs'),a=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/v1r8-tooling-audit.json'));console.log('TEMP_TOOLING_AUDIT='+JSON.stringify({counts:a.metadata?.vulnerabilities,affected:Object.entries(a.vulnerabilities||{}).map(([n,v])=>({name:n,severity:v.severity,via:v.via,range:v.range}))}))"
+          "$TOOL_DIR/node_modules/.bin/playwright" install --with-deps chromium
+          test -z "$(git status --porcelain)"
+      - name: Built Admin browser with production-equivalent CSP unmodified
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v1r8-attacker"
+          printf '%s\n' '<!doctype html><title>cross origin frame probe</title><iframe src="http://127.0.0.1:4179/admin.html" width="800" height="700"></iframe>' > "$RUNNER_TEMP/v1r8-attacker/frame-test.html"
+          python3 -m http.server 4179 --bind 127.0.0.1 --directory dist > "$RUNNER_TEMP/v1r8-dist-http.log" 2>&1 &
+          LOCAL_PID=$!
+          python3 -m http.server 4180 --bind 127.0.0.1 --directory "$RUNNER_TEMP/v1r8-attacker" > "$RUNNER_TEMP/v1r8-frame-http.log" 2>&1 &
+          FRAME_PID=$!
+          trap 'kill "$LOCAL_PID" "$FRAME_PID" 2>/dev/null || true' EXIT
+          for n in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4179/admin.html >/dev/null && curl -fsS http://127.0.0.1:4180/frame-test.html >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html >/dev/null
+          curl -fsS http://127.0.0.1:4180/frame-test.html >/dev/null
+          BASAIR_V1R8_TOOL_DIR="$RUNNER_TEMP/v1r8-tools" node tests/admin-built-csp-preflight.mjs
+          test -z "$(git status --porcelain)"
+      - name: Published Pages response headers read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          if curl -sSI --max-time 18 https://basaira.github.io/admin.html > "$RUNNER_TEMP/v1r8-pages-headers.txt"; then
+            echo PUBLISHED_PAGES_HTTP_HEADERS_BEGIN
+            grep -Ei '^(HTTP/|content-security-policy:|x-frame-options:|cache-control:|content-type:|etag:)' "$RUNNER_TEMP/v1r8-pages-headers.txt" || true
+            echo PUBLISHED_PAGES_HTTP_HEADERS_END
+          else
+            echo PUBLISHED_PAGES_HTTP_HEADERS_INCOMPLETE_NETWORK
+          fi
+          git diff --check
+          test -z "$(git status --porcelain)"
