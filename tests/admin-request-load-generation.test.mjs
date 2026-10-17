@@ -22,7 +22,7 @@ const stub=[
  "let authRevision=1,requestLoadGeneration=0,isAdmin=true,currentUser={uid:'admin1',email:'admin@example.invalid'},unsubscribeAdminRole=null;",
  "let requestLoadState='idle',requestsCache=[],requestDisplayLimit=100,auditCache=[],auditLoadState='idle',contentCache={texts:{},videos:[],settings:{}},contentRegistry=[];",
  "const pending=[],messages=[],elements=new Map();",
- "function $(id){if(!elements.has(id)){const el={textContent:'',dataset:{},handlers:{},classList:{add(){},remove(){}},replaceChildren(){this.textContent=''},removeAttribute(){},addEventListener(t,cb){this.handlers[t]=cb}};if(/(?:-search|-filter|-id|-value|-email|-password|-url|-telegram|-whatsapp)$/.test(id))el.value='';elements.set(id,el)}return elements.get(id)}",
+ "function $(id){if(!elements.has(id)){const el={textContent:'',dataset:{},handlers:{},classList:{add(){},remove(){}},replaceChildren(){this.textContent=''},removeAttribute(){},addEventListener(t,cb){this.handlers[t]=cb}};if(/(?:-search|-filter|-id|-value|-email|-password|-url|-telegram|-whatsapp)$/.test(id))el.value=id==='request-status-filter'?'all':'';elements.set(id,el)}return elements.get(id)}",
  "const document={getElementById:$};",
  "function showStatus(message,type='success'){messages.push({message,type})}",
  "function renderAuth(){}",
