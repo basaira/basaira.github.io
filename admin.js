@@ -433,8 +433,8 @@
       if (revision !== authRevision || !isAdmin) return;
       const results = await Promise.allSettled([loadContent(), loadRequests(), loadAudit()]);
       if (revision !== authRevision || !isAdmin) return;
-      // A newer request-only refresh now owns the request display and its toast.
-      if (results[1].status === "fulfilled" && results[1].value?.superseded) return;
+      // Do not discard independent content/audit failures merely because a
+      // newer request-only refresh superseded the request portion of loadAll().
       const failed = results.filter((r) => r.status === "rejected");
       if (failed.length) {
         console.error("Admin data load errors:", failed.map((r) => r.reason));
@@ -447,6 +447,8 @@
         }
         return;
       }
+      // A newer request-only refresh owns request results and completion toast.
+      if (results[1].status === "fulfilled" && results[1].value?.superseded) return;
       showStatus("تم تحديث البيانات بنجاح.", "success");
     }
 
