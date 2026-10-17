@@ -1,0 +1,116 @@
+name: BASAIR V1R11 Locked Admin USER_SITE Candidate Qualification
+on:
+  push:
+    branches:
+      - basair/admin-dedicated-hosting-candidate-v1
+permissions:
+  contents: read
+jobs:
+  admin-user-site-release-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - name: Checkout exact evidence commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Verify frozen authorities and source boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=fd76499bd70e79592a67b41d428960091043c57a
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse badbaa175eba86960559b2145e2b9cee3a20a7d5^{tree})" = 2b8c98b9e5ae35f009d69582f4a8ef16d2264f6f
+          test "$(git rev-parse 9cc2439970459bd8d4ed5c57b05dbf91cd1ea3ba^{tree})" = 02c16252787467e8b5a142bc212a10d96e603524
+          test "$(git rev-parse e4ace99a4dfa876f9597f1cc0dbc0e0c3e7dc0a6^{tree})" = 6695ffe2a119dc99bce77575d77120aee08586df
+          test "$(git rev-parse "$BASE^{tree}")" = 254532e2fcf0329144ffdb2bcc80f1a9ee007ebb
+          test "$(git rev-parse cef59ba05b3382978b4c18e83592f08227b2f9c4^{commit})" = cef59ba05b3382978b4c18e83592f08227b2f9c4
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
+            case "$f" in
+              scripts/admin-dedicated-hosting-candidate-v1r11.mjs|tests/admin-dedicated-hosting-contract-v1r11.mjs|.github/workflows/admin-dedicated-hosting-v1r11.yml|docs/admin-dedicated-hosting-release-v1r11.md) ;;
+              *) echo "UNAUTHORIZED PATH $f"; exit 1 ;;
+            esac
+          done
+          git diff --exit-code "$BASE" HEAD -- admin.js admin.html firestore.rules firebase.json firebase-config.js package.json package-lock.json deploy-firestore-rules.bat
+          git diff --check
+          test -z "$(git status --porcelain)"
+          echo FROZEN_AUTHORITIES_AND_APP_SOURCE=PASS
+      - name: Clean build and immutable Admin-only dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          echo "NODE=$(node -v) NPM=$(npm -v)"
+          echo "LOCK_SHA256=$(sha256sum package-lock.json | cut -d' ' -f1)"
+          npm ci
+          npm ls source-map-js --all
+          npm audit --json > "$RUNNER_TEMP/v1r10r1-base-audit.json" || true
+          node -e "let a=JSON.parse(require('node:fs').readFileSync(process.env.RUNNER_TEMP+'/v1r10r1-base-audit.json'));console.log('BASE_PROJECT_AUDIT='+JSON.stringify(a.metadata?.vulnerabilities));if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)"
+          npm run build
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          git diff --check
+          test -z "$(git status --porcelain)"
+      - name: Patched isolated Playwright and separate tooling audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BASAIR_TEST_TOOLS="$RUNNER_TEMP/v1r10r1-tooling"
+          mkdir -p "$BASAIR_TEST_TOOLS"
+          npm install --prefix "$BASAIR_TEST_TOOLS" --package-lock=true --no-audit playwright@1.55.1
+          npm audit --prefix "$BASAIR_TEST_TOOLS" --json > "$RUNNER_TEMP/v1r10r1-tooling-audit.json" || true
+          node -e "let a=JSON.parse(require('node:fs').readFileSync(process.env.RUNNER_TEMP+'/v1r10r1-tooling-audit.json'));console.log('TEMP_TOOLING_AUDIT='+JSON.stringify({counts:a.metadata?.vulnerabilities,packages:Object.entries(a.vulnerabilities||{}).map(([n,v])=>({name:n,severity:v.severity,via:v.via}))}))"
+          test "$(node -p "require(process.env.BASAIR_TEST_TOOLS+'/node_modules/playwright/package.json').version")" = 1.55.1
+          LOCK_INTEGRITY="$(node -e "let x=require(process.env.BASAIR_TEST_TOOLS+'/package-lock.json');process.stdout.write(x.packages['node_modules/playwright'].integrity)")"
+          REGISTRY_INTEGRITY="$(npm view playwright@1.55.1 dist.integrity --json | tr -d '"\n')"
+          test "$LOCK_INTEGRITY" = "$REGISTRY_INTEGRITY"
+          echo PATCHED_PLAYWRIGHT_INTEGRITY=PASS
+          "$BASAIR_TEST_TOOLS/node_modules/.bin/playwright" install --with-deps chromium
+          test -z "$(git status --porcelain)"
+      - name: Real HTTP framed and unprotected Chromium checks
+        shell: bash
+        env:
+          BASAIR_TEST_TOOLS: ${{ runner.temp }}/v1r10r1-tooling
+          BASAIR_ADMIN_ONLY_DIR: ${{ runner.temp }}/basair-v1r11-candidate/admin-only
+        run: |
+          set -euo pipefail
+          node tests/admin-http-frame-proof-v1r10r1.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          git diff --check
+          test -z "$(git status --porcelain)"
+      - name: Terminal frozen candidate identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
+          git diff --name-only fd76499bd70e79592a67b41d428960091043c57a HEAD
+          test -z "$(git status --porcelain)"
+          echo NO_PRODUCTION_MUTATION=PASS
+      - name: Retain JSON-only evidence, NO RELEASE ASSETS
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1r11-locked-site-release-candidate-evidence
+          path: |
+            ${{ runner.temp }}/v1r10r1-asset-manifest.json
+            ${{ runner.temp }}/v1r10r1-http-frame-proof.json
+            ${{ runner.temp }}/v1r10r1-base-audit.json
+            ${{ runner.temp }}/v1r10r1-tooling-audit.json
+            ${{ runner.temp }}/v1r11-candidate-summary.json
+            ${{ runner.temp }}/basair-v1r11-candidate/manifest.json
+            ${{ runner.temp }}/basair-v1r11-candidate/firebase.json
+            ${{ runner.temp }}/basair-v1r11-candidate/.firebaserc
+          retention-days: 7
+          if-no-files-found: warn
+          include-hidden-files: true
