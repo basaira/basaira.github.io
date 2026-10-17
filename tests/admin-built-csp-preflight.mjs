@@ -103,10 +103,29 @@ try {
     });
     const executed=await page.evaluate(()=>window.__v1r8UnauthorizedInlineExecuted===true);
     assert.equal(executed,false,'CSP allowed unauthorized inline execution');
+    // Probe browser-enforced effective directives with unreachable, never-contacted
+    // example.invalid resources. Network routing denies anything unexpected.
+    await page.evaluate(()=>{
+      const origin='https://example.invalid';
+      const object=document.createElement('object');
+      object.data=origin+'/object-probe';document.body.append(object);
+      const frame=document.createElement('iframe');
+      frame.src=origin+'/frame-probe';document.body.append(frame);
+      const baseTag=document.createElement('base');
+      baseTag.href=origin+'/base-probe/';document.head.append(baseTag);
+      void fetch(origin+'/connect-probe').catch(()=>{});
+      const form=document.createElement('form');
+      form.method='post';form.action=origin+'/form-probe';document.body.append(form);
+      form.requestSubmit();
+    });
+    await page.waitForTimeout(900);
   }
   const violations=await page.evaluate(()=>window.__v1r8CspViolations);
   if(vp.name==='mobile390'){
-    assert.ok(violations.some(v=>v.effectiveDirective==='script-src'||v.effectiveDirective==='script-src-elem'),'inline-script CSP violation event missing');
+    const enforced=new Set(violations.map(v=>v.effectiveDirective));
+    for(const directive of ['script-src-elem','object-src','frame-src','base-uri','connect-src','form-action']){
+      assert.ok(enforced.has(directive),'browser did not record enforcement of '+directive+'; observed='+JSON.stringify([...enforced]));
+    }
   }
   cases.push({viewport:vp.name,width:vp.width,height:vp.height,overflowPx:initial.overflowPx,bodyOverflowPx:initial.bodyOverflowPx,
     loginVisible:initial.loginVisible,dashboardHidden:initial.dashboardHidden,focus,counterLabels:initial.counterLabels,
