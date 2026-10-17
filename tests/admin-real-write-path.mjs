@@ -241,7 +241,7 @@ try{
   await waitCounter('#request-total-count','1008');
   await waitCounter('#request-new-count','202');
   await waitCounter('#request-filtered-count','1');
-  await page.waitForFunction(()=>document.querySelector('#status')?.textContent==='تم تحديث الطلبات.');
+  await page.waitForFunction(()=>document.querySelector('#status .status-copy')?.textContent==='تم تحديث الطلبات.');
   await page.evaluate(()=>window.__releaseRequestRead());
   await page.waitForFunction(()=>window.__requestReadHeld===false);
   await page.evaluate(async()=>{for(let i=0;i<10;i++)await Promise.resolve()});
@@ -249,7 +249,7 @@ try{
     'stale post-commit read cannot replace new request total');
   assert.equal(await page.locator('#request-new-count').textContent(),'202');
   assert.equal(await page.locator('#request-filtered-count').textContent(),'1');
-  assert.equal(await page.locator('#status').textContent(),'تم تحديث الطلبات.',
+  assert.equal(await page.locator('#status .status-copy').textContent(),'تم تحديث الطلبات.',
     'superseded post-commit refresh cannot overwrite newer toast');
   assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'pending');
   assert.equal((await audits()).length,beforeConcurrentAudit+1,
