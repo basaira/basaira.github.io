@@ -18,7 +18,7 @@ const source=[
   "export const {collection,doc,serverTimestamp,writeBatch,query,orderBy,documentId,startAfter,limit}=f;",
   "export function onSnapshot(ref,next,error){return f.onSnapshot(ref,snapshot=>{if(window.__holdAdminRoleListener&&ref.path==='admin_roles/'+(window.__uid||'admin1')){if(!snapshot.exists()||snapshot.data().active!==true)window.__suppressedRoleRevocation=true;return}next(snapshot)},error)}",
   "export async function getDoc(ref){if(window.__failRefresh){window.__failRefresh=false;throw Error('synthetic refresh failure')}return f.getDoc(ref)}",
-  "export async function getDocs(q){const path=q._query?.path?.canonicalString?.()||'';if(path.includes('requests'))window.__requestReads=(window.__requestReads||0)+1;if(window.__failAssessmentRead&&path.includes('assessment_requests')){window.__failAssessmentRead=false;throw Object.assign(Error('synthetic permission denied'),{code:'permission-denied'})}return f.getDocs(q)}",
+  "export async function getDocs(q){const path=q._query?.path?.canonicalString?.()||'';if(path.includes('requests'))window.__requestReads=(window.__requestReads||0)+1;if(window.__failAssessmentRead&&path.includes('assessment_requests')){window.__failAssessmentRead=false;throw Object.assign(Error('synthetic permission denied'),{code:'permission-denied'})}const result=await f.getDocs(q);if(window.__holdRequestReadOnce&&path.includes('assessment_requests')){window.__holdRequestReadOnce=false;window.__requestReadHeld=true;await new Promise(resolve=>window.__releaseRequestRead=resolve);window.__requestReadHeld=false;}return result}",
   "export async function runTransaction(db,fn){if(window.__failWrite)throw Object.assign(Error('synthetic network failure'),{code:'unavailable'});const result=await f.runTransaction(db,async tx=>{window.__txAttempts=(window.__txAttempts||0)+1;const value=await fn(tx);if(window.__holdTransactionOnce){window.__holdTransactionOnce=false;window.__txPaused=true;await new Promise(resolve=>window.__resumeTx=resolve);window.__txPaused=false}return value});window.__txDone=(window.__txDone||0)+1;if(window.__failAfterCommit)window.__failRefresh=true;return result}",
   "export class GoogleAuthProvider{setCustomParameters(){}}",
   "export const browserLocalPersistence={};export const setPersistence=async()=>{};",
@@ -223,6 +223,37 @@ try{
   assert.equal(await page.locator('#request-filtered-count').textContent(),'1','rejected write leaves filtered count unchanged');
   await env.withSecurityRulesDisabled(async c=>updateDoc(doc(c.firestore(),'admin_roles','admin1'),{active:true}));
   await page.evaluate(()=>window.__holdAdminRoleListener=false);
+
+  // V1R6: a successful REAL Firestore status transaction races an older
+  // post-commit request reload against a newer request-only refresh.
+  // Only the latest request-loading generation may render or report completion.
+  const beforeConcurrentAudit=(await audits()).length;
+  await page.evaluate(()=>window.__holdRequestReadOnce=true);
+  await deniedCard.locator('select.request-status').selectOption('pending');
+  await deniedCard.locator('button.ok').click();
+  await page.waitForFunction(()=>window.__requestReadHeld===true);
+  assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'pending',
+    'actual Emulator transaction committed before delayed refresh');
+  assert.equal((await audits()).length,beforeConcurrentAudit+1,
+    'actual Emulator transaction created exactly one atomic audit');
+  await page.locator('#refresh-requests-btn').click();
+  await page.waitForFunction(()=>document.querySelector('#request-counts')?.dataset.state==='complete');
+  await waitCounter('#request-total-count','1008');
+  await waitCounter('#request-new-count','202');
+  await waitCounter('#request-filtered-count','1');
+  await page.waitForFunction(()=>document.querySelector('#status')?.textContent==='تم تحديث الطلبات.');
+  await page.evaluate(()=>window.__releaseRequestRead());
+  await page.waitForFunction(()=>window.__requestReadHeld===false);
+  await page.evaluate(async()=>{for(let i=0;i<10;i++)await Promise.resolve()});
+  assert.equal(await page.locator('#request-total-count').textContent(),'1008',
+    'stale post-commit read cannot replace new request total');
+  assert.equal(await page.locator('#request-new-count').textContent(),'202');
+  assert.equal(await page.locator('#request-filtered-count').textContent(),'1');
+  assert.equal(await page.locator('#status').textContent(),'تم تحديث الطلبات.',
+    'superseded post-commit refresh cannot overwrite newer toast');
+  assert.equal((await getDoc(doc(db,'enrollment_requests','synthetic-lead'))).data().status,'pending');
+  assert.equal((await audits()).length,beforeConcurrentAudit+1,
+    'overlap does not duplicate audit records');
 
   // A fully loaded empty pair of collections is a verified zero, distinct from a failed load.
   await env.withSecurityRulesDisabled(async c=>{
