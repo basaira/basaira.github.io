@@ -41,7 +41,7 @@ const resolveRef=(from,raw,type)=>{
  edges.push({from,to:norm,kind:type,original:url});
  if(!visited.has(norm)&&!pending.includes(norm))pending.push(norm);
 };
-function attribute(tag,name){return tag.match(new RegExp('(?:^|\\s)'+name+'\\s*=\\s*(["\\'])(.*?)\\1','i'))?.[2]||null}
+function attribute(tag,name){for(const m of tag.matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g)){if(m[1].toLowerCase()===name)return m[3]}return null}
 function parseHtml(rel,source){
  for(const m of source.matchAll(/<(script|link|img|source|video|audio|iframe)\b[^>]*>/gi)){
   const tag=m[0],kind=m[1].toLowerCase();
