@@ -36,6 +36,7 @@ Historical V1R8 temporary tools had six HIGH advisory entries; V1R11's isolated 
 2. Operator verifies account/site `basair-admin` and Preview permissions without modifying live.
 3. Operator deliberately executes **preview-only** command with short expiration and captures actual URL/release ID.
 4. Remote **unauthenticated** HTTPS header and Chromium tests; block real Firebase Auth and Firestore API traffic.
-5. Operator decides whether separate Auth/domain approvals, real test publication, old insecure `https://basaira.github.io/admin.html` retirement, rollback and live-channel release are desirable later.
+5. After the operator captures the *actual* CLI-returned preview URL, perform a read-only check with `BASAIR_PREVIEW_URL=<EXACT_URL_FROM_FIREBASE_CLI> BASAIR_TEST_TOOLS=<ISOLATED_PLAYWRIGHT_DIR> node tests/admin-preview-remote-http-v1r12.mjs`. The test **refuses the live/default domains**, checks the real HTTPS response headers, full unauthenticated Admin UI and assets, and records Chromium cross-origin frame denial while preventing browser requests to production Firebase Auth or Firestore. It is prepared now but must NOT execute before a preview exists.
+6. Operator decides whether separate Auth/domain approvals, real test publication, old insecure `https://basaira.github.io/admin.html` retirement, rollback and live-channel release are desirable later.
 
 No preview URL, live release, Auth test or Hosting header proof is claimed until an authorized preview publish and independent browser verification succeed.
