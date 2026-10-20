@@ -1,0 +1,61 @@
+name: BASAIR V1R13 Security-Only Vite Rebuild Probe
+on:
+  push:
+    branches: [basair/admin-preview-vite-security-repair-v1r13]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Verify original vulnerability and minimal patch with no repo write
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(npm -v)" = 10.9.2
+          test "$(node -p 'require("./package.json").devDependencies.vite')" = 6.4.3
+          npm ci
+          npm audit --json > "$RUNNER_TEMP/audit-before.json" || true
+          node -e 'let a=require(process.env.RUNNER_TEMP+"/audit-before.json");let v=a.vulnerabilities?.vite; if(a.metadata?.vulnerabilities?.total!==1||!v.via.some(x=>x.url==="https://github.com/advisories/GHSA-698v-4r3x-3vcv")||v.fixAvailable?.version!=="6.4.4")process.exit(1);console.log("BASELINE_ADVISORY=PASS")'
+          npm install --package-lock-only --ignore-scripts --save-dev --save-exact vite@6.4.4
+          test "$(node -p 'require("./package.json").devDependencies.vite')" = 6.4.4
+          test "$(node -p 'require("./package-lock.json").packages["node_modules/vite"].version')" = 6.4.4
+          npm ci
+          npm audit --json > "$RUNNER_TEMP/audit-after.json" || true
+          node -e 'let a=require(process.env.RUNNER_TEMP+"/audit-after.json");if(a.metadata?.vulnerabilities?.total!==0)process.exit(1);console.log("FIXED_AUDIT=PASS")'
+          npm run build
+          node --input-type=module -e '
+            import fs from "node:fs";import path from "node:path";import crypto from "node:crypto";
+            const hash=b=>crypto.createHash("sha256").update(b).digest("hex");
+            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
+            const files=["dist/admin.html",...walk("dist/assets")].map(p=>({path:p.slice(5),bytes:fs.statSync(p).size,sha256:hash(fs.readFileSync(p))}));
+            const report={vite:"6.4.4",lockSha256:hash(fs.readFileSync("package-lock.json")),files};
+            fs.writeFileSync(process.env.RUNNER_TEMP+"/build-report.json",JSON.stringify(report,null,2));
+            console.log("NEW_LOCK_SHA256="+report.lockSha256);
+            console.log("ADMIN_ASSETS="+JSON.stringify(files.filter(f=>f.path==="admin.html"||/^assets\/(admin|firebase-config)-/.test(f.path))));
+          '
+          git diff --name-only | grep -Fx package.json
+          git diff --name-only | grep -Fx package-lock.json
+          test "$(git diff --name-only | wc -l)" -eq 2
+      - name: Keep audit and package evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-v1r13-vite-minimal-patch-evidence
+          path: |
+            package.json
+            package-lock.json
+            ${{ runner.temp }}/audit-before.json
+            ${{ runner.temp }}/audit-after.json
+            ${{ runner.temp }}/build-report.json
+          retention-days: 7
+          if-no-files-found: warn
