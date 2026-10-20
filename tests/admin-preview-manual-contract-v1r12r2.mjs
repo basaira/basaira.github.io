@@ -17,6 +17,7 @@ check(/refs\/heads\/basair\/admin-preview-manual-release-v1r12r2/,'exact isolate
 check(/environment:\n      name: basair-admin-preview-approval/,'protected environment reference');
 check(/jq -e '[^\n]*required_reviewers/,'required reviewer API readback before auth');
 check(/id-token: write/,'OIDC only in deployment job');
+check(/deploy_preview:[\s\S]*?permissions:\n      contents: read\n      actions: read\n      id-token: write/,'deployment job must have read-only Actions access for environment verification');
 check(/google-github-actions\/auth@v3/,'short-lived WIF action');
 assert.ok(!/credentials_json|FIREBASE_TOKEN:|service_account_key/i.test(source),'long-lived credentials not allowed');
 check(/firebase-tools@15\.30\.2/,'pinned Firebase CLI');
