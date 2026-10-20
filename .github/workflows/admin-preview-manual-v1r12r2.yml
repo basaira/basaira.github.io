@@ -93,6 +93,7 @@ jobs:
       name: basair-admin-preview-approval
     permissions:
       contents: read
+      actions: read
       id-token: write
     steps:
       - name: Exact checked-out candidate after required environment approval
