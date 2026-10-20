@@ -41,7 +41,9 @@ for(const item of manifest.assets.entries){
  assert.equal(sha256(buf),item.sha256);
 }
 assert.equal(manifest.hosting.configSha256,sha256(read('firebase.json')));
+assert.equal(manifest.hosting.configSha256,'df54b916c3e4e0b7ff07190d9093d7db2cb873f08ab6b21da8e2469e5b0b9d67','hosting config drift vs V1R11');
 assert.equal(manifest.hosting.targetMapSha256,sha256(read('.firebaserc')));
+assert.equal(manifest.hosting.targetMapSha256,'7933ccd627a0878bda7d01c14f4fedbb466fa0a38e235140ddc7a376121f9dc0','site target mapping drift vs V1R11');
 assert.equal(manifest.toolchain.lockSha256,'1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76');
 assert.ok(config.hosting.headers.some(x=>x.source==='**'&&
  x.headers.some(h=>h.key==='Content-Security-Policy'&&h.value==="frame-ancestors 'none'")&&
