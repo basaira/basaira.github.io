@@ -78,10 +78,10 @@ jobs:
         with:
           name: basair-v1r12r2-readonly-qualification
           path: |
-            ${{ runner.temp }/v1r12r2-package-audit.json
-            ${{ runner.temp }/v1r10r1-asset-manifest.json
-            ${{ runner.temp }/v1r11-candidate-summary.json
-            ${{ runner.temp }/v1r12-preview-preflight.json
-            ${{ runner.temp }/v1r12r2-manual-contract.json
+            ${{ runner.temp }}/v1r12r2-package-audit.json
+            ${{ runner.temp }}/v1r10r1-asset-manifest.json
+            ${{ runner.temp }}/v1r11-candidate-summary.json
+            ${{ runner.temp }}/v1r12-preview-preflight.json
+            ${{ runner.temp }}/v1r12r2-manual-contract.json
           if-no-files-found: warn
           retention-days: 7

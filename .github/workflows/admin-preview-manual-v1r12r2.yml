@@ -28,16 +28,16 @@ concurrency:
   cancel-in-progress: false
 jobs:
   preflight:
-    if: "${{ github.event_name == 'workflow_dispatch' }"
+    if: "${{ github.event_name == 'workflow_dispatch' }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     outputs:
-      reviewed_head: "${{ steps.identity.outputs.reviewed_head }"
+      reviewed_head: "${{ steps.identity.outputs.reviewed_head }}"
     steps:
       - name: Checkout EXACT dispatch HEAD without stored credentials
         uses: actions/checkout@v4
         with:
-          ref: "${{ github.sha }"
+          ref: "${{ github.sha }}"
           fetch-depth: 0
           persist-credentials: false
       - name: Node 22.16.0 and npm 10.9.2
@@ -49,8 +49,8 @@ jobs:
         id: identity
         shell: bash
         env:
-          REVIEWED_SHA: "${{ inputs.candidate_sha }"
-          SITE_ID: "${{ inputs.site_id }"
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          SITE_ID: "${{ inputs.site_id }}"
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/basair/admin-preview-manual-release-v1r12r2'
@@ -86,7 +86,7 @@ jobs:
           echo PREVIEW_PREFLIGHT_ONLY_NO_FIREBASE_AUTH=PASS
   deploy_preview:
     needs: preflight
-    if: "${{ inputs.execution_authorization == 'APPROVE_ONE_DAY_PREVIEW_ONLY' && inputs.site_id == 'basair-admin' && needs.preflight.result == 'success' }"
+    if: "${{ inputs.execution_authorization == 'APPROVE_ONE_DAY_PREVIEW_ONLY' && inputs.site_id == 'basair-admin' && needs.preflight.result == 'success' }}"
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     environment:
@@ -98,7 +98,7 @@ jobs:
       - name: Exact checked-out candidate after required environment approval
         uses: actions/checkout@v4
         with:
-          ref: "${{ needs.preflight.outputs.reviewed_head }"
+          ref: "${{ needs.preflight.outputs.reviewed_head }}"
           fetch-depth: 0
           persist-credentials: false
       - name: Node 22.16.0 and npm 10.9.2
@@ -109,10 +109,10 @@ jobs:
       - name: FAIL CLOSED unless environment has genuine required reviewers and WIF is configured
         shell: bash
         env:
-          GH_TOKEN: "${{ github.token }"
-          WIF_PROVIDER: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }"
-          SERVICE_ACCOUNT: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }"
-          REVIEWED_SHA: "${{ inputs.candidate_sha }"
+          GH_TOKEN: "${{ github.token }}"
+          WIF_PROVIDER: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }}"
+          SERVICE_ACCOUNT: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }}"
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/basair/admin-preview-manual-release-v1r12r2'
@@ -132,8 +132,8 @@ jobs:
         uses: google-github-actions/auth@v3
         with:
           project_id: basair-academy-4a1d0
-          workload_identity_provider: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }"
-          service_account: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }"
+          workload_identity_provider: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }}"
+          service_account: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }}"
           create_credentials_file: true
       - name: Rebuild and attest five-file candidate again after approval
         shell: bash
@@ -194,7 +194,7 @@ jobs:
         with:
           name: basair-v1r12r2-preview-sanitized-proof
           path: |
-            ${{ runner.temp }/preview-sanitized-proof.json
-            ${{ runner.temp }/v1r12-real-preview-http-browser.json
+            ${{ runner.temp }}/preview-sanitized-proof.json
+            ${{ runner.temp }}/v1r12-real-preview-http-browser.json
           if-no-files-found: warn
           retention-days: 7
