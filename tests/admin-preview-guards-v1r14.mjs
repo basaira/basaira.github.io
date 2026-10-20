@@ -47,7 +47,7 @@ reject('old branch only',()=>environmentGate(env,{branch_policies:[{name:'basair
 reject('no branch restrictions',()=>environmentGate({...env,deployment_branch_policy:{custom_branch_policies:false}},branches,'owner'));
 const manual=fs.readFileSync('.github/workflows/admin-preview-guarded-v1r14.yml','utf8');
 const ci=fs.readFileSync('.github/workflows/admin-preview-guarded-ci-v1r14.yml','utf8');
-assert.match(manual,/^on:\n  workflow_dispatch:\n/);
+assert.match(manual,/^on:\n  workflow_dispatch:\n/m);
 assert.ok(!/^  (push|pull_request|schedule|workflow_run|repository_dispatch):/m.test(manual));
 assert.match(manual,/default: DO_NOT_DEPLOY/);
 assert.match(manual,/candidate_tree:/);
@@ -63,7 +63,7 @@ assert.match(manual,/admin-preview-guards-v1r14\.mjs approval/);
 assert.ok(!/(^|\s)firebase deploy(?:\s|$)|hosting:clone|--only hosting:admin-v1r11-only/.test(manual));
 assert.ok(!/credentials_json|service_account_key|FIREBASE_TOKEN:/.test(manual));
 assert.equal((manual.match(/id-token: write/g)||[]).length,1);
-assert.match(ci,/^on:\n  push:\n    branches:\n      - basair\/admin-preview-guarded-release-qualification-v1r14/);
+assert.match(ci,/^on:\n  push:\n    branches:\n      - basair\/admin-preview-guarded-release-qualification-v1r14/m);
 assert.ok(!/id-token: write|google-github-actions\/auth|hosting:channel:deploy|FIREBASE_TOKEN/.test(ci));
 console.log('V1R14_POSITIVE_GATE_TESTS=PASS');
 console.log('V1R14_NEGATIVE_GATE_TESTS=PASS count='+rejects.length+' names='+rejects.join(','));
