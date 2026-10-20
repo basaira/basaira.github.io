@@ -1,0 +1,221 @@
+name: BASAIR V1R14 Guarded Preview - Manual Only
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Exact reviewed HEAD of the isolated preview branch (40 lowercase hex)'
+        required: true
+        type: string
+      candidate_tree:
+        description: 'Exact independently reviewed candidate Git TREE SHA'
+        required: true
+        type: string
+      site_id:
+        description: 'Only the dedicated BASAIR admin USER_SITE is allowed'
+        required: true
+        default: basair-admin
+        type: choice
+        options:
+          - basair-admin
+      execution_authorization:
+        description: 'Separate owner approval; the default never deploys'
+        required: true
+        default: DO_NOT_DEPLOY
+        type: choice
+        options:
+          - DO_NOT_DEPLOY
+          - APPROVE_ONE_DAY_PREVIEW_ONLY
+permissions:
+  contents: read
+concurrency:
+  group: basair-admin-preview-manual-gated
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: "${{ github.event_name == 'workflow_dispatch' }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      reviewed_head: "${{ steps.identity.outputs.reviewed_head }}"
+    steps:
+      - name: Checkout EXACT dispatch HEAD without stored credentials
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Guard source identity, explicit owner intent and allowed paths
+        id: identity
+        shell: bash
+        env:
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          SITE_ID: "${{ inputs.site_id }}"
+          REVIEWED_TREE: "${{ inputs.candidate_tree }}"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/basair/admin-preview-guarded-release-qualification-v1r14'
+          [[ "$REVIEWED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_SHA" = "$GITHUB_SHA"
+          [[ "$REVIEWED_TREE" =~ ^[0-9a-f]{40}$ ]]
+          test "$REVIEWED_TREE" = "$(git rev-parse HEAD^{tree})"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$SITE_ID" = basair-admin
+          test "$(git rev-parse fe93498beadf3d4f6efe65acc63559741e0f7006^{tree})" = 90caf98980935a1c98010a33fbb39510bd3e28d4
+          git merge-base --is-ancestor fe93498beadf3d4f6efe65acc63559741e0f7006 HEAD
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/admin-preview-guarded-v1r14.yml) ;;
+              .github/workflows/admin-preview-guarded-ci-v1r14.yml) ;;
+              scripts/admin-preview-guards-v1r14.mjs) ;;
+              tests/admin-preview-guards-v1r14.mjs) ;;
+              docs/admin-preview-guarded-qualification-v1r14.md) ;;
+              *) echo "UNAUTHORIZED V1R14 PATH: $path"; exit 1 ;;
+            esac
+          done < <(git diff --name-only fe93498beadf3d4f6efe65acc63559741e0f7006 HEAD)
+          test "$(git diff --name-only fe93498beadf3d4f6efe65acc63559741e0f7006 HEAD | wc -l)" -eq 5
+          git diff --exit-code fe93498beadf3d4f6efe65acc63559741e0f7006 HEAD -- package.json package-lock.json admin.js admin.html firebase.json firestore.rules .firebaserc
+          test -z "$(git status --porcelain)"
+          echo "reviewed_head=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          node tests/admin-preview-manual-contract-v1r12r2.mjs
+          node scripts/admin-preview-guards-v1r14.mjs source
+      - name: Verify immutable package, five Admin assets and ONLY admin USER_SITE mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
+          npm ci
+          npm run build
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+          test -z "$(git status --porcelain)"
+          echo PREVIEW_PREFLIGHT_ONLY_NO_FIREBASE_AUTH=PASS
+  deploy_preview:
+    needs: preflight
+    if: "${{ inputs.execution_authorization == 'APPROVE_ONE_DAY_PREVIEW_ONLY' && inputs.site_id == 'basair-admin' && needs.preflight.result == 'success' }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    environment:
+      name: basair-admin-preview-approval
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - name: Exact checked-out candidate after required environment approval
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ needs.preflight.outputs.reviewed_head }}"
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: FAIL CLOSED unless environment has genuine required reviewers and WIF is configured
+        shell: bash
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          WIF_PROVIDER: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }}"
+          SERVICE_ACCOUNT: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }}"
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          REVIEWED_TREE: "${{ inputs.candidate_tree }}"
+          EXECUTION_AUTHORIZATION: "${{ inputs.execution_authorization }}"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/basair/admin-preview-guarded-release-qualification-v1r14'
+          test "$GITHUB_SHA" = "$REVIEWED_SHA"
+          test "$REVIEWED_TREE" = "$(git rev-parse HEAD^{tree})"
+          test "$(git rev-parse HEAD)" = "$REVIEWED_SHA"
+          test -z "$(printenv FIREBASE_TOKEN || true)"
+          test -n "$WIF_PROVIDER"
+          test -n "$SERVICE_ACCOUNT"
+          [[ "$WIF_PROVIDER" =~ ^projects/[0-9]+/locations/global/workloadIdentityPools/[A-Za-z0-9_-]+/providers/[A-Za-z0-9_-]+$ ]]
+          [[ "$SERVICE_ACCOUNT" =~ ^[a-zA-Z0-9._-]+@basair-academy-4a1d0\.iam\.gserviceaccount\.com$ ]]
+          curl -fsS --retry 1 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/environments/basair-admin-preview-approval" \
+            > "$RUNNER_TEMP/environment.json"
+          curl -fsS --retry 1 -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/environments/basair-admin-preview-approval/deployment-branch-policies?per_page=100" \
+            > "$RUNNER_TEMP/branch-policies.json"
+          node scripts/admin-preview-guards-v1r14.mjs approval
+          echo REQUIRED_REVIEWER_CONFIGURATION_CONFIRMED=PASS
+      - name: Authenticate using short-lived Google Workload Identity Federation
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: basair-academy-4a1d0
+          workload_identity_provider: "${{ vars.BASAIR_PREVIEW_WIF_PROVIDER }}"
+          service_account: "${{ vars.BASAIR_PREVIEW_SERVICE_ACCOUNT }}"
+          create_credentials_file: true
+      - name: Rebuild and attest five-file candidate again after approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
+          npm ci
+          npm run build
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+      - name: Install an exact Firebase CLI version and check package integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/firebase-cli"
+          npm install --prefix "$RUNNER_TEMP/firebase-cli" --no-audit --no-fund --package-lock=true --save-exact firebase-tools@15.30.2
+          test "$(node -p "require(process.env.RUNNER_TEMP+'/firebase-cli/node_modules/firebase-tools/package.json').version")" = 15.30.2
+          LOCK_INTEGRITY="$(node -p "require(process.env.RUNNER_TEMP+'/firebase-cli/package-lock.json').packages['node_modules/firebase-tools'].integrity")"
+          REGISTRY_INTEGRITY="$(npm view firebase-tools@15.30.2 dist.integrity --json | tr -d '"\n')"
+          test "$LOCK_INTEGRITY" = "$REGISTRY_INTEGRITY"
+          "$RUNNER_TEMP/firebase-cli/node_modules/.bin/firebase" --version
+      - name: Read-only Firebase target inventory before any external mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/firebase-cli/node_modules/.bin/firebase" hosting:sites:list --project basair-academy-4a1d0 --json > "$RUNNER_TEMP/site-readback.json"
+          node -e 'const fs=require("fs");const raw=fs.readFileSync(process.env.RUNNER_TEMP+"/site-readback.json","utf8");const o=JSON.parse(raw);if(o.status!=="success")process.exit(1);const a=JSON.stringify(o);if(!a.includes("basair-admin")||!a.includes("basair-academy-4a1d0"))process.exit(1);console.log("READ_ONLY_SITE_INVENTORY=PASS")'
+      - name: FINAL GUARDED EXTERNAL MUTATION - one-day USER_SITE preview ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/basair-v1r11-candidate"
+          test "$(sha256sum firebase.json | cut -d' ' -f1)" = df54b916c3e4e0b7ff07190d9093d7db2cb873f08ab6b21da8e2469e5b0b9d67
+          test "$(sha256sum .firebaserc | cut -d' ' -f1)" = 7933ccd627a0878bda7d01c14f4fedbb466fa0a38e235140ddc7a376121f9dc0
+          "$RUNNER_TEMP/firebase-cli/node_modules/.bin/firebase" hosting:channel:deploy v1r12-admin-only \
+            --only admin-v1r11-only \
+            --project basair-academy-4a1d0 \
+            --config firebase.json \
+            --expires 1d \
+            --json > "$RUNNER_TEMP/preview-cli-response.json"
+          cd "$GITHUB_WORKSPACE"
+          node scripts/admin-preview-parse-deployment-v1r12r2.mjs "$RUNNER_TEMP/preview-cli-response.json"
+      - name: Unauthenticated Chromium verification, production APIs BLOCKED
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/preview-tools"
+          npm install --prefix "$RUNNER_TEMP/preview-tools" --no-audit --no-fund playwright@1.55.1
+          "$RUNNER_TEMP/preview-tools/node_modules/.bin/playwright" install --with-deps chromium
+          BASAIR_TEST_TOOLS="$RUNNER_TEMP/preview-tools" node tests/admin-preview-remote-http-v1r12.mjs
+      - name: Upload sanitized proof, not tokens or runnable assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-v1r12r2-preview-sanitized-proof
+          path: |
+            ${{ runner.temp }}/preview-sanitized-proof.json
+            ${{ runner.temp }}/v1r12-real-preview-http-browser.json
+          if-no-files-found: warn
+          retention-days: 7
