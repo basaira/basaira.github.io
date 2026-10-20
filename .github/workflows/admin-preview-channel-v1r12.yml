@@ -36,7 +36,7 @@ jobs:
           git merge-base --is-ancestor "$BASE" HEAD
           git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
             case "$f" in
-              tests/admin-preview-target-guard-v1r12.mjs|.github/workflows/admin-preview-channel-v1r12.yml|docs/admin-preview-channel-v1r12.md) ;;
+              tests/admin-preview-target-guard-v1r12.mjs|tests/admin-preview-remote-http-v1r12.mjs|.github/workflows/admin-preview-channel-v1r12.yml|docs/admin-preview-channel-v1r12.md) ;;
               *) echo "UNAUTHORIZED PATH $f"; exit 1 ;;
             esac
           done
@@ -61,6 +61,8 @@ jobs:
           BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
           node tests/admin-dedicated-hosting-contract-v1r11.mjs
           node tests/admin-preview-target-guard-v1r12.mjs
+          node --check tests/admin-preview-remote-http-v1r12.mjs
+          echo REMOTE_PREVIEW_TEST_PREPARED_BUT_NOT_EXECUTED=PASS
           git diff --check
           test -z "$(git status --porcelain)"
       - name: Patched isolated Playwright and separate tooling audit
