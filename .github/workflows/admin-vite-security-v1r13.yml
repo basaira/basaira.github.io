@@ -1,61 +1,94 @@
-name: BASAIR V1R13 Security-Only Vite Rebuild Probe
+name: BASAIR V1R13 Vite Security Repair Final CI (NO DEPLOY)
 on:
   push:
-    branches: [basair/admin-preview-vite-security-repair-v1r13]
+    branches:
+      - basair/admin-preview-vite-security-repair-v1r13
 permissions:
   contents: read
 jobs:
-  probe:
+  isolated-v1r13:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 70
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact isolated HEAD
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - name: Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
           cache: npm
-      - name: Verify original vulnerability and minimal patch with no repo write
+      - name: Frozen authorities and security-only file scope
         shell: bash
         run: |
           set -euo pipefail
+          BASE=8e540f90bf1e63098374d7d34e4142ed8298f797
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse "$BASE^{tree}")" = e614720f959465e607c1668ee32396cd02bf437c
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse cef59ba05b3382978b4c18e83592f08227b2f9c4^{commit})" = cef59ba05b3382978b4c18e83592f08227b2f9c4
+          test "$(git rev-parse 40d9560a76c1c3d67995e59bf2e0ba7bb09176cb^{tree})" = c67b4106c9519c5fec49637606adfb2e605bc89d
+          git merge-base --is-ancestor "$BASE" HEAD
+          while IFS= read -r file; do
+            case "$file" in
+              .github/workflows/admin-preview-manual-v1r12r2.yml|.github/workflows/admin-vite-security-v1r13.yml|package.json|package-lock.json|tests/admin-vite-security-contract-v1r13.mjs|tests/admin-only-asset-closure-v1r10r1.mjs|tests/admin-preview-target-guard-v1r12.mjs|scripts/admin-dedicated-hosting-candidate-v1r11.mjs|docs/admin-vite-security-repair-v1r13.md) ;;
+              *) echo "UNAUTHORIZED PATH: $file"; exit 1 ;;
+            esac
+          done < <(git diff --name-only "$BASE" HEAD)
+          git diff --exit-code "$BASE" HEAD -- admin.js admin.html firebase-config.js firestore.rules firebase.json .firebaserc
+          node tests/admin-vite-security-contract-v1r13.mjs
+          node tests/admin-preview-manual-contract-v1r12r2.mjs
+          git diff --check
+          test -z "$(git status --porcelain)"
+      - name: Clean install, fail-closed audit, full verify, five-file invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
           test "$(npm -v)" = 10.9.2
-          test "$(node -p 'require("./package.json").devDependencies.vite')" = 6.4.3
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
           npm ci
-          npm audit --json > "$RUNNER_TEMP/audit-before.json" || true
-          node -e 'let a=require(process.env.RUNNER_TEMP+"/audit-before.json");let v=a.vulnerabilities?.vite; if(a.metadata?.vulnerabilities?.total!==1||!v.via.some(x=>x.url==="https://github.com/advisories/GHSA-698v-4r3x-3vcv")||v.fixAvailable?.version!=="6.4.4")process.exit(1);console.log("BASELINE_ADVISORY=PASS")'
-          npm install --package-lock-only --ignore-scripts --save-dev --save-exact vite@6.4.4
-          test "$(node -p 'require("./package.json").devDependencies.vite')" = 6.4.4
-          test "$(node -p 'require("./package-lock.json").packages["node_modules/vite"].version')" = 6.4.4
-          npm ci
-          npm audit --json > "$RUNNER_TEMP/audit-after.json" || true
-          node -e 'let a=require(process.env.RUNNER_TEMP+"/audit-after.json");if(a.metadata?.vulnerabilities?.total!==0)process.exit(1);console.log("FIXED_AUDIT=PASS")'
-          npm run build
-          node --input-type=module -e '
-            import fs from "node:fs";import path from "node:path";import crypto from "node:crypto";
-            const hash=b=>crypto.createHash("sha256").update(b).digest("hex");
-            const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(d,e.name)):[path.join(d,e.name)]);
-            const files=["dist/admin.html",...walk("dist/assets")].map(p=>({path:p.slice(5),bytes:fs.statSync(p).size,sha256:hash(fs.readFileSync(p))}));
-            const report={vite:"6.4.4",lockSha256:hash(fs.readFileSync("package-lock.json")),files};
-            fs.writeFileSync(process.env.RUNNER_TEMP+"/build-report.json",JSON.stringify(report,null,2));
-            console.log("NEW_LOCK_SHA256="+report.lockSha256);
-            console.log("ADMIN_ASSETS="+JSON.stringify(files.filter(f=>f.path==="admin.html"||/^assets\/(admin|firebase-config)-/.test(f.path))));
-          '
-          git diff --name-only | grep -Fx package.json
-          git diff --name-only | grep -Fx package-lock.json
-          test "$(git diff --name-only | wc -l)" -eq 2
-      - name: Keep audit and package evidence only
+          npm ls vite
+          npm audit --json > "$RUNNER_TEMP/v1r13-final-audit.json" || true
+          node -e 'let a=require(process.env.RUNNER_TEMP+"/v1r13-final-audit.json");console.log("FINAL_AUDIT="+JSON.stringify(a.metadata?.vulnerabilities));if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)'
+          npm run verify
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+          test -z "$(git status --porcelain)"
+      - name: Local HTTP browser frame proof and separate test tool audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BASAIR_TEST_TOOLS="$RUNNER_TEMP/v1r13-playwright"
+          npm install --prefix "$BASAIR_TEST_TOOLS" --no-audit --save-exact playwright@1.55.1
+          npm audit --prefix "$BASAIR_TEST_TOOLS" --json > "$RUNNER_TEMP/v1r13-tooling-audit.json" || true
+          node -e 'let a=require(process.env.RUNNER_TEMP+"/v1r13-tooling-audit.json");console.log("TOOL_AUDIT="+JSON.stringify(a.metadata?.vulnerabilities));if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)'
+          "$BASAIR_TEST_TOOLS/node_modules/.bin/playwright" install --with-deps chromium
+          BASAIR_ADMIN_ONLY_DIR="$RUNNER_TEMP/basair-v1r11-candidate/admin-only" node tests/admin-http-frame-proof-v1r10r1.mjs
+          test -z "$(git status --porcelain)"
+          echo NO_FIREBASE_DEPLOYMENT_OR_PRODUCTION_WRITE=PASS
+      - name: Final Git SHA and evidence-only artifacts
+        if: always()
+        shell: bash
+        run: |
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
+          git diff --name-only 8e540f90bf1e63098374d7d34e4142ed8298f797 HEAD
+      - name: Upload JSON-only evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: basair-v1r13-vite-minimal-patch-evidence
+          name: basair-v1r13-security-qualification
           path: |
-            package.json
-            package-lock.json
-            ${{ runner.temp }}/audit-before.json
-            ${{ runner.temp }}/audit-after.json
-            ${{ runner.temp }}/build-report.json
+            ${{ runner.temp }}/v1r13-final-audit.json
+            ${{ runner.temp }}/v1r13-tooling-audit.json
+            ${{ runner.temp }}/v1r10r1-asset-manifest.json
+            ${{ runner.temp }}/v1r11-candidate-summary.json
+            ${{ runner.temp }}/v1r12-preview-preflight.json
+            ${{ runner.temp }}/v1r10r1-http-frame-proof.json
           retention-days: 7
           if-no-files-found: warn

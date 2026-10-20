@@ -27,7 +27,7 @@ assert.equal(git('merge-base',base,'HEAD'),base,'candidate ancestry diverged');
 assert.equal(git('rev-parse',appSource+'^{tree}'),appTree);
 assert.deepEqual(evidence.files.map(x=>[x.path,x.bytes,x.sha256]).sort((a,b)=>a[0].localeCompare(b[0])),expected.slice().sort((a,b)=>a[0].localeCompare(b[0])),'V1R10-R1 closure hashes mismatch');
 const lockHash=sha(fs.readFileSync('package-lock.json'));
-assert.equal(lockHash,'1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76');
+assert.equal(lockHash,'62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a');
 const releaseRoot=path.join(temp,'basair-v1r11-candidate'),bundle=path.join(releaseRoot,'admin-only');
 assert.ok(!releaseRoot.startsWith(cwd+path.sep),'release files must be outside checkout');
 fs.rmSync(releaseRoot,{recursive:true,force:true});fs.mkdirSync(bundle,{recursive:true});

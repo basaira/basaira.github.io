@@ -104,7 +104,7 @@ assert.ok(fs.readFileSync(path.join(out,'admin.html'),'utf8').includes(metaTag),
 const paths=[...visited].sort();
 const manifest=paths.map(rel=>({path:rel,bytes:fs.statSync(path.join(out,rel)).size,sha256:sha256(fs.readFileSync(path.join(out,rel)))}));
 const lockfileSha256=sha256(fs.readFileSync('package-lock.json'));
-assert.equal(lockfileSha256,'1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76','unexpected lockfile');
+assert.equal(lockfileSha256,'62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a','unexpected lockfile');
 const fullTree=(()=>{const a=[];function walk(dir){for(const ent of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,ent.name);if(ent.isDirectory())walk(p);else if(ent.isFile())a.push(path.relative(out,p).split(path.sep).join('/'));else throw Error('nonfile in package: '+p)}}walk(out);return a.sort()})();
 assert.deepEqual(fullTree,paths,'copied assets differ from closed dependency graph');
 const allJs=paths.filter(p=>p.endsWith('.js')).map(p=>fs.readFileSync(path.join(out,p),'utf8')).join('\n');

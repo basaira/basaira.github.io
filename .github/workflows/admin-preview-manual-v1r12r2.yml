@@ -75,7 +75,7 @@ jobs:
           set -euo pipefail
           test "$(node -v)" = v22.16.0
           test "$(npm -v)" = 10.9.2
-          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
           npm ci
           npm run build
           BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
@@ -142,7 +142,7 @@ jobs:
           set -euo pipefail
           test "$(node -v)" = v22.16.0
           test "$(npm -v)" = 10.9.2
-          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
           npm ci
           npm run build
           BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
