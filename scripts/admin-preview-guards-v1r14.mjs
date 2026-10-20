@@ -47,16 +47,30 @@ export function wifGate(provider,serviceAccount,firebaseToken) {
   assert.match(serviceAccount||'',/^[a-zA-Z0-9._-]+@basair-academy-4a1d0\.iam\.gserviceaccount\.com$/);
   return true;
 }
+// Consume the documented GitHub REST get-environment and branch-policies shapes.
+// A single extra policy (including main, wildcard, tag, or old release branch) fails closed.
 export function environmentGate(env,policies,actor) {
   assert.equal(env?.name,'basair-admin-preview-approval');
-  assert.equal(env.can_admins_bypass,false);
-  assert.equal(env.prevent_self_review,true,'independent review is compulsory');
-  const rule=env.protection_rules?.find(x=>x.type==='required_reviewers');
-  assert.ok(rule&&Array.isArray(rule.reviewers)&&rule.reviewers.length>0,'required reviewer missing');
-  assert.ok(rule.reviewers.some(x=>x.reviewer?.login&&x.reviewer.login!==actor),'only self-reviewers');
-  assert.equal(env.deployment_branch_policy?.custom_branch_policies,true);
-  assert.ok(Array.isArray(policies?.branch_policies));
-  assert.ok(policies.branch_policies.some(x=>x.name===BRANCH),'V1R14 not present in protected branch policy');
+  assert.equal(env.can_admins_bypass,false,'administrator bypass must be disabled');
+  assert.ok(typeof actor==='string' && actor.trim().length>0,'initiating actor unavailable');
+  assert.ok(Array.isArray(env.protection_rules),'missing REST protection_rules');
+  const reviewerRules=env.protection_rules.filter(x=>x?.type==='required_reviewers');
+  assert.equal(reviewerRules.length,1,'exactly one required_reviewers rule expected');
+  const rule=reviewerRules[0];
+  assert.equal(rule.prevent_self_review,true,'self-review must be prevented by required_reviewers');
+  assert.ok(Array.isArray(rule.reviewers)&&rule.reviewers.length>0,'required reviewer missing');
+  assert.ok(rule.reviewers.some(x=>x?.type==='User' &&
+    typeof x.reviewer?.login==='string' &&
+    x.reviewer.login.trim().length>0 &&
+    x.reviewer.login.toLowerCase()!==actor.toLowerCase()),'independent user reviewer missing');
+  assert.equal(env.deployment_branch_policy?.protected_branches,false,'expected explicit custom branch policy');
+  assert.equal(env.deployment_branch_policy?.custom_branch_policies,true,'custom branch restriction required');
+  assert.equal(policies?.total_count,1,'additional/unread deployment policy or incomplete page');
+  assert.ok(Array.isArray(policies.branch_policies),'missing REST branch_policies');
+  assert.equal(policies.branch_policies.length,1,'only one explicit V1R14 branch rule permitted');
+  const only=policies.branch_policies[0];
+  assert.equal(only?.name,BRANCH,'branch wildcard, main, tag or other branch forbidden');
+  if(Object.hasOwn(only,'type')) assert.equal(only.type,'branch','tag deployment policy forbidden');
   return true;
 }
 function run() {
