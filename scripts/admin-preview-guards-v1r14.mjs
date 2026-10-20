@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 
@@ -83,4 +84,4 @@ function run() {
     console.log('V1R14_INDEPENDENT_ENVIRONMENT_GATE=PASS');
   } else throw Error('unsupported gate command');
 }
-if(process.argv[1]?.endsWith('admin-preview-guards-v1r14.mjs')) run();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) run();
