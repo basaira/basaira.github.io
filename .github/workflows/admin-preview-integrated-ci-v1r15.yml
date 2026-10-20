@@ -43,6 +43,10 @@ jobs:
           node --check scripts/admin-preview-integrated-guards-v1r15.mjs
           node --check scripts/admin-preview-guards-v1r14.mjs
           node tests/admin-preview-integrated-guards-v1r15.mjs
+          # Exercise real Git/HEAD/TREE/ancestry gate with a simulated owner intent.
+          # No credentials, no Firebase CLI, and no deployment job is available here.
+          env REVIEWED_SHA="$GITHUB_SHA" REVIEWED_TREE="$(git rev-parse HEAD^{tree})" SITE_ID=basair-admin EXECUTION_AUTHORIZATION=APPROVE_ONE_DAY_PREVIEW_ONLY node scripts/admin-preview-integrated-guards-v1r15.mjs source
+          echo V1R15_REAL_GIT_SOURCE_GATE=PASS
           node tests/admin-preview-guards-v1r14.mjs
           node tests/admin-vite-security-contract-v1r13.mjs
           node tests/admin-preview-manual-contract-v1r12r2.mjs

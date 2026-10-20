@@ -104,7 +104,10 @@ const alterations=[
  ['removed-approval-gate',manual.replace('node scripts/admin-preview-integrated-guards-v1r15.mjs approval','echo skip_approval')],
  ['removed-source-gate',manual.replaceAll('node scripts/admin-preview-integrated-guards-v1r15.mjs source','echo skip_source')],
  ['removed-independent-environment',manual.replace('environment:\n      name: basair-admin-preview-approval','environment:\n      name: free-deploy')],
- ['removed-WIF-action',manual.replace('google-github-actions/auth@v3','insecure/key-auth@v1')]
+ ['removed-WIF-action',manual.replace('google-github-actions/auth@v3','insecure/key-auth@v1')],
+ ['added-extra-deploy-job',manual+'\n  backdoor_deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo unauthorized\n'],
+ ['added-extra-cloud-permission-block',manual+'\n    permissions:\n      id-token: write\n'],
+ ['broad-repo-token-write',manual.replace('permissions:\n  contents: read','permissions:\n  contents: write')]
 ];
 for(const [name,attack] of alterations)rejects(name,()=>manualWorkflowGate(attack));
 const ci=fs.readFileSync('.github/workflows/admin-preview-integrated-ci-v1r15.yml','utf8');

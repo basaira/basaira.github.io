@@ -93,6 +93,7 @@ export function manualWorkflowGate(source) {
   assert.match(source,/candidate_tree:/);
   assert.match(source,/environment:\n      name: basair-admin-preview-approval/);
   assert.match(source,/permissions:\n  contents: read/);
+  assert.ok(!/^permissions:\n  contents: write/m.test(source),'contents write forbidden');
   assert.match(source,/deploy_preview:[\s\S]*?permissions:\n      contents: read\n      actions: read\n      id-token: write/);
   assert.equal((source.match(/id-token: write/g)||[]).length,1,'OIDC must be deploy-only');
   assert.match(source,/google-github-actions\/auth@v3/);
@@ -104,6 +105,12 @@ export function manualWorkflowGate(source) {
   assert.match(source,/--expires 1d/);
   assert.ok(!/(^|\s)firebase deploy(?:\s|$)|hosting:clone|--only hosting:admin-v1r11-only/.test(source),'live/default Hosting not allowed');
   assert.ok(!/credentials_json|service_account_key|FIREBASE_TOKEN:/.test(source),'permanent Firebase credential forbidden');
+  const jobsText=source.split('\njobs:\n');
+  assert.equal(jobsText.length,2,'exactly one jobs section is required');
+  const jobNames=[...jobsText[1].matchAll(/^  ([A-Za-z0-9_-]+):\s*$/gm)].map(m=>m[1]);
+  assert.deepEqual(jobNames,['preflight','deploy_preview'],'no additional runnable jobs permitted');
+  const permissionBlocks=[...source.matchAll(/^(?:permissions:|    permissions:)\s*$/gm)];
+  assert.equal(permissionBlocks.length,2,'no additional or relocated permission grants');
   return true;
 }
 
