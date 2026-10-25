@@ -38,7 +38,10 @@ jobs:
             esac
           done < <(git diff --name-only 3da010de1c444d956deecead8dd2e39823360e26 HEAD)
           git diff --exit-code 3da010de1c444d956deecead8dd2e39823360e26 HEAD -- admin.js admin.html package.json package-lock.json firebase.json .firebaserc firestore.rules
-          git cat-file -e 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243:.github/workflows/admin-verify-only-registration-v1r17.yml && { echo "Workflow already on frozen Main: STOP"; exit 1; } || true
+          if git cat-file -e 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243:.github/workflows/admin-verify-only-registration-v1r17.yml 2>/dev/null; then
+            echo "Workflow already on frozen Main: STOP"
+            exit 1
+          fi
           node --check scripts/admin-v1r17-registration-contract.mjs
           node --check tests/admin-v1r17-registration-qualification.mjs
           node scripts/admin-v1r17-registration-contract.mjs check
