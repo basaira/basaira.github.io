@@ -1,0 +1,102 @@
+name: BASAIR V1R17 Proposed Main Registration - Isolated READ ONLY CI
+on:
+  push:
+    branches:
+      - basair/admin-manual-registration-qualification-v1r17
+permissions:
+  contents: read
+jobs:
+  isolated-registration-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout isolated V1R17 with complete reviewed history, no persisted credentials
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Verify immutable authorities, exactly five changed paths, and real pinned V16 manual simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse 3da010de1c444d956deecead8dd2e39823360e26^{tree})" = 5ed825108eb100de4879b6d5923f9ba4e572e5cc
+          test "$(git rev-parse ac644985086e5dbb792a3b1236008257868fecc5^{tree})" = d48ef39c2f504c84268e5f529652a1f67980a240
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse cef59ba05b3382978b4c18e83592f08227b2f9c4^{commit})" = cef59ba05b3382978b4c18e83592f08227b2f9c4
+          git merge-base --is-ancestor 3da010de1c444d956deecead8dd2e39823360e26 HEAD
+          test "$(git diff --name-only 3da010de1c444d956deecead8dd2e39823360e26 HEAD | wc -l)" -eq 5
+          while IFS= read -r file; do
+            case "$file" in
+              .github/workflows/admin-verify-only-registration-v1r17.yml|.github/workflows/admin-v1r17-qualification-ci.yml|scripts/admin-v1r17-registration-contract.mjs|tests/admin-v1r17-registration-qualification.mjs|docs/admin-v1r17-registration-qualification.md) ;;
+              *) echo "V1R17_UNAUTHORIZED_PATH=$file"; exit 1 ;;
+            esac
+          done < <(git diff --name-only 3da010de1c444d956deecead8dd2e39823360e26 HEAD)
+          git diff --exit-code 3da010de1c444d956deecead8dd2e39823360e26 HEAD -- admin.js admin.html package.json package-lock.json firebase.json .firebaserc firestore.rules
+          git cat-file -e 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243:.github/workflows/admin-verify-only-registration-v1r17.yml && { echo "Workflow already on frozen Main: STOP"; exit 1; } || true
+          node --check scripts/admin-v1r17-registration-contract.mjs
+          node --check tests/admin-v1r17-registration-qualification.mjs
+          node scripts/admin-v1r17-registration-contract.mjs check
+          node tests/admin-v1r17-registration-qualification.mjs
+          node tests/admin-solo-operator-guards-v1r16.mjs
+          node tests/admin-preview-integrated-guards-v1r15.mjs
+          node tests/admin-preview-guards-v1r14.mjs
+          node tests/admin-vite-security-contract-v1r13.mjs
+          git diff --check
+          test -z "$(git status --porcelain)"
+          echo V1R17_MAIN_REGISTRATION_PROPOSAL_ONLY=PASS
+      - name: Read-only security audit reproducible build and exact five Admin SHA-256 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
+          npm ci
+          npm audit --json > "$RUNNER_TEMP/v1r17-audit.json"
+          node -e 'const a=require(process.env.RUNNER_TEMP+"/v1r17-audit.json");console.log("V1R17_AUDIT="+JSON.stringify(a.metadata?.vulnerabilities));if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)'
+          npm run verify
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+          test -z "$(git status --porcelain)"
+      - name: Read-only local Chromium CSP XFO with production Firebase APIs blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          export BASAIR_TEST_TOOLS="$RUNNER_TEMP/v1r17-playwright"
+          npm install --prefix "$BASAIR_TEST_TOOLS" --save-exact --no-audit playwright@1.55.1
+          npm audit --prefix "$BASAIR_TEST_TOOLS" --json > "$RUNNER_TEMP/v1r17-tool-audit.json"
+          node -e 'const a=require(process.env.RUNNER_TEMP+"/v1r17-tool-audit.json");console.log("V1R17_TOOL_AUDIT="+JSON.stringify(a.metadata?.vulnerabilities));if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)'
+          "$BASAIR_TEST_TOOLS/node_modules/.bin/playwright" install --with-deps chromium
+          BASAIR_ADMIN_ONLY_DIR="$RUNNER_TEMP/basair-v1r11-candidate/admin-only" node tests/admin-http-frame-proof-v1r10r1.mjs
+          test -z "$(git status --porcelain)"
+          echo V1R17_NO_MAIN_WRITE_NO_GOOGLE_NO_FIREBASE_DEPLOYMENT=PASS
+      - name: Report exact final identity and five files
+        if: always()
+        shell: bash
+        run: |
+          echo "FINAL_HEAD=$(git rev-parse HEAD)"
+          echo "FINAL_TREE=$(git rev-parse HEAD^{tree})"
+          git diff --name-only 3da010de1c444d956deecead8dd2e39823360e26 HEAD
+      - name: Upload sanitized non-deploy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-v1r17-manual-registration-qualification
+          path: |
+            ${{ runner.temp }}/v1r17-registration-proof.json
+            ${{ runner.temp }}/v1r17-audit.json
+            ${{ runner.temp }}/v1r17-tool-audit.json
+            ${{ runner.temp }}/v1r10r1-asset-manifest.json
+            ${{ runner.temp }}/v1r11-candidate-summary.json
+            ${{ runner.temp }}/v1r12-preview-preflight.json
+            ${{ runner.temp }}/v1r10r1-http-frame-proof.json
+          retention-days: 7
+          if-no-files-found: warn
