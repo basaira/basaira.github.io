@@ -7,6 +7,10 @@ export const PROPOSED_PATH='.github/workflows/admin-verify-only-registration-v1r
 export const V16='3da010de1c444d956deecead8dd2e39823360e26';
 export const TREE='5ed825108eb100de4879b6d5923f9ba4e572e5cc';
 export const V15='ac644985086e5dbb792a3b1236008257868fecc5';
+export const CHECKOUT_ACTION={repository:'actions/checkout',version:'v4.2.2',sha:'11bd71901bbe5b1630ceea73d27597364c9af683'};
+export const SETUP_NODE_ACTION={repository:'actions/setup-node',version:'v4.4.0',sha:'49933ea5288caeca8642d1e84afbd3f7d6820020'};
+// Set to the independently checked final proposal digest during final qualification.
+export const EXPECTED_MAIN_SHA256='PENDING_FINAL_DIGEST';
 export const BASE_MAIN='2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243';
 export const FILES=[
   '.github/workflows/admin-verify-only-registration-v1r17.yml',
@@ -34,8 +38,14 @@ export function registrationContract(yml) {
   assert.match(yml,/^          ref: 3da010de1c444d956deecead8dd2e39823360e26$/m,'checkout must be SHA pinned and not user input');
   assert.ok(!/^          ref:\s*.*(?:inputs\.|github\.|HEAD|main)/m.test(yml),'no dynamic checkout');
   assert.equal((yml.match(/\buses:\s*/g)||[]).length,2,'two reviewed actions only');
-  assert.match(yml,/uses: actions\/checkout@v4/);
-  assert.match(yml,/uses: actions\/setup-node@v4/);
+  assert.match(yml,/^        uses: actions\/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4\.2\.2$/m);
+  assert.match(yml,/^        uses: actions\/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4\.4\.0$/m);
+  const actionLines=yml.split('\n').filter(line=>/^\s*uses:\s*/.test(line));
+  assert.deepEqual(actionLines.map(line=>line.trim()),[
+    'uses: actions/checkout@'+CHECKOUT_ACTION.sha+' # '+CHECKOUT_ACTION.version,
+    'uses: actions/setup-node@'+SETUP_NODE_ACTION.sha+' # '+SETUP_NODE_ACTION.version
+  ],'only exact official pinned action invocations');
+  assert.ok(!/^\s*uses:.*@[A-Za-z][A-Za-z0-9_.-]*\s*(?:#.*)?$/m.test(yml),'moving action refs are forbidden');
   assert.match(yml,/persist-credentials: false/);
   assert.match(yml,/fetch-depth: 0/);
   assert.match(yml,/node-version: '22\.16\.0'/);
@@ -54,6 +64,10 @@ export function registrationContract(yml) {
   assert.match(yml,/admin-preview-target-guard-v1r12/);
   assert.match(yml,/V1R17_MAIN_REGISTRATION_VERIFY_ONLY_NO_DEPLOYMENT=PASS/);
   assert.ok(!/\$\{\{\s*inputs\.(?:ref|branch|workflow|command|script|path)\b/.test(yml),'no arbitrary source input');
+  // Unlike substring-only checks, final byte-level approval rejects extra shell steps,
+  // changes to permissions, untrusted action sources and unrelated YAML additions.
+  if(EXPECTED_MAIN_SHA256!=='PENDING_FINAL_DIGEST')
+    assert.equal(digest(yml),EXPECTED_MAIN_SHA256,'unreviewed Main registration bytes');
   return true;
 }
 export function sourceRegistrationGate(x) {
@@ -93,6 +107,11 @@ export function extractPinnedValidationScript(yml) {
   const script=out.join('\n').trimEnd()+'\n';
   assert.match(script,/set -euo pipefail/);
   return script;
+}
+export function officialActionGate(tagRefs) {
+  assert.equal(tagRefs?.[CHECKOUT_ACTION.repository+':'+CHECKOUT_ACTION.version],CHECKOUT_ACTION.sha,'checkout official tag mismatch');
+  assert.equal(tagRefs?.[SETUP_NODE_ACTION.repository+':'+SETUP_NODE_ACTION.version],SETUP_NODE_ACTION.sha,'setup-node official tag mismatch');
+  return true;
 }
 export function digest(yml){return crypto.createHash('sha256').update(yml).digest('hex');}
 if(process.argv[2]==='check') {
