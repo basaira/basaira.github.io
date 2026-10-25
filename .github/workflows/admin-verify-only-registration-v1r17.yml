@@ -1,0 +1,98 @@
+name: BASAIR Admin V1R17 — Proposed Main Manual VERIFY_ONLY Registration
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Preapproved exact V1R16 commit, not a user-selected ref'
+        required: true
+        type: string
+      candidate_tree:
+        description: 'Preapproved exact V1R16 Git tree'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: basair-admin-v1r17-pinned-readonly
+  cancel-in-progress: false
+jobs:
+  verify_pinned_v16:
+    if: "${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'basaira/basaira.github.io' }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout immutable V1R16 only, regardless of selected workflow branch
+        uses: actions/checkout@v4
+        with:
+          ref: 3da010de1c444d956deecead8dd2e39823360e26
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pinned Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Verify real Main dispatch, immutable source and no cloud authority
+        shell: bash
+        env:
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          REVIEWED_TREE: "${{ inputs.candidate_tree }}"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_REPOSITORY" = basaira/basaira.github.io
+          test "$GITHUB_ACTOR" = basaira
+          test "$REVIEWED_SHA" = 3da010de1c444d956deecead8dd2e39823360e26
+          test "$REVIEWED_TREE" = 5ed825108eb100de4879b6d5923f9ba4e572e5cc
+          test "$(git rev-parse HEAD)" = 3da010de1c444d956deecead8dd2e39823360e26
+          test "$(git rev-parse HEAD^{tree})" = 5ed825108eb100de4879b6d5923f9ba4e572e5cc
+          test "$(git rev-parse refs/remotes/origin/basair/admin-solo-operator-safety-qualification-v1r16)" = 3da010de1c444d956deecead8dd2e39823360e26
+          test "$(git rev-parse ac644985086e5dbb792a3b1236008257868fecc5^{tree})" = d48ef39c2f504c84268e5f529652a1f67980a240
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
+          test -z "$(printenv FIREBASE_TOKEN || true)"
+          test -z "$(printenv GOOGLE_APPLICATION_CREDENTIALS || true)"
+          test -z "$(printenv GOOGLE_GHA_CREDS_PATH || true)"
+          node --input-type=module <<'PINNED_V16_PREDICATE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          import {sourceGate,verifyOnlyGate,V15} from './scripts/admin-solo-operator-guards-v1r16.mjs';
+          const git=(...a)=>execFileSync('git',a,{encoding:'utf8'}).trim();
+          sourceGate({
+            repository:process.env.GITHUB_REPOSITORY,
+            ref:'refs/heads/basair/admin-solo-operator-safety-qualification-v1r16',
+            dispatchSha:process.env.REVIEWED_SHA,head:git('rev-parse','HEAD'),reviewedHead:process.env.REVIEWED_SHA,
+            tree:git('rev-parse','HEAD^{tree}'),reviewedTree:process.env.REVIEWED_TREE,
+            frozenV15Tree:git('rev-parse',V15+'^{tree}'),
+            descendsFromV15:git('merge-base',V15,'HEAD')===V15,
+            site:'basair-admin',
+            vite:JSON.parse(fs.readFileSync('package.json','utf8')).devDependencies.vite,
+            lockSha:crypto.createHash('sha256').update(fs.readFileSync('package-lock.json')).digest('hex'),
+            changedFiles:git('diff','--name-only',V15,'HEAD').split('\n').filter(Boolean)
+          });
+          const result=verifyOnlyGate({mode:'VERIFY_ONLY',independentReviewClaim:false});
+          if(result.cloudAuth||result.previewDeployment||result.independentReview)throw Error('unauthorized release state');
+          console.log('V1R17_PINNED_V16_SOURCE_AND_SOLO_READONLY=PASS');
+          PINNED_V16_PREDICATE
+          node tests/admin-solo-operator-guards-v1r16.mjs
+          node tests/admin-preview-integrated-guards-v1r15.mjs
+          node tests/admin-preview-guards-v1r14.mjs
+          node tests/admin-vite-security-contract-v1r13.mjs
+          test -z "$(git status --porcelain)"
+      - name: Run full reproducible non-deploying security and Admin asset verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          npm ci
+          npm audit --json > "$RUNNER_TEMP/v1r17-main-proposed-audit.json"
+          node -e 'const a=require(process.env.RUNNER_TEMP+"/v1r17-main-proposed-audit.json");if(a.metadata?.vulnerabilities?.total!==0)process.exit(1)'
+          npm run verify
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+          test -z "$(git status --porcelain)"
+          echo V1R17_MAIN_REGISTRATION_VERIFY_ONLY_NO_DEPLOYMENT=PASS
