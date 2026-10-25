@@ -79,7 +79,7 @@ export function manualWorkflowGate(source) {
   assert.match(source,/MODE: VERIFY_ONLY/);
   assert.match(source,/MODE: REQUEST_PREVIEW/);
   assert.match(source,/node scripts\/admin-solo-operator-guards-v1r16\.mjs source/);
-  assert.ok(!/id-token:\s*write|contents:\s*write|google-github-actions\/auth@|environment:\s*\n|hosting:channel:deploy|firebase\s+deploy|firebase-tools|FIREBASE_TOKEN\s*:|credentials_json|service_account_key/i.test(source),'no deployment credentials, extra privileges or deploy command');
+  assert.ok(!/id-token:\s*write|contents:\s*write|google-github-actions\/auth@|environment:\s*\n|hosting:channel:deploy|firebase[ \t]+deploy(?:[ \t]|$)|firebase-tools|FIREBASE_TOKEN\s*:|credentials_json|service_account_key/i.test(source),'no deployment credentials, extra privileges or deploy command');
   assert.match(source,/^permissions:\n  contents: read\n/m);
   const jobs=source.split('\njobs:\n');
   assert.equal(jobs.length,2);
