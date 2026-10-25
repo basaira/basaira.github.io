@@ -23,7 +23,7 @@ export function registrationContract(yml) {
   assert.ok(!/^  (?:push|pull_request|schedule|workflow_run|repository_dispatch|workflow_call):/m.test(yml),'no other event allowed');
   assert.match(yml,/^permissions:\n  contents: read\n/m,'read-only top-level permissions');
   assert.ok(!/\bcontents:\s*write\b|\bid-token:\s*write\b|\bactions:\s*write\b/.test(yml),'write or OIDC rights forbidden');
-  assert.ok(!/\benvironment:\s*$|\bsecrets\.|\bvars\.|\bFIREBASE_TOKEN\s*:|\bcredentials_json\b|\bgoogle-github-actions\/auth\b|\bfirebase-tools\b|\bhosting:channel:deploy\b|\bfirebase[ \t]+deploy\b|\bGITHUB_TOKEN\b/m.test(yml),'cloud credentials or deployment prohibited');
+  assert.ok(!/\benvironment\s*:|\bsecrets\.|\bvars\.|\bFIREBASE_TOKEN\s*:|\bcredentials_json\b|\bgoogle-github-actions\/auth\b|\bfirebase-tools\b|\bhosting:channel:deploy\b|\bfirebase[ \t]+deploy\b|\bGITHUB_TOKEN\b/m.test(yml),'cloud credentials or deployment prohibited');
   assert.equal((yml.match(/^jobs:\s*$/gm)||[]).length,1);
   const jobNames=[...yml.split('\njobs:\n')[1].matchAll(/^  ([a-z][a-z0-9_-]+):\s*$/gm)].map(x=>x[1]);
   assert.deepEqual(jobNames,['verify_pinned_v16'],'one approved job only');
