@@ -10,7 +10,7 @@ export const V15='ac644985086e5dbb792a3b1236008257868fecc5';
 export const CHECKOUT_ACTION={repository:'actions/checkout',version:'v4.2.2',sha:'11bd71901bbe5b1630ceea73d27597364c9af683'};
 export const SETUP_NODE_ACTION={repository:'actions/setup-node',version:'v4.4.0',sha:'49933ea5288caeca8642d1e84afbd3f7d6820020'};
 // Set to the independently checked final proposal digest during final qualification.
-export const EXPECTED_MAIN_SHA256='PENDING_FINAL_DIGEST';
+export const EXPECTED_MAIN_SHA256='e5ee4c9e6710bc0a7fcf8665b03892800cfbc62d388d3bd007ed5bfe4a1e5f59';
 export const BASE_MAIN='2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243';
 export const FILES=[
   '.github/workflows/admin-verify-only-registration-v1r17.yml',
