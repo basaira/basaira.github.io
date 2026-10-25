@@ -76,8 +76,8 @@ export function manualWorkflowGate(source) {
   assert.match(source,/I_UNDERSTAND_NO_INDEPENDENT_REVIEW_AND_NO_DEPLOYMENT/);
   assert.match(source,/candidate_sha:/);
   assert.match(source,/candidate_tree:/);
-  assert.match(source,/mode: VERIFY_ONLY/);
-  assert.match(source,/mode: REQUEST_PREVIEW/);
+  assert.match(source,/MODE: VERIFY_ONLY/);
+  assert.match(source,/MODE: REQUEST_PREVIEW/);
   assert.match(source,/node scripts\/admin-solo-operator-guards-v1r16\.mjs source/);
   assert.ok(!/id-token:\s*write|contents:\s*write|google-github-actions\/auth@|environment:\s*\n|hosting:channel:deploy|firebase\s+deploy|firebase-tools|FIREBASE_TOKEN\s*:|credentials_json|service_account_key/i.test(source),'no deployment credentials, extra privileges or deploy command');
   assert.match(source,/^permissions:\n  contents: read\n/m);
