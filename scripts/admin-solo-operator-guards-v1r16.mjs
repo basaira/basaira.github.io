@@ -74,8 +74,8 @@ export function manualWorkflowGate(source) {
   assert.match(source,/default: DO_NOT_REQUEST/);
   assert.match(source,/REQUEST_REVIEW_ONLY_NOT_DEPLOY/);
   assert.match(source,/I_UNDERSTAND_NO_INDEPENDENT_REVIEW_AND_NO_DEPLOYMENT/);
-  assert.match(source,/candidate_sha:/);
-  assert.match(source,/candidate_tree:/);
+  assert.match(source,/^      candidate_sha:\s*$/m);
+  assert.match(source,/^      candidate_tree:\s*$/m);
   assert.match(source,/MODE: VERIFY_ONLY/);
   assert.match(source,/MODE: REQUEST_PREVIEW/);
   assert.match(source,/node scripts\/admin-solo-operator-guards-v1r16\.mjs source/);
