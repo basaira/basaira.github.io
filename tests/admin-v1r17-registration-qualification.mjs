@@ -8,11 +8,24 @@ import {execFileSync} from 'node:child_process';
 import {
   PROPOSED_PATH,V16,TREE,BASE_MAIN,FILES,
   registrationContract,sourceRegistrationGate,mainDiffGate,
-  extractPinnedValidationScript,digest
+  extractPinnedValidationScript,digest,officialActionGate,CHECKOUT_ACTION,SETUP_NODE_ACTION,EXPECTED_MAIN_SHA256
 } from '../scripts/admin-v1r17-registration-contract.mjs';
 
 const proposal=fs.readFileSync(PROPOSED_PATH,'utf8');
 assert.equal(registrationContract(proposal),true);
+assert.equal(officialActionGate({
+  [CHECKOUT_ACTION.repository+':'+CHECKOUT_ACTION.version]:CHECKOUT_ACTION.sha,
+  [SETUP_NODE_ACTION.repository+':'+SETUP_NODE_ACTION.version]:SETUP_NODE_ACTION.sha
+}),true);
+assert.throws(()=>officialActionGate({
+  [CHECKOUT_ACTION.repository+':'+CHECKOUT_ACTION.version]:'0'.repeat(40),
+  [SETUP_NODE_ACTION.repository+':'+SETUP_NODE_ACTION.version]:SETUP_NODE_ACTION.sha
+}),/checkout official tag mismatch/);
+assert.throws(()=>officialActionGate({
+  [CHECKOUT_ACTION.repository+':'+CHECKOUT_ACTION.version]:CHECKOUT_ACTION.sha,
+  [SETUP_NODE_ACTION.repository+':'+SETUP_NODE_ACTION.version]:'0'.repeat(40)
+}),/setup-node official tag mismatch/);
+if(EXPECTED_MAIN_SHA256!=='PENDING_FINAL_DIGEST')assert.equal(digest(proposal),EXPECTED_MAIN_SHA256);
 assert.equal(mainDiffGate([PROPOSED_PATH],'PROPOSAL_ONLY_NO_MAIN_WRITE'),true);
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
 assert.equal(git('rev-parse',V16),V16);
@@ -70,7 +83,15 @@ const hostile=[
   ['more-actions',p=>p+'\n# uses: attacker/action@main'],
   ['secret-injection',p=>p+'\n# secrets.MY_KEY'],
   ['cancel-source-verification',p=>p.replace('test "$(git rev-parse HEAD)" = '+V16,'echo skip_head')],
-  ['enable-token-persistence',p=>p.replace('persist-credentials: false','persist-credentials: true')]
+  ['enable-token-persistence',p=>p.replace('persist-credentials: false','persist-credentials: true')],
+  ['checkout-moving-tag',p=>p.replace('actions/checkout@'+CHECKOUT_ACTION.sha,'actions/checkout@v4')],
+  ['setup-node-moving-tag',p=>p.replace('actions/setup-node@'+SETUP_NODE_ACTION.sha,'actions/setup-node@v4')],
+  ['checkout-misattributed-sha',p=>p.replace('actions/checkout@'+CHECKOUT_ACTION.sha,'actions/checkout@'+'0'.repeat(40))],
+  ['setup-node-misattributed-sha',p=>p.replace('actions/setup-node@'+SETUP_NODE_ACTION.sha,'actions/setup-node@'+'0'.repeat(40))],
+  ['untrusted-action-repository',p=>p.replace('actions/setup-node@'+SETUP_NODE_ACTION.sha,'attacker/setup-node@'+SETUP_NODE_ACTION.sha)],
+  ['hidden-post-checkout-command',p=>p.replace('          test -z "$(git status --porcelain)"','          echo unauthorized\n          test -z "$(git status --porcelain)"')],
+  ['added-build-bypass',p=>p.replace('          npm run verify','          echo fake_build\n          npm run verify')]
+
 ];
 for(const [name,mutate] of hostile)deny('hostile-'+name,()=>registrationContract(mutate(proposal)));
 
