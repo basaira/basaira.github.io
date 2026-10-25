@@ -22,13 +22,13 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout immutable V1R16 only, regardless of selected workflow branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: 3da010de1c444d956deecead8dd2e39823360e26
           fetch-depth: 0
           persist-credentials: false
       - name: Pinned Node 22.16.0 and npm 10.9.2
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22.16.0'
           cache: npm
