@@ -25,7 +25,7 @@ export function registrationContract(yml) {
   assert.ok(!/\bcontents:\s*write\b|\bid-token:\s*write\b|\bactions:\s*write\b/.test(yml),'write or OIDC rights forbidden');
   assert.ok(!/\benvironment:\s*$|\bsecrets\.|\bvars\.|\bFIREBASE_TOKEN\s*:|\bcredentials_json\b|\bgoogle-github-actions\/auth\b|\bfirebase-tools\b|\bhosting:channel:deploy\b|\bfirebase[ \t]+deploy\b|\bGITHUB_TOKEN\b/m.test(yml),'cloud credentials or deployment prohibited');
   assert.equal((yml.match(/^jobs:\s*$/gm)||[]).length,1);
-  const jobNames=[...yml.matchAll(/^  ([a-z][a-z0-9_-]+):\s*$/gm)].map(x=>x[1]);
+  const jobNames=[...yml.split('\njobs:\n')[1].matchAll(/^  ([a-z][a-z0-9_-]+):\s*$/gm)].map(x=>x[1]);
   assert.deepEqual(jobNames,['verify_pinned_v16'],'one approved job only');
   assert.match(yml,/github\.ref == 'refs\/heads\/main'/,'dispatch must be main-only');
   assert.match(yml,/github\.repository == 'basaira\/basaira\.github\.io'/);
