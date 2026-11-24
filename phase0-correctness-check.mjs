@@ -39,9 +39,12 @@ ok(acquisitionJs.includes("fullName.length < 2") && acquisitionJs.includes("15 *
 ok(acquisitionJs.includes("if (!whatsapp && !email)") && acquisitionJs.includes('createSubmissionToken(`acquisition-${track}-${persona}`, fingerprint)'), "acquisition contact and idempotency scopes remain funnel-specific");
 ok(rules.includes("data.fullName.size() >= 2") && rules.includes("hasUsableLeadContact(data)"), "Firestore remains the shared minimum schema, not a client-form copy");
 
-// Request ordering: protect the current within-page descending sort while documenting the unresolved fetch-limit risk.
-ok(adminJs.includes("return bd - ad;"), "admin keeps descending timestamp sort for the documents it fetched");
-ok(adminJs.includes('collection(db, "assessment_requests"), limit(1000)') && !adminJs.includes('collection(db, "assessment_requests"), orderBy('), "known Phase-0 pagination limitation remains explicit until product/data migration is approved");
+// Request ordering and unbounded cursor pages now have executable unit coverage.
+ok(adminJs.includes("requestsCache = sortRequests([") && adminJs.includes("loadRequestCollection("),
+  "admin uses tested descending request ordering across both collections");
+ok(adminJs.includes("orderBy(documentId())") && adminJs.includes("startAfter(cursor)") &&
+   adminJs.includes("limit(200)") && !adminJs.includes("limit(1000)"),
+   "admin enumerates Firestore cursor pages rather than silently truncating at 1000");
 
 // Contact normalization: run the requested nine behavior cases against the actual pure helpers extracted from admin.js.
 const normalizeRequestContactFields = Function(`return (${extractNamedFunction(adminJs, "normalizeRequestContactFields")});`)();

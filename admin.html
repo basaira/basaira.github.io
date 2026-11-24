@@ -398,6 +398,19 @@
       margin-bottom: 16px;
     }
 
+    .request-counts {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--muted);
+    }
+
+    .request-counts strong { color: var(--text); }
+    .request-counts[data-state="failed"],
+    .request-counts[data-state="partial"] { border-color: #b45309; }
+
     .empty {
       color: var(--muted);
       padding: 22px;
@@ -549,7 +562,7 @@
 <div class="seal">ب</div>
 </div>
 <button class="nav-btn active" data-tab="overview" type="button">نظرة عامة <span class="badge">•</span></button>
-<button class="nav-btn" data-tab="requests" type="button">طلبات الالتحاق <span class="badge" id="badge-requests">0</span></button>
+<button class="nav-btn" data-tab="requests" type="button">طلبات الالتحاق <span class="badge" id="badge-requests" aria-label="إجمالي الطلبات">—</span></button>
 <button class="nav-btn" data-tab="texts" type="button">نصوص الموقع <span class="badge" id="badge-texts">0</span></button>
 <button class="nav-btn" data-tab="videos" type="button">الفيديوهات <span class="badge" id="badge-videos">0</span></button>
 <button class="nav-btn" data-tab="settings" type="button">إعدادات التواصل <span class="badge">⚙</span></button>
@@ -661,7 +674,7 @@
 <section class="section" id="tab-requests">
 <div class="panel">
 <h3>طلبات الالتحاق</h3>
-<p class="hint">تظهر هنا الطلبات القادمة من نموذج الالتحاق. غيّر الحالة بعد التواصل مع الطالب.</p>
+<p class="hint">تشمل طلبات الالتحاق والتقييم. غيّر الحالة بعد التواصل مع الطالب.</p>
 <div class="toolbar">
 <input id="request-search" placeholder="بحث بالاسم أو الهاتف أو المسار" type="search" maxlength="160"/>
 <select id="request-status-filter">
@@ -673,6 +686,12 @@
 <option value="rejected">مرفوض</option>
 </select>
 <button class="btn secondary" id="refresh-requests-btn" type="button">تحديث الطلبات</button>
+</div>
+<div class="toolbar request-counts" id="request-counts" role="status" aria-live="polite" data-state="idle">
+<span>الإجمالي المحمّل: <strong id="request-total-count">—</strong></span>
+<span>طلبات جديدة: <strong id="request-new-count">—</strong></span>
+<span>المطابق للمرشح والبحث: <strong id="request-filtered-count">—</strong></span>
+<span class="request-count-state" id="request-count-state">لم تُحمّل الطلبات بعد</span>
 </div>
 <div class="list" id="requests-list"></div>
 </div>

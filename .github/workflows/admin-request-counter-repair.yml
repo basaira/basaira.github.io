@@ -1,0 +1,83 @@
+name: BASAIR Admin Request Counter Qualification
+
+on:
+  push:
+    branches:
+      - 'basair/admin-request-counter-repair-v1'
+
+permissions:
+  contents: read
+
+jobs:
+  request-counter-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js and Java
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Frozen authorities and isolated change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=49c10292f628051942554a6a70e0e24e3a705822
+          test "$(git rev-parse 2fd0973b2ff68f0ba960ff2aa83d3520d9c3c243^{tree})" = 09aa7bd7325e7c078cc817f0790402a5667a3644
+          test "$(git rev-parse aa7cdd9698914e212eef2956df0fbf62a06c94c0^{tree})" = 16f19f59acb2ab289f8f453bf8ea059caa1306b4
+          test "$(git rev-parse 1f64411fb1e0ba9a7a261b7bf2b3982d46743b06^{tree})" = a2a492bb41bc607be71204849ea001ebe64d08e1
+          test "$(git rev-parse 49c10292f628051942554a6a70e0e24e3a705822^{tree})" = 3f396909837eda9629413e23a5fa46d458e78d1f
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r path; do
+            case "$path" in
+              admin.js|admin.html|tests/admin-real-write-path.mjs|.github/workflows/admin-request-counter-repair.yml) ;;
+              *) echo "Unexpected changed path: $path"; exit 1 ;;
+            esac
+          done
+          git diff --check "$BASE" HEAD
+          test -z "$(git status --porcelain)"
+      - name: Source, security, and public site regression gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run verify
+          npm run build
+          node token-authority-check.mjs
+          git diff --check
+          node --test tests/admin-policy.test.mjs
+          test -z "$(git status --porcelain)"
+      - name: Browser and Firestore Emulator regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false playwright@1.55.0 firebase@12.15.0 @firebase/rules-unit-testing@5.0.0 esbuild@0.25.10
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4179 --bind 127.0.0.1 > /tmp/basair-counter-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "${SERVER_PID}" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 25); do
+            if curl -fsS http://127.0.0.1:4179/admin.html > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4179/admin.html > /dev/null
+          node tests/admin-browser-smoke.mjs
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-compat-regression "node --test tests/admin-firestore-emulator.test.mjs"
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-admin-write-path "node tests/admin-real-write-path.mjs"
+          npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project demo-basair-no-email-security "node tests/admin-no-email-rules.mjs"
+          for pair in A B C D E F; do
+            echo "Running isolated source pair $pair"
+            TEST_PAIR="$pair" npx --yes firebase-tools@15.28.1 emulators:exec --only firestore --project "demo-basair-compat-${pair,,}" "node tests/admin-four-state.mjs"
+          done
+          git diff --check
+          test -z "$(git status --porcelain)"

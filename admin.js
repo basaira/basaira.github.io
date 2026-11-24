@@ -1,4 +1,5 @@
  import { firebaseConfig, FIREBASE_PROJECT_ID } from "./firebase-config.js";
+    import {isCurrentAdminSession, assertUnchanged, assertRequestTransition, sortRequests} from "./admin-repair-core.mjs";
     import contentRegistryData from "./content-registry.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
 
@@ -12,6 +13,10 @@
       writeBatch,
       query,
       orderBy,
+      documentId,
+      startAfter,
+      runTransaction,
+      onSnapshot,
       limit
     } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
@@ -41,6 +46,62 @@
     let contentRegistry = [];
     let registryById = new Map();
     let auditCache = [];
+    let auditLoadState = "idle";
+    let requestLoadState = "idle";
+    let requestLoadGeneration = 0;
+    let authRevision = 0;
+    let unsubscribeAdminRole = null;
+    let requestDisplayLimit = 100;
+
+    function clearPrivateState() {
+      // Invalidate requests still pending for the former private session.
+      ++requestLoadGeneration;
+      contentCache = { texts: {}, videos: [], settings: {} };
+      requestsCache = [];
+      requestLoadState = "idle";
+      auditCache = [];
+      auditLoadState = "idle";
+      requestDisplayLimit = 100;
+      // Hiding the dashboard does not remove its previously rendered private DOM.
+      for (const id of ["requests-list", "audit-list", "texts-list", "videos-list",
+        "text-id", "text-value", "video-index", "video-title", "video-url",
+        "video-image", "settings-whatsapp", "settings-telegram", "request-search",
+        "text-search", "uid-box"]) {
+        const element = document.getElementById(id);
+        if (element) element.value !== undefined ? element.value = "" : element.replaceChildren();
+      }
+      for (const id of ["text-original-preview", "text-section-readonly", "text-lang-readonly",
+        "text-results-count", "stat-requests", "stat-texts", "stat-videos", "stat-registry",
+        "badge-requests", "badge-texts", "badge-videos", "badge-audit",
+        "request-total-count", "request-new-count", "request-filtered-count", "request-count-state",
+        "overview-cap-requests", "overview-cap-settings", "overview-cap-texts",
+        "overview-cap-videos", "overview-edited-texts", "overview-new-requests",
+        "overview-settings-state", "overview-audit-count"]) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = "";
+      }
+      const requestCounts = document.getElementById("request-counts");
+      if (requestCounts) requestCounts.dataset.state = "idle";
+      for (const id of ["admin-email", "admin-password"]) {
+        const element = document.getElementById(id);
+        if (element) element.value = "";
+      }
+      const preview = document.getElementById("text-preview-link");
+      if (preview) { preview.removeAttribute("href"); preview.classList.add("hidden"); }
+      const index = document.getElementById("video-index");
+      if (index) delete index.dataset.originalFingerprint;
+      const status = document.getElementById("status");
+      if (status) { status.replaceChildren(); status.className = "status"; status.dataset.statusType = ""; }
+    }
+    function revokeLocalAdminSession(message) {
+      ++authRevision;
+      if (unsubscribeAdminRole) { unsubscribeAdminRole(); unsubscribeAdminRole = null; }
+      currentUser = null;
+      isAdmin = false;
+      clearPrivateState();
+      renderAuth();
+      if (message) showStatus(message, "error");
+    }
 
     const $ = (id) => document.getElementById(id);
 
@@ -194,7 +255,7 @@
     }
 
     function appendAuditToBatch(batch, action, targetType, targetId, details) {
-      if (!currentUser || !isAdmin) return;
+      if (!currentUser || !isAdmin) throw new Error("لا يمكن حفظ عملية إدارية دون صلاحية وتسجيل تدقيق.");
       batch.set(newAuditRef(), {
         action: String(action || "unknown").slice(0, 80),
         targetType: String(targetType || "unknown").slice(0, 40),
@@ -366,9 +427,14 @@
       if (!isAdmin) return;
 
       showStatus("جار تحديث البيانات...", "warning");
+      const revision = authRevision;
       try { await loadContentRegistry(); }
-      catch (error) { console.error("Content registry load failed:", error); }
+      catch (error) { console.error("Content registry load failed:", error); showStatus("تعذر تحميل فهرس المحتوى.", "error"); return; }
+      if (revision !== authRevision || !isAdmin) return;
       const results = await Promise.allSettled([loadContent(), loadRequests(), loadAudit()]);
+      if (revision !== authRevision || !isAdmin) return;
+      // Do not discard independent content/audit failures merely because a
+      // newer request-only refresh superseded the request portion of loadAll().
       const failed = results.filter((r) => r.status === "rejected");
       if (failed.length) {
         console.error("Admin data load errors:", failed.map((r) => r.reason));
@@ -381,11 +447,15 @@
         }
         return;
       }
+      // A newer request-only refresh owns request results and completion toast.
+      if (results[1].status === "fulfilled" && results[1].value?.superseded) return;
       showStatus("تم تحديث البيانات بنجاح.", "success");
     }
 
     async function loadContent() {
+      const revision = authRevision;
       const snap = await getDoc(publicRef);
+      if (revision !== authRevision || !isAdmin) return;
       contentCache = normalizeContent(snap.exists() ? snap.data() : {});
       renderStats();
       renderTexts();
@@ -409,61 +479,79 @@
       return digits.length >= 6 && digits.length <= 15 ? digits : "";
     }
 
+    async function loadRequestCollection(name) {
+      // Key-based pagination also covers legacy records without timestamps.
+      const docs = [];
+      let cursor = null;
+      let page = 0;
+      while (true) {
+        if (++page > 1000) throw new Error("تجاوز حجم طلبات الإدارة حد الصفحات الآمن.");
+        const constraints = [orderBy(documentId()), ...(cursor ? [startAfter(cursor)] : []), limit(200)];
+        const snap = await getDocs(query(collection(db, name), ...constraints));
+        docs.push(...snap.docs);
+        if (snap.size < 200) return docs;
+        cursor = snap.docs[snap.docs.length - 1];
+      }
+    }
+
     async function loadRequests() {
-      const [legacyResult, assessmentResult] = await Promise.allSettled([
-        getDocs(query(collection(db, "enrollment_requests"), limit(1000))),
-        getDocs(query(collection(db, "assessment_requests"), limit(1000)))
+      const revision = authRevision;
+      const generation = ++requestLoadGeneration;
+      requestLoadState = "loading";
+      requestsCache = [];
+      renderStats();
+      renderRequests();
+      const [legacy, assessment] = await Promise.allSettled([
+        loadRequestCollection("enrollment_requests"),
+        loadRequestCollection("assessment_requests")
       ]);
+      if (revision !== authRevision || !isAdmin || generation !== requestLoadGeneration) {
+        return {superseded: true};
+      }
+      if (legacy.status === "rejected" || assessment.status === "rejected") {
+        requestLoadState = legacy.status === "fulfilled" || assessment.status === "fulfilled" ? "partial" : "failed";
+        requestsCache = [];
+        renderStats();
+        renderRequests();
+        throw legacy.status === "rejected" ? legacy.reason : assessment.reason;
+      }
 
       const normalizeRequest = (d, sourceCollection) => {
         const data = d.data() || {};
         return {
-          id: d.id,
-          sourceCollection,
-          ...data,
+          ...data, id: d.id, sourceCollection,
           ...normalizeRequestContactFields(data),
           message: data.message || data.goal || "",
           submissionDate: data.submissionDate || data.submittedAt || null
         };
       };
-
-      const legacyDocs = legacyResult.status === "fulfilled" ? legacyResult.value.docs : [];
-      const assessmentDocs = assessmentResult.status === "fulfilled" ? assessmentResult.value.docs : [];
-      requestsCache = [
-        ...legacyDocs.map((d) => normalizeRequest(d, "enrollment_requests")),
-        ...assessmentDocs.map((d) => normalizeRequest(d, "assessment_requests"))
-      ];
-
-      requestsCache.sort((a, b) => {
-        const ad = a.submissionDate && a.submissionDate.toMillis ? a.submissionDate.toMillis() : 0;
-        const bd = b.submissionDate && b.submissionDate.toMillis ? b.submissionDate.toMillis() : 0;
-        return bd - ad;
-      });
-
+      requestsCache = sortRequests([
+        ...legacy.value.map(d => normalizeRequest(d, "enrollment_requests")),
+        ...assessment.value.map(d => normalizeRequest(d, "assessment_requests"))
+      ]);
+      requestLoadState = "complete";
+      requestDisplayLimit = 100;
       renderStats();
       renderRequests();
-
-      const failures = [
-        legacyResult.status === "rejected" ? "enrollment_requests" : "",
-        assessmentResult.status === "rejected" ? "assessment_requests" : ""
-      ].filter(Boolean);
-      if (failures.length === 2) {
-        const err = assessmentResult.reason || legacyResult.reason || new Error("تعذر قراءة الطلبات");
-        throw err;
-      }
-      if (failures.length) {
-        showStatus(`تم تحميل الطلبات المتاحة، لكن تعذرت قراءة: ${failures.join("، ")}. انشر firestore.rules الجديدة على Firebase.`, "warning");
-      }
-      if (!failures.length && (legacyDocs.length >= 1000 || assessmentDocs.length >= 1000)) showStatus("تم تحميل حد الأمان البالغ 1000 طلب من إحدى المجموعات. للسجل الأكبر يلزم تقسيم صفحات بدل تحميل كل السجل دفعة واحدة.", "warning");
+      return {superseded: false};
     }
 
     async function loadAudit() {
+      const revision = authRevision;
+      auditLoadState = "loading";
+      renderAudit();
       try {
         const snap = await getDocs(query(collection(db, "admin_audit"), orderBy("createdAt", "desc"), limit(100)));
-        auditCache = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+        if (revision !== authRevision || !isAdmin) return;
+        auditCache = snap.docs.map(d => ({id: d.id, ...(d.data() || {})}));
+        auditLoadState = "success";
       } catch (error) {
+        if (revision !== authRevision || !isAdmin) return;
         auditCache = [];
-        if (error && error.code !== "permission-denied") console.error("Audit load failed:", error);
+        auditLoadState = error && error.code === "permission-denied" ? "permission-denied" : "network-failure";
+        renderAudit();
+        renderStats();
+        throw error;
       }
       renderAudit();
       renderStats();
@@ -481,7 +569,11 @@
       const box = $("audit-list");
       if (!box) return;
       box.textContent = "";
-      if (!auditCache.length) { box.innerHTML = '<div class="empty">لا توجد تغييرات مسجلة بعد.</div>'; return; }
+      if (auditLoadState === "loading") { box.textContent = "جار تحميل سجل التغييرات…"; return; }
+      if (auditLoadState === "permission-denied") { box.textContent = "رُفض الوصول إلى سجل التغييرات. راجع الصلاحيات."; return; }
+      if (auditLoadState === "network-failure") { box.textContent = "تعذر تحميل سجل التغييرات. أعد المحاولة."; return; }
+      if (auditLoadState === "idle") { box.textContent = "لم يُحمَّل سجل التغييرات بعد."; return; }
+      if (!auditCache.length) { box.textContent = "لا توجد تغييرات مسجلة بعد."; return; }
       auditCache.forEach((entry) => {
         const item = document.createElement("div");
         item.className = "item";
@@ -496,52 +588,58 @@
 
     function renderStats() {
       const editedCount = Object.keys(contentCache.texts || {}).length;
-      const requestsCount = requestsCache.length;
-      const newRequestsCount = requestsCache.filter((r) => (r.status || "new") === "new").length;
+      const requestsComplete = requestLoadState === "complete";
+      const requestsCount = requestsComplete ? requestsCache.length : null;
+      const newRequestsCount = requestsComplete ? requestsCache.filter((r) => (r.status || "new") === "new").length : null;
+      const requestCountPlaceholder = requestLoadState === "loading" ? "جارٍ التحميل…" : requestLoadState === "idle" ? "—" : "غير مكتمل";
       const videosCount = (contentCache.videos || []).length;
       const settings = contentCache.settings || {};
       const configuredChannels = [Boolean(settings.whatsappNumber), Boolean(settings.telegramUsername)].filter(Boolean).length;
 
-      $("stat-requests").textContent = String(requestsCount);
+      $("stat-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       $("stat-texts").textContent = String(editedCount);
       $("stat-videos").textContent = String(videosCount);
       if ($("stat-registry")) $("stat-registry").textContent = String(contentRegistry.length);
 
-      $("badge-requests").textContent = String(newRequestsCount);
+      $("badge-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       $("badge-texts").textContent = String(editedCount);
       $("badge-videos").textContent = String(videosCount);
       if ($("badge-audit")) $("badge-audit").textContent = String(auditCache.length);
 
       if ($("overview-cap-texts")) $("overview-cap-texts").textContent = String(contentRegistry.length);
-      if ($("overview-cap-requests")) $("overview-cap-requests").textContent = String(requestsCount);
+      if ($("overview-cap-requests")) $("overview-cap-requests").textContent = requestsComplete ? String(requestsCount) : requestCountPlaceholder;
       if ($("overview-cap-videos")) $("overview-cap-videos").textContent = String(videosCount);
       if ($("overview-cap-settings")) $("overview-cap-settings").textContent = String(configuredChannels) + '/2';
       if ($("overview-edited-texts")) $("overview-edited-texts").textContent = String(editedCount);
-      if ($("overview-new-requests")) $("overview-new-requests").textContent = String(newRequestsCount);
+      if ($("overview-new-requests")) $("overview-new-requests").textContent = requestsComplete ? String(newRequestsCount) : requestCountPlaceholder;
       if ($("overview-settings-state")) $("overview-settings-state").textContent = String(configuredChannels) + '/2';
       if ($("overview-audit-count")) $("overview-audit-count").textContent = String(auditCache.length);
     }
 
     function renderRequests() {
       const box = $("requests-list");
-      const q = ($("request-search").value || "").trim().toLowerCase();
-      const status = $("request-status-filter").value;
-
+      if (!box) return;
+      renderRequestCounts();
       box.textContent = "";
-
-      const rows = requestsCache.filter((r) => {
-        const rs = r.status || "new";
-        const hay = [r.fullName, r.phone, r.whatsapp, r.email, r.country, r.track, r.persona, r.locale, r.message, r.goal, rs].join(" ").toLowerCase();
-
-        return (status === "all" || rs === status) && (!q || hay.includes(q));
-      });
+      if (requestLoadState !== "complete") {
+        const message = requestLoadState === "loading" ? "جار تحميل الطلبات من المصدرين…" :
+          requestLoadState === "partial" ? "تعذر تحميل جميع الطلبات؛ الإجمالي والنتائج غير مكتملة. أعد المحاولة." :
+          requestLoadState === "failed" ? "تعذر تحميل الطلبات؛ لا يمكن تأكيد الإجمالي. أعد المحاولة." :
+          "لم تُحمّل الطلبات بعد.";
+        const notice = document.createElement("div");
+        notice.className = "empty";
+        notice.textContent = message;
+        box.appendChild(notice);
+        return;
+      }
+      const rows = getFilteredRequests();
 
       if (!rows.length) {
         box.innerHTML = '<div class="empty">لا توجد طلبات مطابقة.</div>';
         return;
       }
 
-      rows.forEach((r) => {
+      rows.slice(0, requestDisplayLimit).forEach((r) => {
         const item = document.createElement("div");
         item.className = "item";
 
@@ -612,7 +710,7 @@
 
           try {
             await runBusy(saveStatusButton, async () => {
-              await updateRequestStatus(r.id, nextStatus, r.sourceCollection || "enrollment_requests");
+              await updateRequestStatus(r.id, nextStatus, r.sourceCollection || "enrollment_requests", previousStatus);
             });
           } catch (error) {
             console.error("Request status update failed:", error);
@@ -627,22 +725,68 @@
 
         box.appendChild(item);
       });
+      if (rows.length > requestDisplayLimit) {
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "btn secondary";
+        more.textContent = `عرض 100 طلب آخر (${rows.length - requestDisplayLimit} متبقية)`;
+        more.addEventListener("click", () => { requestDisplayLimit += 100; renderRequests(); });
+        box.appendChild(more);
+      }
     }
 
-    async function updateRequestStatus(id, status, sourceCollection) {
+    function getFilteredRequests() {
+      const q = ($("request-search").value || "").trim().toLowerCase();
+      const status = $("request-status-filter").value;
+      return requestsCache.filter((r) => {
+        const rs = r.status || "new";
+        const hay = [r.fullName, r.phone, r.whatsapp, r.email, r.country, r.track, r.persona, r.locale, r.message, r.goal, rs].join(" ").toLowerCase();
+        return (status === "all" || rs === status) && (!q || hay.includes(q));
+      });
+    }
+
+    function renderRequestCounts() {
+      const panel = $("request-counts");
+      if (!panel) return;
+      panel.dataset.state = requestLoadState;
+      const stateLabel = requestLoadState === "complete" ? "اكتمل التحميل من المجموعتين" :
+        requestLoadState === "loading" ? "جار التحميل" :
+        requestLoadState === "partial" ? "تحميل جزئي؛ الأعداد غير مكتملة" :
+        requestLoadState === "failed" ? "فشل التحميل؛ الأعداد غير متاحة" : "لم تُحمّل الطلبات بعد";
+      $("request-count-state").textContent = stateLabel;
+      if (requestLoadState !== "complete") {
+        for (const id of ["request-total-count", "request-new-count", "request-filtered-count"]) $(id).textContent = requestLoadState === "loading" ? "جارٍ التحميل…" : "غير مكتمل";
+        return;
+      }
+      $("request-total-count").textContent = String(requestsCache.length);
+      $("request-new-count").textContent = String(requestsCache.filter(r => (r.status || "new") === "new").length);
+      $("request-filtered-count").textContent = String(getFilteredRequests().length);
+    }
+
+    async function updateRequestStatus(id, status, sourceCollection, expectedStatus) {
       const safeCollection = sourceCollection === "assessment_requests" ? "assessment_requests" : "enrollment_requests";
       if (!["new", "contacted", "pending", "accepted", "rejected"].includes(status)) {
         showStatus("حالة الطلب غير صحيحة.", "error"); return;
       }
-      const batch = writeBatch(db);
-      batch.update(doc(db, safeCollection, id), {
-        status: status,
-        handledAt: serverTimestamp(),
-        handledBy: currentUser ? currentUser.email || currentUser.uid : "admin"
+      if (!isAdmin || !currentUser) throw new Error("صلاحية الإدارة غير متاحة.");
+      const revision = authRevision;
+      const actorUid = currentUser.uid;
+      const target = doc(db, safeCollection, id);
+      await runTransaction(db, async tx => {
+        const snap = await tx.get(target);
+        if (!snap.exists()) throw new Error("الطلب لم يعد موجودًا.");
+        assertRequestTransition(snap.data().status || "new", expectedStatus);
+        if (revision !== authRevision || auth.currentUser?.uid !== actorUid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
+        tx.update(target, { status, handledAt: serverTimestamp(), handledBy: actorUid });
+        appendAuditToBatch(tx, "request.status", "request", id, { collection: safeCollection, status });
       });
-      appendAuditToBatch(batch, "request.status", "request", id, { collection: safeCollection, status });
-      await batch.commit();
-      await Promise.all([loadRequests(), loadAudit()]);
+      try {
+        const [refresh] = await Promise.all([loadRequests(), loadAudit()]);
+        if (refresh?.superseded) return;
+      } catch (error) {
+        showStatus("حُفظت حالة الطلب وسجل التدقيق، لكن تعذر تحديث العرض. أعد التحميل.", "warning");
+        return;
+      }
       showStatus("تم تحديث حالة الطلب وتسجيل العملية.", "success");
     }
 
@@ -730,20 +874,34 @@
       if (!item) { showStatus("اختر نصًا من فهرس الموقع أولًا.", "error"); return; }
       if (!value || value.length > 12000) { showStatus("النص فارغ أو يتجاوز الحد المسموح.", "error"); return; }
 
-      const texts = { ...(contentCache.texts || {}) };
       const original = String(item.text || "").trim();
-      if (value === original) delete texts[id];
-      else texts[id] = value;
-
-      const batch = writeBatch(db);
-      batch.set(publicRef, { texts }, { merge: true });
-      appendAuditToBatch(batch, value === original ? "text.restore" : "text.update", "content", id, {
-        lang: item.lang || "", section: item.section || "global"
+      const revision = authRevision;
+      const baseline = Object.prototype.hasOwnProperty.call(contentCache.texts, id)
+        ? contentCache.texts[id] : null;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        const current = Object.prototype.hasOwnProperty.call(live.texts, id) ? live.texts[id] : null;
+        if (current !== baseline) throw new Error("عدّل مدير آخر هذا النص؛ أعد تحميله قبل الكتابة.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الحفظ.");
+        const storedTexts = snapshot.exists() ? snapshot.data().texts : null;
+        const texts = {...(storedTexts && typeof storedTexts === "object" && !Array.isArray(storedTexts) ? storedTexts : {})};
+        if (value === original) delete texts[id];
+        else texts[id] = value;
+        // Replace only the top-level texts map. A recursive merge retains deleted
+        // nested keys; mergeFields also treats dotted IDs as literal map keys.
+        tx.set(publicRef, { texts }, { mergeFields: ["texts"] });
+        appendAuditToBatch(tx, value === original ? "text.restore" : "text.update", "content", id,
+          {lang: item.lang || "", section: item.section || "global"});
       });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
+      try {
+        await Promise.all([loadContent(), loadAudit()]);
+      } catch (error) {
+        showStatus("حُفظ النص وسجل التدقيق، لكن تعذر تحديث البيانات المعروضة؛ أعد التحميل.", "warning");
+        return;
+      }
       fillTextForm(id);
-      showStatus(value === original ? "النص مطابق للأصل؛ أزيل التعديل من Firestore." : "تم حفظ النص بأمان.", "success");
+      showStatus(value === original ? "استُعيد النص الأصلي بنجاح." : "تم حفظ النص وتسجيل العملية.", "success");
     }
 
     async function deleteText() {
@@ -756,13 +914,21 @@
         return;
       }
       if (!confirm("استعادة النص الأصلي وإزالة التعديل المحفوظ في Firestore؟")) return;
-      const texts = { ...(contentCache.texts || {}) };
-      delete texts[id];
-      const batch = writeBatch(db);
-      batch.set(publicRef, { texts }, { merge: true });
-      appendAuditToBatch(batch, "text.restore", "content", id, { lang: item.lang || "", section: item.section || "global" });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
+      const revision = authRevision;
+      const baseline = contentCache.texts[id];
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (live.texts[id] !== baseline) throw new Error("تغيّر النص بواسطة مدير آخر؛ حدّث القائمة.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب المدير أثناء الاستعادة.");
+        const storedTexts = snapshot.exists() ? snapshot.data().texts : null;
+        const texts = {...(storedTexts && typeof storedTexts === "object" && !Array.isArray(storedTexts) ? storedTexts : {})};
+        delete texts[id];
+        tx.set(publicRef, { texts }, { mergeFields: ["texts"] });
+        appendAuditToBatch(tx, "text.restore", "content", id, {lang: item.lang || "", section: item.section || "global"});
+      });
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("تمت الاستعادة، لكن فشل تحديث العرض. أعد التحميل.", "warning"); return; }
       fillTextForm(id);
       showStatus("تمت استعادة النص الأصلي.", "success");
     }
@@ -823,7 +989,13 @@
         const buttons = item.querySelectorAll("button");
 
         buttons[0].addEventListener("click", () => fillVideoForm(index));
-        buttons[1].addEventListener("click", () => deleteVideo(index));
+        const expectedVideoFingerprint = JSON.stringify(video);
+        buttons[1].addEventListener("click", () => {
+          deleteVideo(index, expectedVideoFingerprint).catch(error => {
+            console.error("Video deletion failed:", error);
+            showStatus(error?.message || "تعذر حذف بيانات الفيديو.", "error");
+          });
+        });
 
         box.appendChild(item);
       });
@@ -835,6 +1007,7 @@
       if (!video) return;
 
       $("video-index").value = String(index);
+      $("video-index").dataset.originalFingerprint = JSON.stringify(video);
       $("video-title").value = video.title || "";
       $("video-category").value = video.category || "all";
       $("video-url").value = video.videoUrl || "";
@@ -857,7 +1030,13 @@
       }
 
       const videos = [...(contentCache.videos || [])];
-      const index = $("video-index").value === "" ? -1 : Number.parseInt($("video-index").value, 10);
+      const indexText = $("video-index").value;
+      const index = indexText === "" ? -1 : Number(indexText);
+      if (indexText !== "" &&
+          (!Number.isInteger(index) || index < 0 || index >= videos.length ||
+           $("video-index").dataset.originalFingerprint !== JSON.stringify(videos[index]))) {
+        throw new Error("تغيّر الفيديو المحدد منذ فتح المحرر؛ أعد اختياره قبل الحفظ.");
+      }
 
       const data = {
         title: title,
@@ -876,36 +1055,50 @@
         videos.push({ ...data, createdAt: new Date().toISOString() });
       }
 
-      const batch = writeBatch(db);
-      batch.set(publicRef, { videos }, { merge: true });
-      appendAuditToBatch(batch, action, "video", String(index >= 0 ? index : videos.length - 1), { category, published: data.published });
-      await batch.commit();
-
+      const baseline = JSON.stringify(contentCache.videos || []);
+      const revision = authRevision;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (JSON.stringify(live.videos) !== baseline) throw new Error("تغيّرت مكتبة الفيديو لدى مدير آخر. حدّثها قبل حفظ التعديل.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحفظ.");
+        tx.set(publicRef, {videos}, {merge:true});
+        appendAuditToBatch(tx, action, "video", String(index >= 0 ? index : videos.length - 1), {category, published: data.published});
+      });
       clearVideoForm();
-      await Promise.all([loadContent(), loadAudit()]);
-
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("حُفظ الفيديو وسجل التدقيق، لكن تعذر تحديث العرض.", "warning"); return; }
       showStatus("تم حفظ الفيديو وتسجيل العملية.", "success");
     }
 
-    async function deleteVideo(index) {
+    async function deleteVideo(index, expectedFingerprint) {
       if (!confirm("حذف هذا الفيديو؟")) return;
 
       const videos = [...(contentCache.videos || [])];
-      const removed = videos[index] || {};
+      if (!Number.isInteger(index) || index < 0 || index >= videos.length) throw new Error("معرّف الفيديو غير صالح.");
+      assertUnchanged(expectedFingerprint, JSON.stringify(videos[index]),
+        "تغيّر موضع الفيديو أو محتواه؛ أعد تحميل القائمة قبل الحذف.");
+      const removed = videos[index];
+      const baseline = JSON.stringify(videos);
       videos.splice(index, 1);
-
-      const batch = writeBatch(db);
-      batch.set(publicRef, { videos }, { merge: true });
-      appendAuditToBatch(batch, "video.delete", "video", String(index), { category: removed.category || "", published: removed.published !== false });
-      await batch.commit();
-      await Promise.all([loadContent(), loadAudit()]);
-
+      const revision = authRevision;
+      await runTransaction(db, async tx => {
+        const snapshot = await tx.get(publicRef);
+        const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+        if (JSON.stringify(live.videos) !== baseline) throw new Error("تغيّرت قائمة الفيديو لدى مدير آخر؛ حدّثها قبل الحذف.");
+        if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحذف.");
+        tx.set(publicRef, {videos}, {merge:true});
+        appendAuditToBatch(tx, "video.delete", "video", String(index), {category: removed.category || "", published: removed.published !== false});
+      });
+      try { await Promise.all([loadContent(), loadAudit()]); }
+      catch (error) { showStatus("حُذفت بيانات الفيديو لكن تعذر تحديث العرض.", "warning"); return; }
       showStatus("تم حذف بيانات الفيديو وتسجيل العملية.", "success");
     }
 
     function clearVideoForm() {
       $("video-form").reset();
       $("video-index").value = "";
+      delete $("video-index").dataset.originalFingerprint;
       $("video-published").checked = true;
     }
 
@@ -930,8 +1123,9 @@
     function renderContactSettings() {
       if (!$('settings-whatsapp') || !$('settings-telegram')) return;
       const settings = contentCache.settings || {};
-      $('settings-whatsapp').value = String(settings.whatsappNumber || '201070441115');
-      $('settings-telegram').value = String(settings.telegramUsername || 'BasairAcademy0');
+      // Never display invented saved values when the document is empty.
+      $('settings-whatsapp').value = String(settings.whatsappNumber || '');
+      $('settings-telegram').value = String(settings.telegramUsername || '');
     }
 
     async function saveContactSettings(event) {
@@ -951,15 +1145,22 @@
           telegramUsername,
           updatedAt: new Date().toISOString()
         };
-        const batch = writeBatch(db);
-        batch.set(publicRef, { settings }, { merge: true });
-        appendAuditToBatch(batch, "settings.update", "settings", "contact", {
-          whatsappConfigured: Boolean(whatsappNumber),
-          telegramConfigured: Boolean(telegramUsername)
+        const baseline = JSON.stringify(contentCache.settings || {});
+        const revision = authRevision;
+        await runTransaction(db, async tx => {
+          const snapshot = await tx.get(publicRef);
+          const live = normalizeContent(snapshot.exists() ? snapshot.data() : {});
+          if (JSON.stringify(live.settings) !== baseline) throw new Error("عدّل مدير آخر إعدادات التواصل؛ حدّثها قبل الحفظ.");
+          if (revision !== authRevision || !isAdmin || auth.currentUser?.uid !== currentUser?.uid) throw new Error("تغيّر حساب الإدارة أثناء الحفظ.");
+          tx.set(publicRef, {settings}, {merge:true});
+          appendAuditToBatch(tx, "settings.update", "settings", "contact", {
+            whatsappConfigured: Boolean(whatsappNumber),
+            telegramConfigured: Boolean(telegramUsername)
+          });
         });
-        await batch.commit();
-        await Promise.all([loadContent(), loadAudit()]);
-        showStatus("تم حفظ إعدادات التواصل وتطبيقها على روابط الموقع الديناميكية.", "success");
+        try { await Promise.all([loadContent(), loadAudit()]); }
+        catch (error) { showStatus("حُفظت إعدادات التواصل لكن تعذر تحديث العرض.", "warning"); return; }
+        showStatus("تم حفظ إعدادات التواصل بنجاح.", "success");
       } catch (error) {
         console.error("Save contact settings failed:", error);
         showStatus(error && error.message ? error.message : "تعذر حفظ إعدادات التواصل.", "error");
@@ -1079,9 +1280,20 @@
       });
     });
 
-    $("logout-btn").addEventListener("click", () => signOut(auth));
+    $("logout-btn").addEventListener("click", async () => {
+      revokeLocalAdminSession();
+      try { await signOut(auth); }
+      catch (error) { showStatus("تعذر إنهاء جلسة Firebase. أغلق اللوحة وأعد المحاولة.", "error"); }
+    });
     $("refresh-all-btn").addEventListener("click", loadAll);
-    $("refresh-requests-btn").addEventListener("click", loadRequests);
+    $("refresh-requests-btn").addEventListener("click", () => {
+      loadRequests().then(result => {
+        if (!result?.superseded) showStatus("تم تحديث الطلبات.", "success");
+      }).catch(error => {
+        console.error("Request refresh failed:", error);
+        showStatus("تعذر تحميل قائمة الطلبات.", "error");
+      });
+    });
     $("firebase-health-btn").addEventListener("click", async () => {
       await runBusy($("firebase-health-btn"), async () => {
         try {
@@ -1113,11 +1325,21 @@
       if ($("text-lang-readonly")) $("text-lang-readonly").textContent = "—";
       if ($("text-preview-link")) $("text-preview-link").classList.add("hidden");
     });
-    $("delete-text-btn").addEventListener("click", deleteText);
+    $("delete-text-btn").addEventListener("click", () => {
+      deleteText().catch(error => {
+        console.error("Text restoration failed:", error);
+        showStatus(error?.message || "تعذرت استعادة النص.", "error");
+      });
+    });
     $("scan-content-ids-btn").addEventListener("click", scanContentIds);
 
     $("video-form").addEventListener("submit", (event) => runFormAction(event, saveVideo));
-    if ($("refresh-audit-btn")) $("refresh-audit-btn").addEventListener("click", loadAudit);
+    if ($("refresh-audit-btn")) $("refresh-audit-btn").addEventListener("click", () => {
+      loadAudit().catch(error => {
+        console.error("Audit refresh failed:", error);
+        showStatus("تعذر تحديث سجل التغييرات.", "error");
+      });
+    });
     $("clear-video-btn").addEventListener("click", clearVideoForm);
 
     if ($("contact-settings-form")) $("contact-settings-form").addEventListener("submit", (event) => runFormAction(event, saveContactSettings));
@@ -1142,32 +1364,44 @@
       }
     });
 
-      onAuthStateChanged(auth, async (user) => {
-        currentUser = user;
+      onAuthStateChanged(auth, async user => {
+        // Old role reads and loader callbacks must never restore an earlier user.
+        const revision = ++authRevision;
+        if (unsubscribeAdminRole) { unsubscribeAdminRole(); unsubscribeAdminRole = null; }
+        currentUser = null;
         isAdmin = false;
-
-        if (!user) {
-          renderAuth();
-          return;
-        }
-
+        clearPrivateState();
+        renderAuth();
+        if (!user) return;
         try {
-          isAdmin = await checkAdminRole(user);
+          const permitted = await checkAdminRole(user);
+          if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+          currentUser = user;
+          isAdmin = isCurrentAdminSession(revision, authRevision, user.uid, auth.currentUser?.uid, permitted);
           renderAuth();
-
-          if (isAdmin) {
-            showStatus("تم تسجيل الدخول كمدير. جار تحميل البيانات...", "success");
-            await loadAll();
-          } else {
-            showStatus("تمت المصادقة في Firebase، لكن هذا المستخدم لا يملك صلاحية الإدارة بعد. أنشئ المستند admin_roles/UID واجعل active = true، ثم أعد تحميل الصفحة.", "warning");
+          if (!permitted) {
+            showStatus("تم تسجيل الدخول، لكن هذا الحساب لا يملك صلاحية الإدارة. يلزم تعيين admin_roles/UID من مشغّل مخول.", "warning");
+            return;
           }
+          // Revocation is observed, not only checked once during sign-in.
+          unsubscribeAdminRole = onSnapshot(doc(db, "admin_roles", user.uid), snapshot => {
+            if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+            if (!snapshot.exists() || snapshot.data().active !== true) {
+              revokeLocalAdminSession("أُلغيت صلاحية الإدارة؛ أُغلقت اللوحة فورًا.");
+            }
+          }, () => {
+            if (revision === authRevision) revokeLocalAdminSession("تعذر تأكيد صلاحية الإدارة؛ أُغلقت اللوحة احترازيًا.");
+          });
+          showStatus("تم التحقق من صلاحية الإدارة. جار تحميل البيانات…", "warning");
+          await loadAll();
         } catch (error) {
-          console.error(error);
-          renderAuth();
-          const msg = error && error.code === "permission-denied"
-            ? "تم تسجيل الدخول إلى Firebase، لكن قواعد Firestore الحالية تمنع التحقق من admin_roles. انشر firestore.rules الجديدة."
-            : "فشل التحقق من صلاحية المدير: " + (error && error.message ? error.message : "خطأ غير معروف");
-          showStatus(msg, "error");
+          if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+          revokeLocalAdminSession();
+          console.error("Admin authorization check failed:", error);
+          const code = error && error.code || "unknown";
+          showStatus(code === "permission-denied"
+            ? "رُفض التحقق من صلاحية الإدارة. افحص إعدادات Firestore مع المشغّل المخوّل."
+            : "تعذر التحقق من صلاحية المدير؛ بقيت اللوحة مغلقة.", "error");
         }
       });
     }

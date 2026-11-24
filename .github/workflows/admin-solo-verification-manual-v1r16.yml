@@ -1,0 +1,141 @@
+name: BASAIR Admin V1R16 Solo Operator Read Only Verification and Preview Request
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'VERIFY_ONLY never requests deployment; REQUEST_PREVIEW only records intent and NEVER deploys'
+        required: true
+        default: VERIFY_ONLY
+        type: choice
+        options:
+          - VERIFY_ONLY
+          - REQUEST_PREVIEW
+      candidate_sha:
+        description: 'Exact reviewed commit SHA (40 lowercase hex)'
+        required: true
+        type: string
+      candidate_tree:
+        description: 'Exact reviewed Git TREE SHA (40 lowercase hex)'
+        required: true
+        type: string
+      site_id:
+        description: 'Only the dedicated Admin Hosting site'
+        required: true
+        default: basair-admin
+        type: choice
+        options:
+          - basair-admin
+      request_intent:
+        description: 'Separate request acknowledgement; never authorizes any Firebase deployment'
+        required: true
+        default: DO_NOT_REQUEST
+        type: choice
+        options:
+          - DO_NOT_REQUEST
+          - REQUEST_REVIEW_ONLY_NOT_DEPLOY
+      operator_ack:
+        description: 'For REQUEST_PREVIEW only: I_UNDERSTAND_NO_INDEPENDENT_REVIEW_AND_NO_DEPLOYMENT'
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: basair-admin-v1r16-solo-readonly
+  cancel-in-progress: false
+jobs:
+  verify_only:
+    if: "${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'VERIFY_ONLY' }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout immutable V1R16 commit without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: VERIFY_ONLY strict source gate, no owner deployment approval required
+        shell: bash
+        env:
+          MODE: VERIFY_ONLY
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          REVIEWED_TREE: "${{ inputs.candidate_tree }}"
+          SITE_ID: "${{ inputs.site_id }}"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/basair/admin-solo-operator-safety-qualification-v1r16'
+          node scripts/admin-solo-operator-guards-v1r16.mjs source
+          node tests/admin-solo-operator-guards-v1r16.mjs
+      - name: Full reproducible read-only security and asset verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -v)" = v22.16.0
+          test "$(npm -v)" = 10.9.2
+          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = 62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a
+          npm ci
+          npm audit --json > "$RUNNER_TEMP/v1r16-verify-audit.json" || true
+          node -e 'const a=require(process.env.RUNNER_TEMP+"/v1r16-verify-audit.json"); if(a.metadata?.vulnerabilities?.total!==0)process.exit(1);console.log("VERIFY_ONLY_AUDIT_ZERO=PASS")'
+          npm run verify
+          BASAIR_NPM_VERSION="$(npm --version)" node tests/admin-only-asset-closure-v1r10r1.mjs
+          BASAIR_NPM_VERSION="$(npm --version)" node scripts/admin-dedicated-hosting-candidate-v1r11.mjs
+          node tests/admin-dedicated-hosting-contract-v1r11.mjs
+          node tests/admin-preview-target-guard-v1r12.mjs
+          test -z "$(git status --porcelain)"
+          echo V1R16_VERIFY_ONLY_NO_CREDENTIALS_NO_DEPLOYMENT=PASS
+      - name: Save sanitized source and audit evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-v1r16-manual-verify-only-proof
+          path: |
+            ${{ runner.temp }}/v1r16-verify_only-proof.json
+            ${{ runner.temp }}/v1r16-verify-audit.json
+            ${{ runner.temp }}/v1r10r1-asset-manifest.json
+          if-no-files-found: warn
+          retention-days: 7
+  request_preview:
+    if: "${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'REQUEST_PREVIEW' }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ github.sha }}"
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact Node 22.16.0 and npm 10.9.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: REQUEST_PREVIEW is NON-DEPLOYING and is NOT independent review
+        shell: bash
+        env:
+          MODE: REQUEST_PREVIEW
+          REVIEWED_SHA: "${{ inputs.candidate_sha }}"
+          REVIEWED_TREE: "${{ inputs.candidate_tree }}"
+          SITE_ID: "${{ inputs.site_id }}"
+          REQUEST_INTENT: "${{ inputs.request_intent }}"
+          OPERATOR_ACK: "${{ inputs.operator_ack }}"
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/basair/admin-solo-operator-safety-qualification-v1r16'
+          node scripts/admin-solo-operator-guards-v1r16.mjs source
+          echo SOLO_PREVIEW_REQUEST_ONLY_NOT_DEPLOYED_NOT_AUTHORIZED=PASS
+      - name: Preserve request proof, never upload runnable application
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: basair-v1r16-solo-request-only-proof
+          path: |
+            ${{ runner.temp }}/v1r16-request_preview-proof.json
+          if-no-files-found: warn
+          retention-days: 7

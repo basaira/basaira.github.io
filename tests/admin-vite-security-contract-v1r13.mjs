@@ -1,0 +1,24 @@
+// V1R13: independent, fail-closed source authority and supply-chain scope proof.
+import assert from 'node:assert/strict';import fs from 'node:fs';import crypto from 'node:crypto';import {execFileSync} from 'node:child_process';
+const b='8e540f90bf1e63098374d7d34e4142ed8298f797';
+const oldHash='1a4b3f5403ceb7e516ee1c13d0a79be1ba4276784a792c17064cf7fdf424cc76';
+const newHash='62a543b624975ff938f77490ffcedd17a5771176af5a63e9e20809429013525a';
+const old=p=>execFileSync('git',['show',b+':'+p],{encoding:'utf8'});
+const oldPkg=JSON.parse(old('package.json')),pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+assert.equal(oldPkg.devDependencies.vite,'6.4.3');assert.equal(pkg.devDependencies.vite,'6.4.4');
+pkg.devDependencies.vite='6.4.3';assert.deepEqual(pkg,oldPkg,'package.json changed beyond vite');
+const prev=JSON.parse(old('package-lock.json')),lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+assert.equal(lock.packages['node_modules/vite'].version,'6.4.4');
+assert.equal(lock.packages['node_modules/vite'].resolved,'https://registry.npmjs.org/vite/-/vite-6.4.4.tgz');
+assert.equal(lock.packages['node_modules/vite'].integrity,'sha512-xGjU/SyjeNyb0E4KxXBvYz/1C+3JXuujvf2hXNOtnlcE+58o5ajd9N2/n2VhkiJvpCP2qQasnUpx5PXNeI+p1Q==');
+lock.packages['node_modules/vite']=prev.packages['node_modules/vite'];lock.packages[''].devDependencies.vite='6.4.3';
+assert.deepEqual(lock,prev,'unrelated package-lock change');
+const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+assert.equal(sha(fs.readFileSync('package-lock.json')),newHash);
+assert.equal(sha(old('package-lock.json')),oldHash);
+const name='.github/workflows/admin-preview-manual-v1r12r2.yml';
+const workflow=fs.readFileSync(name,'utf8'),before=old(name);
+assert.equal(workflow,before.replaceAll(oldHash,newHash),'manual workflow changed outside lock checks');
+assert.match(workflow,/deploy_preview:[\s\S]*?permissions:\n      contents: read\n      actions: read\n      id-token: write/);
+assert.match(workflow,/^on:\n  workflow_dispatch:/m);
+console.log('V1R13_LOCK_ONLY_VITE_AND_ACTIONS_READ=PASS');
